@@ -1,33 +1,22 @@
 // src/index.ts
-// Не імпортуємо 'api' зверху — це може зламати renderer без модуля.
-// Обережно визначаємо, чи ми в плагін-раннері Joplin.
+// ЖОДНИХ import/require('api').
+// Беремо API тільки з глобального об'єкта, який підкладає Joplin runner.
 
 (function bootstrap() {
-    // 1) Спробувати взяти глобальний joplin (деякі версії раннера так його віддають)
-    let j: any = (globalThis as any).joplin;
-
-    // 2) Якщо глобального немає — пробуємо require('api'), але ТІЛЬКИ якщо require існує
-    if (!j && typeof require === 'function') {
-        try {
-            // eslint-disable-next-line @typescript-eslint/no-var-requires
-            j = require('api');
-        } catch (e) {
-            // Ми не в раннері (наприклад, у webview) — тихо виходимо
-            console.log('[MyCalendar] no plugin API here (renderer).');
-            return;
-        }
-    }
+    const j: any = (globalThis as any).joplin || (window as any).joplin;
 
     if (!j) {
-        // Немає ані глобального joplin, ані модуля api — значить це не той процес.
-        console.log('[MyCalendar] no plugin API (unknown env).');
+        // Ми не в плагін-раннері (або раннер ще не підкинув joplin) — нічого не робимо.
+        console.log('[MyCalendar] no plugin API here (renderer).');
         return;
     }
 
-    // Тепер точно маємо API раннера
     try {
+        // ВАЖЛИВО: require pluginMain лише після того, як ми впевнились, що є joplin.
+        // Таким чином Webpack не підвантажить залежності раніше (і не зламає renderer).
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const runPlugin = require('./main/pluginMain').default;
+
         j.plugins.register({
             onStart: async () => {
                 console.log('[MyCalendar] onStart (runner)');

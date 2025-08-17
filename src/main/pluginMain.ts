@@ -186,17 +186,10 @@ function buildICS(events: Occurrence[], prodId = '-//MyCalendar//Joplin//EN'){
 }
 
 export default async function runPlugin(joplin: any) {
+
     console.log('[MyCalendar] pluginMain: start');
 
-    // опціонально створення Settings-секції — не обов’язково для запуску
-    try {
-        await joplin.settings.registerSection('mycalendar.section', { label: 'MyCalendar', iconName: 'icon-calendar' });
-        await joplin.settings.registerSettings({
-            'mycalendar.enabled': { value: true, type: 3, section: 'mycalendar.section', public: true, label: 'Enable MyCalendar' },
-        });
-    } catch {}
-
-    const panel = await createCalendarPanel();
+    const panel = await createCalendarPanel(joplin);
     console.log('[MyCalendar] panel id:', panel);
 
     await joplin.commands.register({

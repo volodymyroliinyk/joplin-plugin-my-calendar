@@ -18,9 +18,6 @@ module.exports = {
     resolve: {
         extensions: ['.ts', '.tsx', '.js'],
     },
-    externals: {
-        api: 'commonjs api', // <— Joplin надає модуль "api"
-    },
     module: {
         rules: [
             { test: /\.tsx?$/, loader: 'ts-loader', exclude: /node_modules/ },
