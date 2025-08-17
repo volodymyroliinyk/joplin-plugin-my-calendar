@@ -1,18 +1,39 @@
-/* eslint-disable @typescript-eslint/no-var-requires */
-console.log('[MyCalendar] index loader loaded 1.6.7');
+// src/index.ts
 
-let joplin: any = null;
-try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    joplin = require('api');
-} catch (_e) {
-    console.log('[MyCalendar] api module not available');
-}
+// ВАЖЛИВО: один і той самий бандл вантажиться і в main (Node), і у webview (browser).
+// Тому ніде не робимо top-level import 'api'!
+// У браузері просто нічого не робимо.
 
-if (joplin) {
-    const { default: runPlugin } = require('./main/pluginMain');
-    runPlugin(joplin);
-    console.log('[MyCalendar] runPlugin invoked');
-} else {
-    // мобільні збірки без API — тихо нічого не робимо
-}
+(function bootstrap() {
+    const isNode = typeof (globalThis as any).process === 'object'
+        && !!(globalThis as any).process?.versions?.node;
+
+    if (!isNode) {
+        // renderer/webview — no-op
+        console.log('[MyCalendar] renderer: no-op');
+        return;
+    }
+
+    // main/Node гілка — тут можна require('api')
+    let joplin: any;
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        joplin = require('api');
+    } catch (e) {
+        console.error('[MyCalendar] main: cannot require api', e);
+        return;
+    }
+
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const runPlugin = require('./main/pluginMain').default;
+        joplin.plugins.register({
+            onStart: async () => {
+                console.log('[MyCalendar] main: onStart');
+                await runPlugin(joplin);
+            },
+        });
+    } catch (e) {
+        console.error('[MyCalendar] main: failed to start', e);
+    }
+})();

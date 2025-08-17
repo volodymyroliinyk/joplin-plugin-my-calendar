@@ -5,15 +5,15 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "dist": "webpack",
-    "pack": "npm run dist && cd dist && tar --format=ustar -cf ../mycalendar.jpl manifest.json index.js main/pluginMain.js ui",
-    "clean": "rm -rf dist node_modules package-lock.json"
+    "clean": "rm -rf dist node_modules package-lock.json",
+    "build": "webpack",
+    "pack": "npm run build && cd dist && tar --format=ustar -cf ../mycalendar.jpl manifest.json index.js main/pluginMain.js ui"
   },
   "devDependencies": {
-    "copy-webpack-plugin": "^12.0.2",
-    "ts-loader": "^9.5.0",
+    "copy-webpack-plugin": "^12.0.0",
+    "ts-loader": "^9.5.1",
     "typescript": "^5.4.0",
-    "webpack": "^5.101.0",
+    "webpack": "^5.98.0",
     "webpack-cli": "^5.1.4"
   }
 }

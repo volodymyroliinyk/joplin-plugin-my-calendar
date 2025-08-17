@@ -1,9 +1,10 @@
-// webpack.config.js
 const path = require('path');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 
+/** @type {import('webpack').Configuration} */
 module.exports = {
     mode: 'production',
+    target: 'node', // важливо для main
     entry: {
         index: './src/index.ts',
         'main/pluginMain': './src/main/pluginMain.ts',
@@ -11,26 +12,27 @@ module.exports = {
     output: {
         path: path.resolve(__dirname, 'dist'),
         filename: '[name].js',
-        library: {
-            type: 'umd',
-            name: 'mycalendarPlugin',
-        },
-        globalObject: 'this',
+        libraryTarget: 'commonjs2', // <— ключ
+        clean: true,
     },
-    resolve: { extensions: ['.ts', '.js'] },
-    module: {
-        rules: [{ test: /\.ts$/, use: 'ts-loader', exclude: /node_modules/ }],
+    resolve: {
+        extensions: ['.ts', '.tsx', '.js'],
     },
     externals: {
-        api: 'commonjs api',
+        api: 'commonjs api', // <— Joplin надає модуль "api"
+    },
+    module: {
+        rules: [
+            { test: /\.tsx?$/, loader: 'ts-loader', exclude: /node_modules/ },
+        ],
     },
     plugins: [
         new CopyWebpackPlugin({
             patterns: [
-                { from: 'src/ui', to: 'ui' },
-                { from: 'src/manifest.json', to: '.' },
+                { from: 'src/manifest.json', to: 'manifest.json' },
+                { from: 'src/ui', to: 'ui' }, // calendar.js, calendar.css
             ],
         }),
     ],
-    // devtool: 'source-map',
+    devtool: false,
 };
