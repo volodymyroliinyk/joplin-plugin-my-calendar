@@ -213,24 +213,53 @@ export default async function runPlugin(joplin: any) {
 
     await joplin.views.panels.onMessage(panel, async (msg: any) => {
         try {
+            console.log('[MyCalendar] onMessage from UI:', msg);
+
+            if (msg.name === 'uiReady') {
+                console.log('[MyCalendar] uiReady ack');
+                await joplin.views.panels.postMessage(panel, {name: 'uiAck'});
+                return;
+            }
+
             if (msg.name === 'requestRangeEvents') {
                 const all = await ensureAllEventsCache(joplin);
                 const list = expandAllInRange(all, msg.fromUtc, msg.toUtc);
+                console.log('[MyCalendar] sending rangeEvents count=', list.length, 'range=', new Date(msg.fromUtc).toISOString(), '→', new Date(msg.toUtc).toISOString());
                 await joplin.views.panels.postMessage(panel, { name: 'rangeEvents', events: list });
-            } else if (msg.name === 'dateClick') {
+                return;
+            }
+
+            if (msg.name === 'dateClick') {
                 const dayStart = msg.dateUtc;
-                const dayEnd = dayStart + (24*60*60*1000) - 1;
+                const dayEnd = dayStart + (24 * 60 * 60 * 1000) - 1;
                 const all = await ensureAllEventsCache(joplin);
-                const list = expandAllInRange(all, dayStart, dayEnd).filter(e => e.startUtc >= dayStart && e.startUtc <= dayEnd);
+                const list = expandAllInRange(all, dayStart, dayEnd)
+                    .filter(e => e.startUtc >= dayStart && e.startUtc <= dayEnd);
+                console.log('[MyCalendar] sending showEvents count=', list.length, 'for', new Date(dayStart).toISOString().slice(0, 10));
                 await joplin.views.panels.postMessage(panel, { name: 'showEvents', dateUtc: msg.dateUtc, events: list });
-            } else if (msg.name === 'openNote' && msg.id) {
+                return;
+            }
+
+            if (msg.name === 'openNote' && msg.id) {
+                console.log('[MyCalendar] openNote', msg.id);
                 await joplin.commands.execute('openNote', msg.id);
-            } else if (msg.name === 'exportRangeIcs' && typeof msg.fromUtc === 'number' && typeof msg.toUtc === 'number') {
+                return;
+            }
+
+            if (msg.name === 'exportRangeIcs' && typeof msg.fromUtc === 'number' && typeof msg.toUtc === 'number') {
                 const all = await ensureAllEventsCache(joplin);
                 const list = expandAllInRange(all, msg.fromUtc, msg.toUtc);
                 const ics = buildICS(list);
-                await joplin.views.panels.postMessage(panel, { name: 'rangeIcs', ics, filename: `mycalendar_${new Date(msg.fromUtc).toISOString().slice(0,10)}_${new Date(msg.toUtc).toISOString().slice(0,10)}.ics` });
+                console.log('[MyCalendar] sending rangeIcs bytes=', ics.length);
+                await joplin.views.panels.postMessage(panel, {
+                    name: 'rangeIcs',
+                    ics,
+                    filename: `mycalendar_${new Date(msg.fromUtc).toISOString().slice(0, 10)}_${new Date(msg.toUtc).toISOString().slice(0, 10)}.ics`,
+                });
+                return;
             }
+
+            console.warn('[MyCalendar] unknown message from UI', msg);
         } catch (e) {
             console.error('[MyCalendar] onMessage error:', e);
         }
