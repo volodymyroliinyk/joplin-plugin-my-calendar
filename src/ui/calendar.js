@@ -185,6 +185,8 @@
                 for (let i = 0; i < 42; i++) {
                     const cellDate=new Date(start.getTime()+i*24*3600*1000);
                     const cell=document.createElement('div'); cell.className='mc-cell';
+                    cell.dataset.utc = String(toMidnightUTC(cellDate));   // <<< додано
+
                     const inThisMonth=cellDate.getUTCMonth()===current.getUTCMonth();
                     if(!inThisMonth) cell.classList.add('mc-out');
                     if (isSameUTCDate(selectedDayUtc, cellDate)) cell.classList.add('mc-selected');
@@ -213,26 +215,74 @@
                 body.querySelectorAll('.mc-cell').forEach(c=>c.classList.remove('mc-selected'));
                 const dots=body.querySelector(`.mc-dots[data-utc="${selectedDayUtc}"]`);
                 if(dots) dots.parentElement.classList.add('mc-selected');
+                const bars = document.createElement('div');
+                bars.className = 'mc-bars';
+                cell.appendChild(bars);
+
+                const badge = document.createElement('div');
+                badge.className = 'mc-count';
+                badge.style.display = 'none';
+                cell.appendChild(badge);
             }
 
             function paintGrid(){
-                const body=document.querySelector('#mc-grid .mc-grid-body'); if(!body) return;
-                body.querySelectorAll('.mc-dots').forEach(d=>d.innerHTML='');
+                const body = document.querySelector('#mc-grid .mc-grid-body');
+                if (!body) return;
 
-                const byDay=new Map();
-                for (const ev of rangeEvents){
-                    const dUtc=toMidnightUTC(new Date(ev.startUtc));
-                    byDay.set(dUtc,(byDay.get(dUtc)||0)+1);
+                // Очистити попередні індикатори
+                body.querySelectorAll('.mc-bars').forEach(b => b.innerHTML = '');
+                body.querySelectorAll('.mc-count').forEach(c => {
+                    c.textContent = '';
+                    c.style.display = 'none';
+                });
+
+                // Зібрати події по днях
+                const byDay = new Map(); // dayUtc -> events[]
+                for (const ev of rangeEvents) {
+                    const dayUtc = toMidnightUTC(new Date(ev.startUtc));
+                    if (!byDay.has(dayUtc)) byDay.set(dayUtc, []);
+                    byDay.get(dayUtc).push(ev);
                 }
-                log('paintGrid byDay keys=', Array.from(byDay.keys()).length);
 
-                byDay.forEach((count,dayUtc)=>{
-                    const dots=body.querySelector(`.mc-dots[data-utc="${dayUtc}"]`);
-                    if(!dots) return;
-                    for(let i=0;i<Math.min(3,count);i++){ const dot=document.createElement('span'); dot.className='mc-dot'; dots.appendChild(dot); }
-                    if(count>3){ const more=document.createElement('span'); more.className='mc-more'; more.textContent=`+${count-3}`; dots.appendChild(more); }
+                // Допоміжна: отримати/створити дочірні елементи у клітинці
+                function ensureParts(cell) {
+                    let bars = cell.querySelector(':scope > .mc-bars');
+                    let badge = cell.querySelector(':scope > .mc-count');
+                    if (!bars) {
+                        bars = document.createElement('div');
+                        bars.className = 'mc-bars';
+                        cell.appendChild(bars);
+                    }
+                    if (!badge) {
+                        badge = document.createElement('div');
+                        badge.className = 'mc-count';
+                        cell.appendChild(badge);
+                    }
+                    return {bars, badge};
+                }
+
+                // Промалювати
+                byDay.forEach((events, dayUtc) => {
+                    const cell = body.querySelector(`.mc-cell[data-utc="${dayUtc}"]`);
+                    if (!cell) return;
+
+                    const {bars, badge} = ensureParts(cell);
+
+                    // Топ-4 події за часом — тонкі смужки внизу
+                    const top = events.slice().sort((a, b) => a.startUtc - b.startUtc).slice(0, 4);
+                    for (const ev of top) {
+                        const bar = document.createElement('div');
+                        bar.className = 'mc-bar';
+                        if (ev.color) bar.style.background = ev.color;
+                        bars.appendChild(bar);
+                    }
+
+                    // Лічильник у правому верхньому куті
+                    badge.textContent = String(events.length);
+                    badge.style.display = 'block';
                 });
             }
+
 
             function renderDayEvents(dayStartUtc){
                 const ul = $elist();

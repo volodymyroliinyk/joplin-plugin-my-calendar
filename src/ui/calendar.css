@@ -1,4 +1,14 @@
-#cal-root { display: grid; grid-template-rows: auto auto 1fr; gap: 8px; color: var(--joplin-color) }
+#cal-root {
+    display: grid;
+    grid-template-rows: auto auto 1fr;
+    gap: 8px;
+    color: var(--joplin-color);
+    width: 100%;
+    min-width: 260px;
+    margin: 0;
+    padding: 10px;
+    box-sizing: border-box;
+}
 #mc-toolbar { display:flex; align-items:center; }
 .mc-toolbar-inner { display:flex; align-items:center; gap:8px; }
 .mc-btn { padding:4px 8px; border:1px solid var(--joplin-divider-color); background:var(--joplin-background-color2); border-radius:6px; cursor:pointer; }
@@ -10,7 +20,15 @@
 .mc-grid-head-cell { padding:6px 8px; font-weight:600; text-align:center; border-right:1px solid var(--joplin-divider-color); }
 .mc-grid-head-cell:last-child { border-right:none; }
 
-.mc-grid-body .mc-cell { position:relative; min-height:72px; border-right:1px solid var(--joplin-divider-color); border-top:1px solid var(--joplin-divider-color); padding:4px 6px; }
+.mc-grid-body .mc-cell {
+    position: relative;
+    min-height: 72px;
+    border-right: 1px solid var(--joplin-divider-color);
+    border-top: 1px solid var(--joplin-divider-color);
+    padding: 4px 6px;
+    overflow: hidden; /* щоб смужки не вилазили */
+}
+
 .mc-grid-body .mc-cell:nth-child(7n) { border-right:none; }
 .mc-daynum { font-size:12px; opacity:0.8; }
 .mc-dots { position:absolute; left:6px; bottom:6px; display:flex; align-items:center; gap:3px; }
@@ -30,3 +48,55 @@
 .mc-title { flex:1; }
 .mc-time { opacity:0.7; font-size:12px; }
 .mc-empty { opacity:0.7; padding:6px; }
+
+/* дайте панелі повну висоту/ширину */
+html, body {
+    height: 100%;
+    margin: 0;
+}
+
+
+/* Звужений контент + приклеїти вправо */
+#cal-root {
+
+}
+
+/* контейнер смужок у клітинці */
+.mc-bars {
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    bottom: 6px;
+    display: grid;
+    grid-auto-rows: 4px;
+    gap: 2px;
+    z-index: 2; /* поверх будь-яких точок */
+}
+
+.mc-bar {
+    height: 4px;
+    border-radius: 2px;
+    background: #2d7ff9;
+    opacity: 0.95;
+}
+
+/* бейдж-лічильник угорі праворуч */
+.mc-count {
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    font-size: 11px;
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: 6px;
+    background: var(--joplin-background-color3);
+    border: 1px solid var(--joplin-divider-color);
+    opacity: 0.85;
+    z-index: 3;
+}
+
+/* якщо "крапки" більше не потрібні — можна сховати */
+.mc-dots {
+    display: none;
+}
+

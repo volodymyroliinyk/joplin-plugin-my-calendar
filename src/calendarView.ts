@@ -5,14 +5,13 @@ export async function createCalendarPanel(joplin: any): Promise<string> {
     const panelId = await joplin.views.panels.create('mycalendarPanel');
 
     await joplin.views.panels.setHtml(panelId, `
-  <div id="cal-root" style="padding:10px;font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial">
+  <div id="cal-root">
     <div id="mc-toolbar"></div>
     <div id="mc-grid"></div>
     <div id="mc-events">
       <div class="mc-events-header">Події дня</div>
       <ul id="mc-events-list"></ul>
     </div>
-    <!-- Видимий діагностичний лог -->
     <div id="mc-log" style="margin-top:8px;padding:6px;border:1px dashed var(--joplin-divider-color);border-radius:6px;font-size:12px;opacity:.8;"></div>
   </div>
 `);
