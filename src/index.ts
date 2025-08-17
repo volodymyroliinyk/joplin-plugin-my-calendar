@@ -1,39 +1,40 @@
 // src/index.ts
-
-// ВАЖЛИВО: один і той самий бандл вантажиться і в main (Node), і у webview (browser).
-// Тому ніде не робимо top-level import 'api'!
-// У браузері просто нічого не робимо.
+// Не імпортуємо 'api' зверху — це може зламати renderer без модуля.
+// Обережно визначаємо, чи ми в плагін-раннері Joplin.
 
 (function bootstrap() {
-    const isNode = typeof (globalThis as any).process === 'object'
-        && !!(globalThis as any).process?.versions?.node;
+    // 1) Спробувати взяти глобальний joplin (деякі версії раннера так його віддають)
+    let j: any = (globalThis as any).joplin;
 
-    if (!isNode) {
-        // renderer/webview — no-op
-        console.log('[MyCalendar] renderer: no-op');
+    // 2) Якщо глобального немає — пробуємо require('api'), але ТІЛЬКИ якщо require існує
+    if (!j && typeof require === 'function') {
+        try {
+            // eslint-disable-next-line @typescript-eslint/no-var-requires
+            j = require('api');
+        } catch (e) {
+            // Ми не в раннері (наприклад, у webview) — тихо виходимо
+            console.log('[MyCalendar] no plugin API here (renderer).');
+            return;
+        }
+    }
+
+    if (!j) {
+        // Немає ані глобального joplin, ані модуля api — значить це не той процес.
+        console.log('[MyCalendar] no plugin API (unknown env).');
         return;
     }
 
-    // main/Node гілка — тут можна require('api')
-    let joplin: any;
-    try {
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        joplin = require('api');
-    } catch (e) {
-        console.error('[MyCalendar] main: cannot require api', e);
-        return;
-    }
-
+    // Тепер точно маємо API раннера
     try {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const runPlugin = require('./main/pluginMain').default;
-        joplin.plugins.register({
+        j.plugins.register({
             onStart: async () => {
-                console.log('[MyCalendar] main: onStart');
-                await runPlugin(joplin);
+                console.log('[MyCalendar] onStart (runner)');
+                await runPlugin(j);
             },
         });
     } catch (e) {
-        console.error('[MyCalendar] main: failed to start', e);
+        console.error('[MyCalendar] failed to start plugin', e);
     }
 })();

@@ -186,7 +186,7 @@ function buildICS(events: Occurrence[], prodId = '-//MyCalendar//Joplin//EN'){
 }
 
 export default async function runPlugin(joplin: any) {
-    console.log('[MyCalendar] onStart');
+    console.log('[MyCalendar] pluginMain: start');
 
     // опціонально створення Settings-секції — не обов’язково для запуску
     try {
