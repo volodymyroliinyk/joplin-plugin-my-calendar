@@ -1,0 +1,15 @@
+#cal-root { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+.calendar-nav{display:flex;gap:.5rem;align-items:center;justify-content:space-between;margin:.5rem 0}
+.calendar-title{font-weight:700}
+.view-tabs{display:flex;gap:.5rem;margin:.25rem 0}
+.view-tabs button[aria-pressed="true"]{font-weight:700;outline:2px solid #999}
+.calendar{border-collapse:collapse;width:100%}
+.calendar th,.calendar td{border:1px solid #ccc;padding:.4rem;text-align:center}
+.calendar-day{cursor:pointer;background:#f9f9f9;transition:.15s}
+.calendar-day:hover{background:#eef7ff}
+.calendar-day.today{outline:2px solid #1e90ff}
+.calendar-day.has-event{font-weight:600;box-shadow:inset 0 -3px 0 0 #1e90ff}
+.event-list{margin-top:.5rem}
+.event-item{padding:.25rem .4rem;border-left:4px solid #999;margin:.25rem 0;background:#fafafa}
+.event-time{opacity:.75;margin-right:.4rem}
+.week-grid,.day-list{margin-top:.5rem}
