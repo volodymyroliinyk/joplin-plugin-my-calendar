@@ -2,6 +2,6 @@
 dist/
 node_modules/
 publish/
-/mycalendar.jpl
-/mycalendar.tar
+/*.jpl
+/*.tar
 /mycalendar/*

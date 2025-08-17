@@ -1,232 +1,207 @@
-const api = {
-    requestRangeEvents: (fromUtc, toUtc) =>
-        webviewApi.postMessage({ name: 'requestRangeEvents', fromUtc, toUtc }),
-    requestOpenNote: (id) =>
-        webviewApi.postMessage({ name: 'openNote', id }),
-    requestExportIcs: (fromUtc, toUtc) =>
-        webviewApi.postMessage({ name: 'exportRangeIcs', fromUtc, toUtc }),
+// src/ui/calendar.js
 
-    onEvents: (cb) =>
-        webviewApi.onMessage(msg => { if (msg.name === 'rangeEvents') cb(msg.events || []); }),
-    onDayEvents: (cb) =>
-        webviewApi.onMessage(msg => { if (msg.name === 'showEvents') cb(msg.events || [], msg.dateUtc); }),
-    onIcs: (cb) =>
-        webviewApi.onMessage(msg => { if (msg.name === 'rangeIcs') cb(msg.ics, msg.filename); }),
-};
+(function () {
+    // ---- init gate ----
+    function init() {
+        try {
+            console.log('[MyCalendar UI] init start');
 
-class CalendarUI {
-    constructor(containerId) {
-        this.container = document.getElementById(containerId);
-        this.view = 'month';
-        this.cursor = new Date();
-        this.todayStr = new Date().toISOString().slice(0,10);
-        this.events = [];
-        this.render();
-        this.loadForCurrentView();
-    }
+            // ---- DOM refs ----
+            const $toolbar = () => document.getElementById('mc-toolbar');
+            const $grid    = () => document.getElementById('mc-grid');
+            const $elist   = () => document.getElementById('mc-events-list');
 
-    rangeForView() {
-        const d = new Date(this.cursor);
-        if (this.view === 'day') {
-            const start = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 0,0,0);
-            const end   = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 23,59,59,999);
-            return { fromUtc: start, toUtc: end };
-        }
-        if (this.view === 'week') {
-            const wd = (d.getDay()+6)%7;
-            const monday = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()-wd));
-            const sunday = new Date(Date.UTC(monday.getUTCFullYear(), monday.getUTCMonth(), monday.getUTCDate()+6, 23,59,59,999));
-            return { fromUtc: monday.getTime(), toUtc: sunday.getTime() };
-        }
-        const first = new Date(Date.UTC(d.getFullYear(), d.getMonth(), 1));
-        const last  = new Date(Date.UTC(d.getFullYear(), d.getMonth()+1, 0, 23,59,59,999));
-        return { fromUtc: first.getTime(), toUtc: last.getTime() };
-    }
+            // ---- state ----
+            let current = startOfMonthUTC(new Date());              // перший день поточного місяця (UTC)
+            let selectedDayUtc = toMidnightUTC(new Date());         // вибраний день (UTC початок)
+            let rangeEvents = [];                                   // occurrences з бекенда для поточного діапазону
 
-    setView(v){ this.view=v; this.render(); this.loadForCurrentView(); }
-    shift(days){ this.cursor.setDate(this.cursor.getDate()+days); this.render(); this.loadForCurrentView(); }
-    loadForCurrentView(){ const r=this.rangeForView(); api.requestRangeEvents(r.fromUtc, r.toUtc); }
-    isToday(ymd){ return ymd === this.todayStr; }
-
-    render(){
-        const y=this.cursor.getFullYear(), m=this.cursor.getMonth(), dd=String(this.cursor.getDate()).padStart(2,'0');
-        const title=`${y}-${String(m+1).padStart(2,'0')}${this.view!=='day'?'':'-'+dd}`;
-        this.container.innerHTML='';
-
-        const nav=document.createElement('div'); nav.className='calendar-nav';
-        const prev=document.createElement('button'); prev.textContent='◀️';
-        const next=document.createElement('button'); next.textContent='▶️';
-        const label=document.createElement('span'); label.className='calendar-title'; label.textContent=`${title} (${this.view})`;
-
-        prev.onclick=()=>{ if(this.view==='month') this.cursor.setMonth(this.cursor.getMonth()-1); else if(this.view==='week') this.shift(-7); else this.shift(-1); this.render(); this.loadForCurrentView(); };
-        next.onclick=()=>{ if(this.view==='month') this.cursor.setMonth(this.cursor.getMonth()+1); else if(this.view==='week') this.shift(7); else this.shift(1); this.render(); this.loadForCurrentView(); };
-
-        const tabs=document.createElement('div'); tabs.className='view-tabs';
-        ['month','week','day'].forEach(v=>{
-            const b=document.createElement('button');
-            b.textContent=v.toUpperCase();
-            b.setAttribute('aria-pressed', String(this.view===v));
-            b.onclick=()=>this.setView(v);
-            tabs.appendChild(b);
-        });
-
-        const exportBtn = document.createElement('button');
-        exportBtn.textContent = 'Export .ICS';
-        exportBtn.onclick = () => {
-            const r = this.rangeForView();
-            api.requestExportIcs(r.fromUtc, r.toUtc);
-        };
-
-        nav.appendChild(prev); nav.appendChild(label); nav.appendChild(next);
-        nav.appendChild(exportBtn);
-        this.container.appendChild(nav);
-        this.container.appendChild(tabs);
-
-        if (this.view==='month') this.renderMonth();
-        else if (this.view==='week') this.renderWeek();
-        else this.renderDay();
-    }
-
-    setEvents(e){ this.events=e; if (this.view==='month') this.decorateMonth(); if (this.view==='week') this.renderWeek(); if (this.view==='day') this.renderDay(); }
-
-    renderMonth(){
-        const y=this.cursor.getFullYear(), m=this.cursor.getMonth();
-        const first=new Date(y,m,1), last=new Date(y,m+1,0);
-        const skip=(first.getDay()+6)%7, days=last.getDate();
-
-        const table=document.createElement('table'); table.className='calendar';
-        const headRow=document.createElement('tr');
-        ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].forEach(d=>{const th=document.createElement('th'); th.textContent=d; headRow.appendChild(th);});
-        table.appendChild(headRow);
-
-        let row=document.createElement('tr');
-        for (let i=0;i<skip;i++) row.appendChild(document.createElement('td'));
-
-        for (let day=1; day<=days; day++){
-            const dateStr=`${y}-${String(m+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-            const cell=document.createElement('td');
-            cell.textContent=String(day);
-            cell.className='calendar-day';
-            cell.dataset.date=dateStr;
-            if (this.isToday(dateStr)) cell.classList.add('today');
-            cell.onclick=()=>{ const utc=Date.UTC(y,m,day); webviewApi.postMessage({ name:'dateClick', date: dateStr, dateUtc: utc }); };
-            row.appendChild(cell);
-            if ((skip+day)%7===0 || day===days){ table.appendChild(row); row=document.createElement('tr'); }
-        }
-
-        this.container.appendChild(table);
-        this.decorateMonth();
-        this.renderEventList([]);
-    }
-
-    decorateMonth(){
-        const cells=this.container.querySelectorAll('.calendar-day');
-        const firstPerDay=new Map();
-        for (const ev of this.events){
-            const d=new Date(ev.startUtc).toISOString().slice(0,10);
-            if (!firstPerDay.has(d)) firstPerDay.set(d, ev);
-        }
-        cells.forEach(c=>{
-            const key=c.dataset.date;
-            if (firstPerDay.has(key)){
-                const ev=firstPerDay.get(key);
-                c.classList.add('has-event');
-                if (ev.color){ c.style.backgroundColor=ev.color; c.style.color='#fff'; }
+            // ---- utils ----
+            function pad2(n){ return String(n).padStart(2,'0'); }
+            function toMidnightUTC(d) { return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0,0,0); }
+            function startOfMonthUTC(d) { return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1, 0,0,0)); }
+            function addMonths(dateUtc, delta) { const d = new Date(dateUtc.getTime()); d.setUTCMonth(d.getUTCMonth()+delta); return startOfMonthUTC(d); }
+            function monthLabel(d) { return d.toLocaleString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }); }
+            function startOfCalendarGrid(monthUtcDate) {
+                const y=monthUtcDate.getUTCFullYear(), m=monthUtcDate.getUTCMonth();
+                const d=new Date(Date.UTC(y,m,1,0,0,0));
+                const wd=(d.getUTCDay()+6)%7; // Mon=0
+                return new Date(d.getTime() - wd*24*3600*1000);
             }
-        });
-    }
+            function endOfCalendarGrid(monthUtcDate) { const s=startOfCalendarGrid(monthUtcDate); return new Date(s.getTime()+42*24*3600*1000-1); }
+            function isSameUTCDate(tsUtc, d2) {
+                const a=new Date(tsUtc);
+                return a.getUTCFullYear()===d2.getUTCFullYear() && a.getUTCMonth()===d2.getUTCMonth() && a.getUTCDate()===d2.getUTCDate();
+            }
+            function todayUTCDate() { const n=new Date(); return new Date(Date.UTC(n.getUTCFullYear(),n.getUTCMonth(),n.getUTCDate(),0,0,0)); }
 
-    renderWeek(){
-        const wrap=document.createElement('div'); wrap.className='week-grid';
-        const wd=(this.cursor.getDay()+6)%7;
-        const monday=new Date(this.cursor); monday.setDate(this.cursor.getDate()-wd);
-        wrap.innerHTML='';
+            // ---- comms with plugin ----
+            async function requestRange(fromUtc, toUtc) {
+                if (!window.webviewApi || typeof window.webviewApi.postMessage !== 'function') {
+                    console.warn('[MyCalendar UI] webviewApi.postMessage missing');
+                    return;
+                }
+                console.log('[MyCalendar UI] requestRange', new Date(fromUtc).toISOString(), new Date(toUtc).toISOString());
+                await window.webviewApi.postMessage({ name: 'requestRangeEvents', fromUtc, toUtc });
+            }
 
-        for (let i=0;i<7;i++){
-            const day=new Date(monday); day.setDate(monday.getDate()+i);
-            const key=day.toISOString().slice(0,10);
-            const box=document.createElement('div');
-            const title=document.createElement('div'); title.textContent=key; title.style.fontWeight='700';
-            box.appendChild(title);
+            function onPluginMessage(msg) {
+                if (!msg || !msg.name) return;
+                if (msg.name === 'rangeEvents') {
+                    console.log('[MyCalendar UI] got rangeEvents:', msg.events?.length ?? 0);
+                    rangeEvents = msg.events || [];
+                    paintGrid();
+                    renderDayEvents(selectedDayUtc);
+                } else if (msg.name === 'showEvents') {
+                    console.log('[MyCalendar UI] got showEvents:', msg.events?.length ?? 0);
+                    rangeEvents = msg.events || rangeEvents;
+                    renderDayEvents(msg.dateUtc);
+                } else if (msg.name === 'rangeIcs') {
+                    console.log('[MyCalendar UI] got ICS bytes:', (msg.ics || '').length);
+                }
+            }
 
-            const list=this.events.filter(e=>{
-                const s=new Date(e.startUtc).toISOString().slice(0,10);
-                const eend=e.endUtc ? new Date(e.endUtc).toISOString().slice(0,10) : s;
-                return key>=s && key<=eend;
-            }).sort((a,b)=>a.startUtc-b.startUtc);
+            // ---- render toolbar & grid ----
+            function renderToolbar() {
+                const root = $toolbar(); if (!root) return;
+                root.innerHTML = '';
+                const wrap = document.createElement('div'); wrap.className='mc-toolbar-inner';
 
-            for (const ev of list){
-                const li=document.createElement('div'); li.className='event-item'; if (ev.color) li.style.borderLeftColor=ev.color;
-                const st=new Date(ev.startUtc).toISOString().substring(11,16);
-                const et=ev.endUtc? new Date(ev.endUtc).toISOString().substring(11,16):'';
-                li.innerHTML=`<span class="event-time">${st}${et?'-'+et:''}</span><a href="#" data-note-id="${ev.id}" class="evt-link">${ev.title}</a>`;
-                li.querySelector('.evt-link').addEventListener('click', (e)=>{
-                    e.preventDefault();
-                    api.requestOpenNote(e.currentTarget.getAttribute('data-note-id'));
+                const btnPrev = button('‹','Попередній місяць',()=>{ current=addMonths(current,-1); drawMonth(); });
+                const btnToday = button('Сьогодні','Сьогодні',()=>{ current=startOfMonthUTC(new Date()); selectedDayUtc=toMidnightUTC(new Date()); drawMonth(); });
+                const btnNext = button('›','Наступний місяць',()=>{ current=addMonths(current,+1); drawMonth(); });
+
+                const title = document.createElement('div'); title.className='mc-title'; title.textContent=monthLabel(current);
+
+                wrap.appendChild(btnPrev); wrap.appendChild(btnToday); wrap.appendChild(btnNext); wrap.appendChild(title);
+                root.appendChild(wrap);
+            }
+
+            function button(text,title,onClick){
+                const b=document.createElement('button');
+                b.className='mc-btn'; b.type='button'; b.title=title; b.textContent=text;
+                b.addEventListener('click', onClick);
+                return b;
+            }
+
+            function drawMonth() {
+                renderToolbar();
+                renderGridSkeleton();
+                const from = startOfCalendarGrid(current);
+                const to   = endOfCalendarGrid(current);
+                requestRange(from.getTime(), to.getTime());
+            }
+
+            function renderGridSkeleton() {
+                const grid = $grid(); if (!grid) return;
+                grid.innerHTML='';
+
+                const weekdayNames=['Пн','Вт','Ср','Чт','Пт','Сб','Нд'];
+                const head=document.createElement('div'); head.className='mc-grid-head';
+                for (const n of weekdayNames){ const c=document.createElement('div'); c.className='mc-grid-head-cell'; c.textContent=n; head.appendChild(c); }
+                grid.appendChild(head);
+
+                const start=startOfCalendarGrid(current); const today=todayUTCDate();
+                const body=document.createElement('div'); body.className='mc-grid-body';
+
+                for (let i=0;i<42;i++){
+                    const cellDate=new Date(start.getTime()+i*24*3600*1000);
+                    const cell=document.createElement('div'); cell.className='mc-cell';
+
+                    const inThisMonth=cellDate.getUTCMonth()===current.getUTCMonth();
+                    if(!inThisMonth) cell.classList.add('mc-out');
+                    if (isSameUTCDate(selectedDayUtc, cellDate)) cell.classList.add('mc-selected');
+                    if (isSameUTCDate(toMidnightUTC(today), cellDate)) cell.classList.add('mc-today');
+
+                    const n=document.createElement('div'); n.className='mc-daynum'; n.textContent=String(cellDate.getUTCDate());
+                    cell.appendChild(n);
+
+                    const dots=document.createElement('div'); dots.className='mc-dots'; dots.dataset.utc=String(toMidnightUTC(cellDate));
+                    cell.appendChild(dots);
+
+                    cell.addEventListener('click', ()=>{
+                        selectedDayUtc=toMidnightUTC(cellDate);
+                        if (window.webviewApi && typeof window.webviewApi.postMessage === 'function') {
+                            window.webviewApi.postMessage({ name:'dateClick', dateUtc:selectedDayUtc });
+                        }
+                        renderDayEvents(selectedDayUtc);
+                        paintSelection();
+                    });
+
+                    body.appendChild(cell);
+                }
+                grid.appendChild(body);
+            }
+
+            function paintSelection(){
+                const body=document.querySelector('#mc-grid .mc-grid-body'); if(!body) return;
+                body.querySelectorAll('.mc-cell').forEach(c=>c.classList.remove('mc-selected'));
+                const dots=body.querySelector(`.mc-dots[data-utc="${selectedDayUtc}"]`);
+                if(dots) dots.parentElement.classList.add('mc-selected');
+            }
+
+            function paintGrid(){
+                const body=document.querySelector('#mc-grid .mc-grid-body'); if(!body) return;
+                body.querySelectorAll('.mc-dots').forEach(d=>d.innerHTML='');
+
+                const byDay=new Map();
+                for (const ev of rangeEvents){
+                    const dUtc=toMidnightUTC(new Date(ev.startUtc));
+                    byDay.set(dUtc,(byDay.get(dUtc)||0)+1);
+                }
+                byDay.forEach((count,dayUtc)=>{
+                    const dots=body.querySelector(`.mc-dots[data-utc="${dayUtc}"]`);
+                    if(!dots) return;
+                    for(let i=0;i<Math.min(3,count);i++){ const dot=document.createElement('span'); dot.className='mc-dot'; dots.appendChild(dot); }
+                    if(count>3){ const more=document.createElement('span'); more.className='mc-more'; more.textContent=`+${count-3}`; dots.appendChild(more); }
                 });
-                box.appendChild(li);
             }
-            wrap.appendChild(box);
+
+            function renderDayEvents(dayStartUtc){
+                const ul=$elist(); if(!ul) return;
+                ul.innerHTML='';
+                const dayEndUtc=dayStartUtc+24*3600*1000-1;
+                const dayEvents=rangeEvents.filter(e=>e.startUtc>=dayStartUtc && e.startUtc<=dayEndUtc).sort((a,b)=>a.startUtc-b.startUtc);
+
+                if(!dayEvents.length){ const li=document.createElement('li'); li.className='mc-empty'; li.textContent='Немає подій'; ul.appendChild(li); return; }
+
+                for (const ev of dayEvents){
+                    const li=document.createElement('li'); li.className='mc-event';
+
+                    const time=new Date(ev.startUtc); const hh=pad2(time.getUTCHours()); const mm=pad2(time.getUTCMinutes());
+
+                    const color=document.createElement('span'); color.className='mc-color'; color.style.background=ev.color||'#2d7ff9';
+                    const title=document.createElement('span'); title.className='mc-title'; title.textContent=ev.title||'(без назви)';
+                    const t=document.createElement('span'); t.className='mc-time'; t.textContent=`${hh}:${mm} UTC`;
+
+                    li.appendChild(color); li.appendChild(title); li.appendChild(t);
+                    li.addEventListener('click', ()=>{ window.webviewApi?.postMessage?.({ name:'openNote', id: ev.id }); });
+
+                    ul.appendChild(li);
+                }
+            }
+
+            // ---- subscribe on messages ----
+            if (window.webviewApi?.onMessage) {
+                window.webviewApi.onMessage(onPluginMessage);
+            } else {
+                console.warn('[MyCalendar UI] webviewApi.onMessage missing');
+            }
+
+            // ---- first paint ----
+            // ВАЖЛИВО: тут не чекаємо DOMContentLoaded, бо скрипт може підвантажитись пізніше
+            drawMonth();
+
+            console.log('[MyCalendar UI] init done');
+        } catch (e) {
+            console.error('[MyCalendar UI] init error', e);
         }
-        const old=this.container.querySelector('.week-grid'); if (old) old.replaceWith(wrap); else this.container.appendChild(wrap);
-        this.renderEventList([]);
     }
 
-    renderDay(){
-        const wrap=document.createElement('div'); wrap.className='day-list';
-        const key=this.cursor.toISOString().slice(0,10);
-        const list=this.events.filter(e=>{
-            const s=new Date(e.startUtc).toISOString().slice(0,10);
-            const eend=e.endUtc ? new Date(e.endUtc).toISOString().slice(0,10) : s;
-            return key>=s && key<=eend;
-        }).sort((a,b)=>a.startUtc-b.startUtc);
-
-        wrap.innerHTML=`<div style="font-weight:700">${key}</div>`;
-        for (const ev of list){
-            const li=document.createElement('div'); li.className='event-item'; if (ev.color) li.style.borderLeftColor=ev.color;
-            const st=new Date(ev.startUtc).toISOString().substring(11,16);
-            const et=ev.endUtc? new Date(ev.endUtc).toISOString().substring(11,16):'';
-            li.innerHTML=`<span class="event-time">${st}${et?'-'+et:''}</span><a href="#" data-note-id="${ev.id}" class="evt-link">${ev.title}</a>`;
-            li.querySelector('.evt-link').addEventListener('click', (e)=>{
-                e.preventDefault();
-                api.requestOpenNote(e.currentTarget.getAttribute('data-note-id'));
-            });
-            wrap.appendChild(li);
-        }
-        const old=this.container.querySelector('.day-list'); if (old) old.replaceWith(wrap); else this.container.appendChild(wrap);
-        this.renderEventList(list);
+    // Якщо DOM вже готовий — запускаємось негайно, інакше — на подію
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
     }
-
-    renderEventList(events){
-        const box=document.getElementById('events'); box.innerHTML='';
-        const cont=document.createElement('div'); cont.className='event-list';
-        (events||[]).forEach(ev=>{
-            const row=document.createElement('div'); row.className='event-item';
-            if (ev.color) row.style.borderLeftColor=ev.color;
-            const st=new Date(ev.startUtc).toISOString().substring(11,16);
-            const et=ev.endUtc? new Date(ev.endUtc).toISOString().substring(11,16):'';
-            row.innerHTML=`<span class="event-time">${st}${et?'-'+et:''}</span><a href="#" data-note-id="${ev.id}" class="evt-link">${ev.title}</a>`;
-            row.querySelector('.evt-link').addEventListener('click', (e)=>{
-                e.preventDefault();
-                api.requestOpenNote(e.currentTarget.getAttribute('data-note-id'));
-            });
-            cont.appendChild(row);
-        });
-        box.appendChild(cont);
-    }
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-    const ui = new CalendarUI('calendar');
-
-    api.onEvents((events)=> ui.setEvents(events));
-    api.onDayEvents((events)=> ui.renderEventList(events));
-
-    api.onIcs((ics, filename)=>{
-        const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href = url; a.download = filename || 'mycalendar.ics';
-        document.body.appendChild(a); a.click();
-        setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 500);
-    });
-});
+})();
