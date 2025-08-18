@@ -101,6 +101,12 @@
                 return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate(), 0, 0, 0));
             }
 
+            if (window.webviewApi?.onMessage) {
+                window.webviewApi.onMessage(onPluginMessage);
+            } else {
+                log('webviewApi.onMessage missing');
+            }
+
             // --- рукостискання з беком ---
             if (window.webviewApi?.postMessage) {
                 window.webviewApi.postMessage({name: 'uiReady'});
@@ -200,6 +206,13 @@
                 const from = startOfCalendarGridLocal(current);
                 const to = endOfCalendarGridLocal(current);
 
+                requestMonthRangeWithRetry(from, to);
+            }
+
+            let rangeRequestTimer = null;
+
+            function requestMonthRangeWithRetry(from, to) {
+                // перший запит
                 if (window.webviewApi?.postMessage) {
                     log('requestRange', from.toISOString(), '→', to.toISOString());
                     window.webviewApi.postMessage({
@@ -208,7 +221,22 @@
                         toUtc: to.getTime(),
                     });
                 }
+                // якщо за 1200мс не прийшов rangeEvents — повторимо раз
+                if (rangeRequestTimer) clearTimeout(rangeRequestTimer);
+                rangeRequestTimer = setTimeout(() => {
+                    if (!Array.isArray(rangeEvents) || rangeEvents.length === 0) {
+                        log('rangeEvents timeout — retrying once');
+                        if (window.webviewApi?.postMessage) {
+                            window.webviewApi.postMessage({
+                                name: 'requestRangeEvents',
+                                fromUtc: from.getTime(),
+                                toUtc: to.getTime(),
+                            });
+                        }
+                    }
+                }, 1200);
             }
+
 
             function renderGridSkeleton() {
                 const grid = $grid();
@@ -280,7 +308,7 @@
             }
 
             function fmtHM(ts) {
-                return new Date(ts).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+                return new Date(ts).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', hour12: false});
             }
 
             function paintGrid(){
