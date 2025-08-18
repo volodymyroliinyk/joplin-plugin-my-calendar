@@ -22,7 +22,7 @@ type EventInput = {
     byMonthDay?: number;
 };
 
-const EVENT_BLOCK_RE = /```event([\s\S]*?)```/gi;
+const EVENT_BLOCK_RE = /(?:^|\r?\n)[ \t]*```mycalendar-event[ \t]*\r?\n([\s\S]*?)\r?\n[ \t]*```(?=\r?\n|$)/g;
 
 // Map: MO..SU -> 0..6 (Mon..Sun)
 const WD_MAP: Record<string, number> = { MO:0, TU:1, WE:2, TH:3, FR:4, SA:5, SU:6 };
@@ -81,19 +81,6 @@ export function parseEventsFromBody(noteId: string, titleFallback: string, body:
     while ((m = EVENT_BLOCK_RE.exec(body)) !== null) {
         const block = m[1];
         const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
-
-        // 1) Валідація "маячка"
-        let hasCalendarToken = false;
-        for (const line of lines) {
-            const kv = parseKeyVal(line);
-            if (!kv) continue;
-            const [k, v] = kv;
-            if (k === 'calendar' && v.trim().toLowerCase() === REQUIRED_CALENDAR_TOKEN) {
-                hasCalendarToken = true;
-                break;
-            }
-        }
-        if (!hasCalendarToken) continue; // ігноруємо блок
 
         // 2) Звичайний парсинг
         let title = titleFallback;

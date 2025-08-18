@@ -15,7 +15,12 @@
 .mc-title { margin-left:12px; font-weight:700; }
 
 #mc-grid { border:1px solid var(--joplin-divider-color); border-radius:8px; overflow:hidden; }
-.mc-grid-head, .mc-grid-body { display:grid; grid-template-columns: repeat(7, 1fr); }
+
+.mc-grid-head, .mc-grid-body {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+}
 .mc-grid-head { background:var(--joplin-background-color3); }
 .mc-grid-head-cell { padding:6px 8px; font-weight:600; text-align:center; border-right:1px solid var(--joplin-divider-color); }
 .mc-grid-head-cell:last-child { border-right:none; }

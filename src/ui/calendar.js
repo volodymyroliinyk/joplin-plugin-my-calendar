@@ -173,33 +173,51 @@
                 const grid = $grid();
                 if (!grid) return;
                 grid.innerHTML = '';
+
                 const weekdayNames=['Пн','Вт','Ср','Чт','Пт','Сб','Нд'];
 
-                const head=document.createElement('div'); head.className='mc-grid-head';
-                for (const n of weekdayNames){ const c=document.createElement('div'); c.className='mc-grid-head-cell'; c.textContent=n; head.appendChild(c); }
+                const head = document.createElement('div');
+                head.className = 'mc-grid-head';
+                for (const n of weekdayNames) {
+                    const c = document.createElement('div');
+                    c.className = 'mc-grid-head-cell';
+                    c.textContent = n;
+                    head.appendChild(c);
+                }
                 grid.appendChild(head);
 
-                const start=startOfCalendarGrid(current); const today=todayUTCDate();
-                const body=document.createElement('div'); body.className='mc-grid-body';
+                const body = document.createElement('div');
+                body.className = 'mc-grid-body';
+
+                const start = startOfCalendarGrid(current);
+                const todayUtcTs = toMidnightUTC(new Date()); // одна цифра UTC-північ сьогодні
 
                 for (let i = 0; i < 42; i++) {
-                    const cellDate=new Date(start.getTime()+i*24*3600*1000);
-                    const cell=document.createElement('div'); cell.className='mc-cell';
-                    cell.dataset.utc = String(toMidnightUTC(cellDate));   // <<< додано
+                    const cellDate = new Date(start.getTime() + i * 24 * 3600 * 1000);
+                    const cellUtcTs = toMidnightUTC(cellDate);
 
-                    const inThisMonth=cellDate.getUTCMonth()===current.getUTCMonth();
-                    if(!inThisMonth) cell.classList.add('mc-out');
-                    if (isSameUTCDate(selectedDayUtc, cellDate)) cell.classList.add('mc-selected');
-                    if (isSameUTCDate(toMidnightUTC(today), cellDate)) cell.classList.add('mc-today');
+                    const cell = document.createElement('div');
+                    cell.className = 'mc-cell';
+                    cell.dataset.utc = String(cellUtcTs);
 
-                    const n=document.createElement('div'); n.className='mc-daynum'; n.textContent=String(cellDate.getUTCDate());
+                    const inThisMonth = cellDate.getUTCMonth() === current.getUTCMonth();
+                    if (!inThisMonth) cell.classList.add('mc-out');
+
+                    if (selectedDayUtc === cellUtcTs) cell.classList.add('mc-selected');
+                    if (todayUtcTs === cellUtcTs) cell.classList.add('mc-today');
+
+                    const n = document.createElement('div');
+                    n.className = 'mc-daynum';
+                    n.textContent = String(cellDate.getUTCDate());
                     cell.appendChild(n);
 
-                    const dots=document.createElement('div'); dots.className='mc-dots'; dots.dataset.utc=String(toMidnightUTC(cellDate));
+                    const dots = document.createElement('div');
+                    dots.className = 'mc-dots';
+                    dots.dataset.utc = String(cellUtcTs);
                     cell.appendChild(dots);
 
-                    cell.addEventListener('click', ()=>{
-                        selectedDayUtc=toMidnightUTC(cellDate);
+                    cell.addEventListener('click', () => {
+                        selectedDayUtc = cellUtcTs;
                         window.webviewApi?.postMessage?.({name: 'dateClick', dateUtc: selectedDayUtc});
                         renderDayEvents(selectedDayUtc);
                         paintSelection();
@@ -207,22 +225,16 @@
 
                     body.appendChild(cell);
                 }
+
                 grid.appendChild(body);
             }
 
-            function paintSelection(){
-                const body=document.querySelector('#mc-grid .mc-grid-body'); if(!body) return;
-                body.querySelectorAll('.mc-cell').forEach(c=>c.classList.remove('mc-selected'));
-                const dots=body.querySelector(`.mc-dots[data-utc="${selectedDayUtc}"]`);
-                if(dots) dots.parentElement.classList.add('mc-selected');
-                const bars = document.createElement('div');
-                bars.className = 'mc-bars';
-                cell.appendChild(bars);
-
-                const badge = document.createElement('div');
-                badge.className = 'mc-count';
-                badge.style.display = 'none';
-                cell.appendChild(badge);
+            function paintSelection() {
+                const body = document.querySelector('#mc-grid .mc-grid-body');
+                if (!body) return;
+                body.querySelectorAll('.mc-cell').forEach(c => c.classList.remove('mc-selected'));
+                const sel = body.querySelector(`.mc-cell[data-utc="${selectedDayUtc}"]`);
+                if (sel) sel.classList.add('mc-selected');
             }
 
             function paintGrid(){
