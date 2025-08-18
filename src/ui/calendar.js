@@ -13,12 +13,47 @@
         try {
             log('init start');
 
+            const DAY = 24 * 60 * 60 * 1000;
+
+// Локальна північ (00:00) у мс епохи
+            function localMidnightTs(d) {
+                return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+            }
+
+// Перший день місяця (локально)
+            function startOfMonthLocal(d) {
+                return new Date(d.getFullYear(), d.getMonth(), 1);
+            }
+
+// Зсув місяців (локально) і нормалізація на перший день
+            function addMonthsLocal(dateLocal, delta) {
+                const d = new Date(dateLocal.getTime());
+                d.setMonth(d.getMonth() + delta);
+                return startOfMonthLocal(d);
+            }
+
+// Початок 6-тижневої сітки (понеділок) — локально
+            function startOfCalendarGridLocal(current) {
+                const first = new Date(current.getFullYear(), current.getMonth(), 1);
+                const dowMon0 = (first.getDay() + 6) % 7; // Mon=0..Sun=6
+                const start = new Date(first.getTime() - dowMon0 * DAY);
+                return new Date(start.getFullYear(), start.getMonth(), start.getDate());
+            }
+
+// Кінець сітки (42 клітинки)
+            function endOfCalendarGridLocal(current) {
+                const s = startOfCalendarGridLocal(current);
+                return new Date(s.getTime() + 42 * DAY - 1);
+            }
+
+
             const $toolbar = () => document.getElementById('mc-toolbar');
             const $grid    = () => document.getElementById('mc-grid');
             const $elist   = () => document.getElementById('mc-events-list');
 
-            let current = startOfMonthUTC(new Date());
-            let selectedDayUtc = toMidnightUTC(new Date());
+            let current = startOfMonthLocal(new Date());
+            let selectedDayUtc = localMidnightTs(new Date()); // так, тут тепер локальна «північ», це число
+
             let rangeEvents = [];
 
             function pad2(n){ return String(n).padStart(2,'0'); }
@@ -37,9 +72,12 @@
                 return startOfMonthUTC(d);
             }
 
+
             function monthLabel(d) {
-                return d.toLocaleString('en-US', {month: 'long', year: 'numeric', timeZone: 'UTC'});
+                // локальна TZ девайса
+                return d.toLocaleString(undefined, {month: 'long', year: 'numeric'});
             }
+
 
             function startOfCalendarGrid(monthUtcDate) {
                 const y=monthUtcDate.getUTCFullYear(), m=monthUtcDate.getUTCMonth();
@@ -134,16 +172,16 @@
                 wrap.className = 'mc-toolbar-inner';
 
                 const btnPrev = button('‹', 'Попередній місяць', () => {
-                    current = addMonths(current, -1);
+                    current = addMonthsLocal(current, -1);
                     drawMonth();
                 });
                 const btnToday = button('Сьогодні', 'Сьогодні', () => {
-                    current = startOfMonthUTC(new Date());
-                    selectedDayUtc = toMidnightUTC(new Date());
+                    current = startOfMonthLocal(new Date());
+                    selectedDayUtc = localMidnightTs(new Date());
                     drawMonth();
                 });
                 const btnNext = button('›', 'Наступний місяць', () => {
-                    current = addMonths(current, +1);
+                    current = addMonthsLocal(current, +1);
                     drawMonth();
                 });
 
@@ -158,13 +196,16 @@
             function drawMonth() {
                 renderToolbar();
                 renderGridSkeleton();
-                const from = startOfCalendarGrid(current), to = endOfCalendarGrid(current);
+
+                const from = startOfCalendarGridLocal(current);
+                const to = endOfCalendarGridLocal(current);
+
                 if (window.webviewApi?.postMessage) {
                     log('requestRange', from.toISOString(), '→', to.toISOString());
                     window.webviewApi.postMessage({
                         name: 'requestRangeEvents',
                         fromUtc: from.getTime(),
-                        toUtc: to.getTime()
+                        toUtc: to.getTime(),
                     });
                 }
             }
@@ -189,35 +230,35 @@
                 const body = document.createElement('div');
                 body.className = 'mc-grid-body';
 
-                const start = startOfCalendarGrid(current);
-                const todayUtcTs = toMidnightUTC(new Date()); // одна цифра UTC-північ сьогодні
+                const start = startOfCalendarGridLocal(current);
+                const todayTs = localMidnightTs(new Date());
 
                 for (let i = 0; i < 42; i++) {
-                    const cellDate = new Date(start.getTime() + i * 24 * 3600 * 1000);
-                    const cellUtcTs = toMidnightUTC(cellDate);
+                    const cellDate = new Date(start.getTime() + i * DAY);
+                    const cellTs = localMidnightTs(cellDate);
 
                     const cell = document.createElement('div');
                     cell.className = 'mc-cell';
-                    cell.dataset.utc = String(cellUtcTs);
+                    cell.dataset.utc = String(cellTs);
 
-                    const inThisMonth = cellDate.getUTCMonth() === current.getUTCMonth();
+                    const inThisMonth = cellDate.getMonth() === current.getMonth();
                     if (!inThisMonth) cell.classList.add('mc-out');
 
-                    if (selectedDayUtc === cellUtcTs) cell.classList.add('mc-selected');
-                    if (todayUtcTs === cellUtcTs) cell.classList.add('mc-today');
+                    if (selectedDayUtc === cellTs) cell.classList.add('mc-selected');
+                    if (todayTs === cellTs) cell.classList.add('mc-today');
 
                     const n = document.createElement('div');
                     n.className = 'mc-daynum';
-                    n.textContent = String(cellDate.getUTCDate());
+                    n.textContent = String(cellDate.getDate());
                     cell.appendChild(n);
 
                     const dots = document.createElement('div');
                     dots.className = 'mc-dots';
-                    dots.dataset.utc = String(cellUtcTs);
+                    dots.dataset.utc = String(cellTs);
                     cell.appendChild(dots);
 
                     cell.addEventListener('click', () => {
-                        selectedDayUtc = cellUtcTs;
+                        selectedDayUtc = cellTs;
                         window.webviewApi?.postMessage?.({name: 'dateClick', dateUtc: selectedDayUtc});
                         renderDayEvents(selectedDayUtc);
                         paintSelection();
@@ -229,12 +270,17 @@
                 grid.appendChild(body);
             }
 
+
             function paintSelection() {
                 const body = document.querySelector('#mc-grid .mc-grid-body');
                 if (!body) return;
                 body.querySelectorAll('.mc-cell').forEach(c => c.classList.remove('mc-selected'));
                 const sel = body.querySelector(`.mc-cell[data-utc="${selectedDayUtc}"]`);
                 if (sel) sel.classList.add('mc-selected');
+            }
+
+            function fmtHM(ts) {
+                return new Date(ts).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
             }
 
             function paintGrid(){
@@ -251,7 +297,7 @@
                 // Зібрати події по днях
                 const byDay = new Map(); // dayUtc -> events[]
                 for (const ev of rangeEvents) {
-                    const dayUtc = toMidnightUTC(new Date(ev.startUtc));
+                    const dayUtc = localMidnightTs(new Date(ev.startUtc));
                     if (!byDay.has(dayUtc)) byDay.set(dayUtc, []);
                     byDay.get(dayUtc).push(ev);
                 }
@@ -309,10 +355,12 @@
 
                 for (const ev of dayEvents){
                     const li=document.createElement('li'); li.className='mc-event';
-                    const time=new Date(ev.startUtc); const hh=pad2(time.getUTCHours()); const mm=pad2(time.getUTCMinutes());
                     const color=document.createElement('span'); color.className='mc-color'; color.style.background=ev.color||'#2d7ff9';
                     const title=document.createElement('span'); title.className='mc-title'; title.textContent=ev.title||'(без назви)';
-                    const t=document.createElement('span'); t.className='mc-time'; t.textContent=`${hh}:${mm} UTC`;
+                    const t = document.createElement('span');
+                    t.className = 'mc-time';
+                    const label = ev.endUtc ? `${fmtHM(ev.startUtc)}–${fmtHM(ev.endUtc)}` : fmtHM(ev.startUtc);
+                    t.textContent = label;
                     li.appendChild(color); li.appendChild(title); li.appendChild(t);
                     li.addEventListener('click', ()=>{ window.webviewApi?.postMessage?.({ name:'openNote', id: ev.id }); });
                     ul.appendChild(li);
@@ -320,11 +368,7 @@
             }
 
             // запуск
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', drawMonth);
-            } else {
-                drawMonth();
-            }
+            drawMonth();
 
             log('init done');
         } catch (e) {
@@ -337,12 +381,4 @@
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
     else init();
 
-    // helpers локальні:
-    function startOfMonthUTC(d) {
-        return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1, 0, 0, 0));
-    }
-
-    function toMidnightUTC(d) {
-        return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0);
-    }
 })();
