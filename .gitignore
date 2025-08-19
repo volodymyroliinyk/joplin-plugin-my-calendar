@@ -5,3 +5,5 @@ publish/
 /*.jpl
 /*.tar
 /mycalendar/*
+/*.patch
+/*.todo
