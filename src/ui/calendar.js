@@ -357,8 +357,8 @@
 
                     const {bars, badge} = ensureParts(cell);
 
-                    // Top 4 events in time-thin strips below
-                    const top = events.slice().sort((a, b) => a.startUtc - b.startUtc).slice(0, 4);
+                    // Color Event indicators in the calendar grid
+                    const top = events.slice().sort((a, b) => a.startUtc - b.startUtc);
                     for (const ev of top) {
                         const bar = document.createElement('div');
                         bar.className = 'mc-bar';
