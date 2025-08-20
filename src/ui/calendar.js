@@ -244,7 +244,7 @@
                 if (!grid) return;
                 grid.innerHTML = '';
 
-                const weekdayNames=['Пн','Вт','Ср','Чт','Пт','Сб','Нд'];
+                const weekdayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
                 const head = document.createElement('div');
                 head.className = 'mc-grid-head';

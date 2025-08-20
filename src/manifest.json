@@ -6,6 +6,9 @@
   "name": "My Calendar",
   "description": "Calendar view from notes with event syntax",
   "author": "Volodymyr Oliinyk",
-  "platforms": ["desktop"],
+  "platforms": [
+    "desktop",
+    "mobile"
+  ],
   "permissions": ["notes"]
 }
