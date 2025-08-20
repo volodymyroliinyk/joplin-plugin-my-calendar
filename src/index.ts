@@ -1,19 +1,19 @@
 // src/index.ts
-// ЖОДНИХ import/require('api').
-// Беремо API тільки з глобального об'єкта, який підкладає Joplin runner.
+// NOT ONE import/require('api').
+// We only take API from a global object that plays Joplen Runner.
 
 (function bootstrap() {
     const j: any = (globalThis as any).joplin || (window as any).joplin;
 
     if (!j) {
-        // Ми не в плагін-раннері (або раннер ще не підкинув joplin) — нічого не робимо.
+        // We are not in the plugin-wounder (or Ranner have not yet thrown Joplin)-we do nothing.
         console.log('[MyCalendar] no plugin API here (renderer).');
         return;
     }
 
     try {
-        // ВАЖЛИВО: require pluginMain лише після того, як ми впевнились, що є joplin.
-        // Таким чином Webpack не підвантажить залежності раніше (і не зламає renderer).
+        // IMPORTANT: REQUIRE PLUGINMAIN only after we've been convinced that there was a joplin.
+        // This way webpack will not overload the addiction earlier (and will not break RENDER).
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const runPlugin = require('./main/pluginMain').default;
 

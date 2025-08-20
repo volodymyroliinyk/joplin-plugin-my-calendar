@@ -1,10 +1,11 @@
+// webpack.config.js
 const path = require('path');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 
 /** @type {import('webpack').Configuration} */
 module.exports = {
     mode: 'production',
-    target: 'node', // важливо для main
+    target: 'node', // important for main
     entry: {
         index: './src/index.ts',
         'main/pluginMain': './src/main/pluginMain.ts',
@@ -12,7 +13,7 @@ module.exports = {
     output: {
         path: path.resolve(__dirname, 'dist'),
         filename: '[name].js',
-        libraryTarget: 'commonjs2', // <— ключ
+        libraryTarget: 'commonjs2', // <— key
         clean: true,
     },
     resolve: {

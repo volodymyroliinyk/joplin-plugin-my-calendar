@@ -1,4 +1,4 @@
-// Мінімальна декларація, щоб TS не лаявся на `import joplin from 'api'`
+// src/types/joplin-api.d.ts
 declare module 'api' {
     const joplin: any;
     export default joplin;

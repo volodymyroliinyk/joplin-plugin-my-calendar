@@ -9,7 +9,7 @@ export async function createCalendarPanel(joplin: any): Promise<string> {
     <div id="mc-toolbar"></div>
     <div id="mc-grid"></div>
     <div id="mc-events">
-      <div class="mc-events-header">Події дня</div>
+      <div class="mc-events-header">Today events</div>
       <ul id="mc-events-list"></ul>
     </div>
     <div id="mc-log" style="margin-top:8px;padding:6px;border:1px dashed var(--joplin-divider-color);border-radius:6px;font-size:12px;opacity:.8;"></div>

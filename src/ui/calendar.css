@@ -1,3 +1,4 @@
+/* src/ui/calendar.css */
 #cal-root {
     display: grid;
     grid-template-rows: auto auto 1fr;
@@ -31,7 +32,7 @@
     border-right: 1px solid var(--joplin-divider-color);
     border-top: 1px solid var(--joplin-divider-color);
     padding: 4px 6px;
-    overflow: hidden; /* щоб смужки не вилазили */
+    overflow: hidden;
 }
 
 .mc-grid-body .mc-cell:nth-child(7n) { border-right:none; }
@@ -54,19 +55,16 @@
 .mc-time { opacity:0.7; font-size:12px; }
 .mc-empty { opacity:0.7; padding:6px; }
 
-/* дайте панелі повну висоту/ширину */
 html, body {
     height: 100%;
     margin: 0;
 }
 
-
-/* Звужений контент + приклеїти вправо */
 #cal-root {
 
 }
 
-/* контейнер смужок у клітинці */
+/* The container of strips in the cell */
 .mc-bars {
     position: absolute;
     left: 4px;
@@ -75,7 +73,7 @@ html, body {
     display: grid;
     grid-auto-rows: 4px;
     gap: 2px;
-    z-index: 2; /* поверх будь-яких точок */
+    z-index: 2;
 }
 
 .mc-bar {
@@ -85,7 +83,7 @@ html, body {
     opacity: 0.95;
 }
 
-/* бейдж-лічильник угорі праворуч */
+/* Badge-chiller is up to the right */
 .mc-count {
     position: absolute;
     top: 2px;
@@ -100,7 +98,6 @@ html, body {
     z-index: 3;
 }
 
-/* якщо "крапки" більше не потрібні — можна сховати */
 .mc-dots {
     display: none;
 }

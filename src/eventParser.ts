@@ -1,4 +1,5 @@
-// Події парсимо тільки якщо в блоці є рядок: calendar: my-calendar-plugin
+// src/eventParser.ts
+// Parsing events only if there is a line in the block: calendar: my-calendar-plugin
 export const REQUIRED_CALENDAR_TOKEN = 'my-calendar-plugin';
 
 type RepeatFreq = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
@@ -42,16 +43,16 @@ function parseIntSafe(v?: string): number | undefined {
     return Number.isFinite(n) && n >= 1 ? n : undefined;
 }
 
-// "2025-08-12 10:00:00-04:00" | "2025-08-12T10:00:00-04:00" | без офсета (з tz)
+// "2025-08-12 10:00:00-04:00" | "2025-08-12T10:00:00-04:00" | Without offset (з tz)
 function parseDateTimeToUTC(text: string, tz?: string): number | null {
     const trimmed = text.trim();
-    // є явний офсет -> довіряємо Date
+    // There is a clear offset -> we trust Date
     if (/[+-]\d{2}:?\d{2}$/.test(trimmed)) {
         const canon = trimmed.replace(' ', 'T').replace(/([+-]\d{2})(\d{2})$/, '$1:$2');
         const d = new Date(canon);
         return isNaN(d.getTime()) ? null : d.getTime();
     }
-    // без офсета, але з tz -> розрахунок UTC через Intl
+    // without offset but with tz -> UTC Calculation through intl
     try {
         const local = new Date(trimmed.replace(' ', 'T'));
         if (isNaN(local.getTime())) return null;
@@ -82,7 +83,7 @@ export function parseEventsFromBody(noteId: string, titleFallback: string, body:
         const block = m[1];
         const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
 
-        // 2) Звичайний парсинг
+        // 2) Ordinary Parsing
         let title = titleFallback;
         let desc: string | undefined;
         let color: string | undefined;

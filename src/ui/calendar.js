@@ -1,3 +1,4 @@
+// src/ui/calendar.js
 (function () {
     function log(...args) {
         console.log('[MyCalendar UI]', ...args);
@@ -15,24 +16,24 @@
 
             const DAY = 24 * 60 * 60 * 1000;
 
-// Локальна північ (00:00) у мс епохи
+            // Local North (00:00) in MS of the era
             function localMidnightTs(d) {
                 return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
             }
 
-// Перший день місяця (локально)
+            // The first day of the month (locally)
             function startOfMonthLocal(d) {
                 return new Date(d.getFullYear(), d.getMonth(), 1);
             }
 
-// Зсув місяців (локально) і нормалізація на перший день
+            // shift months (locally) and normalization on the first day
             function addMonthsLocal(dateLocal, delta) {
                 const d = new Date(dateLocal.getTime());
                 d.setMonth(d.getMonth() + delta);
                 return startOfMonthLocal(d);
             }
 
-// Початок 6-тижневої сітки (понеділок) — локально
+            // Beginning 6-week mesh (Monday)-locally
             function startOfCalendarGridLocal(current) {
                 const first = new Date(current.getFullYear(), current.getMonth(), 1);
                 const dowMon0 = (first.getDay() + 6) % 7; // Mon=0..Sun=6
@@ -40,7 +41,7 @@
                 return new Date(start.getFullYear(), start.getMonth(), start.getDate());
             }
 
-// Кінець сітки (42 клітинки)
+// End of the grid (42 cells)
             function endOfCalendarGridLocal(current) {
                 const s = startOfCalendarGridLocal(current);
                 return new Date(s.getTime() + 42 * DAY - 1);
@@ -52,7 +53,7 @@
             const $elist   = () => document.getElementById('mc-events-list');
 
             let current = startOfMonthLocal(new Date());
-            let selectedDayUtc = localMidnightTs(new Date()); // так, тут тепер локальна «північ», це число
+            let selectedDayUtc = localMidnightTs(new Date());
 
             let rangeEvents = [];
 
@@ -72,9 +73,8 @@
                 return startOfMonthUTC(d);
             }
 
-
+            // Local device TZ
             function monthLabel(d) {
-                // локальна TZ девайса
                 return d.toLocaleString(undefined, {month: 'long', year: 'numeric'});
             }
 
@@ -107,7 +107,7 @@
                 log('webviewApi.onMessage missing');
             }
 
-            // --- рукостискання з беком ---
+            // Connecting with backend.
             if (window.webviewApi?.postMessage) {
                 window.webviewApi.postMessage({name: 'uiReady'});
                 log('uiReady sent');
@@ -116,11 +116,11 @@
             }
 
             function onPluginMessage(msg) {
-                // Joplin інколи шле { message: <payload> }
+                // Joplin Sometimes a sealing { message: <payload> }
                 if (msg && typeof msg === 'object' && 'message' in msg && msg.message) {
                     msg = msg.message;
                 }
-                // Якщо раптом прийшов масив подій без name (не повинно, але про всяк випадок)
+                // If suddenly array of events without Name (should not, but just in case)
                 if (!msg.name && Array.isArray(msg.events)) {
                     msg = {name: 'rangeEvents', events: msg.events};
                 }
@@ -177,16 +177,16 @@
                 const wrap = document.createElement('div');
                 wrap.className = 'mc-toolbar-inner';
 
-                const btnPrev = button('‹', 'Попередній місяць', () => {
+                const btnPrev = button('‹', 'Previous month', () => {
                     current = addMonthsLocal(current, -1);
                     drawMonth();
                 });
-                const btnToday = button('Сьогодні', 'Сьогодні', () => {
+                const btnToday = button('Today', 'Today', () => {
                     current = startOfMonthLocal(new Date());
                     selectedDayUtc = localMidnightTs(new Date());
                     drawMonth();
                 });
-                const btnNext = button('›', 'Наступний місяць', () => {
+                const btnNext = button('›', 'Next month', () => {
                     current = addMonthsLocal(current, +1);
                     drawMonth();
                 });
@@ -212,7 +212,7 @@
             let rangeRequestTimer = null;
 
             function requestMonthRangeWithRetry(from, to) {
-                // перший запит
+                // First request
                 if (window.webviewApi?.postMessage) {
                     log('requestRange', from.toISOString(), '→', to.toISOString());
                     window.webviewApi.postMessage({
@@ -221,7 +221,7 @@
                         toUtc: to.getTime(),
                     });
                 }
-                // якщо за 1200мс не прийшов rangeEvents — повторимо раз
+                //If for 1200ms did not come rageevents - repeat once
                 if (rangeRequestTimer) clearTimeout(rangeRequestTimer);
                 rangeRequestTimer = setTimeout(() => {
                     if (!Array.isArray(rangeEvents) || rangeEvents.length === 0) {
@@ -315,14 +315,14 @@
                 const body = document.querySelector('#mc-grid .mc-grid-body');
                 if (!body) return;
 
-                // Очистити попередні індикатори
+                // Clean the previous indicators
                 body.querySelectorAll('.mc-bars').forEach(b => b.innerHTML = '');
                 body.querySelectorAll('.mc-count').forEach(c => {
                     c.textContent = '';
                     c.style.display = 'none';
                 });
 
-                // Зібрати події по днях
+                // Gather events by day
                 const byDay = new Map(); // dayUtc -> events[]
                 for (const ev of rangeEvents) {
                     const dayUtc = localMidnightTs(new Date(ev.startUtc));
@@ -330,7 +330,7 @@
                     byDay.get(dayUtc).push(ev);
                 }
 
-                // Допоміжна: отримати/створити дочірні елементи у клітинці
+                // Auxiliary: Get/create subsidiaries in a cell
                 function ensureParts(cell) {
                     let bars = cell.querySelector(':scope > .mc-bars');
                     let badge = cell.querySelector(':scope > .mc-count');
@@ -347,14 +347,14 @@
                     return {bars, badge};
                 }
 
-                // Промалювати
+                // To paint
                 byDay.forEach((events, dayUtc) => {
                     const cell = body.querySelector(`.mc-cell[data-utc="${dayUtc}"]`);
                     if (!cell) return;
 
                     const {bars, badge} = ensureParts(cell);
 
-                    // Топ-4 події за часом — тонкі смужки внизу
+                    // Top 4 events in time-thin strips below
                     const top = events.slice().sort((a, b) => a.startUtc - b.startUtc).slice(0, 4);
                     for (const ev of top) {
                         const bar = document.createElement('div');
@@ -363,7 +363,7 @@
                         bars.appendChild(bar);
                     }
 
-                    // Лічильник у правому верхньому куті
+                    // Counter in the upper right corner
                     badge.textContent = String(events.length);
                     badge.style.display = 'block';
                 });
@@ -379,12 +379,20 @@
 
                 log('renderDayEvents', new Date(dayStartUtc).toISOString().slice(0, 10), 'count=', dayEvents.length);
 
-                if(!dayEvents.length){ const li=document.createElement('li'); li.className='mc-empty'; li.textContent='Немає подій'; ul.appendChild(li); return; }
+                if (!dayEvents.length) {
+                    const li = document.createElement('li');
+                    li.className = 'mc-empty';
+                    li.textContent = 'There are no events';
+                    ul.appendChild(li);
+                    return;
+                }
 
                 for (const ev of dayEvents){
                     const li=document.createElement('li'); li.className='mc-event';
                     const color=document.createElement('span'); color.className='mc-color'; color.style.background=ev.color||'#2d7ff9';
-                    const title=document.createElement('span'); title.className='mc-title'; title.textContent=ev.title||'(без назви)';
+                    const title = document.createElement('span');
+                    title.className = 'mc-title';
+                    title.textContent = ev.title || '(without a title)';
                     const t = document.createElement('span');
                     t.className = 'mc-time';
                     const label = ev.endUtc ? `${fmtHM(ev.startUtc)}–${fmtHM(ev.endUtc)}` : fmtHM(ev.startUtc);
@@ -395,7 +403,7 @@
                 }
             }
 
-            // запуск
+            // Launch
             drawMonth();
 
             log('init done');
@@ -405,7 +413,7 @@
         }
     }
 
-    // допперевірка інита
+    // Init check
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
     else init();
 
