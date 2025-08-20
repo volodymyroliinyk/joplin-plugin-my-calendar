@@ -8,6 +8,7 @@ type EventInput = {
     id: string;
     title: string;
     desc?: string;
+    location?: string;
     color?: string;
 
     startUtc: number;
@@ -86,6 +87,7 @@ export function parseEventsFromBody(noteId: string, titleFallback: string, body:
         // 2) Ordinary Parsing
         let title = titleFallback;
         let desc: string | undefined;
+        let location: string | undefined;
         let color: string | undefined;
         let startText: string | undefined;
         let endText: string | undefined;
@@ -104,6 +106,7 @@ export function parseEventsFromBody(noteId: string, titleFallback: string, body:
 
             if (k === 'title') title = v;
             else if (k === 'desc' || k === 'description') desc = v;
+            else if (k === 'location') location = v;
             else if (k === 'color') color = v;
             else if (k === 'start') startText = v;
             else if (k === 'end') endText = v;
@@ -140,6 +143,7 @@ export function parseEventsFromBody(noteId: string, titleFallback: string, body:
             id: noteId,
             title,
             desc,
+            location,
             color,
             startUtc,
             endUtc,
