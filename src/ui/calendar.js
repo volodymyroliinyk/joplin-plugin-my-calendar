@@ -192,6 +192,7 @@
                     drawMonth();
                 });
 
+                // Month YYYY title.
                 const title = document.createElement('div');
                 title.className = 'mc-title';
                 title.textContent = monthLabel(current);
@@ -263,7 +264,8 @@
                 const todayTs = localMidnightTs(new Date());
 
                 for (let i = 0; i < 42; i++) {
-                    const cellDate = new Date(start.getTime() + i * DAY);
+                    const cellDate = new Date(start);
+                    cellDate.setDate(start.getDate() + i);
                     const cellTs = localMidnightTs(cellDate);
 
                     const cell = document.createElement('div');
