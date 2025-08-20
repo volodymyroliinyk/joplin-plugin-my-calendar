@@ -197,7 +197,15 @@ export default async function runPlugin(joplin: any) {
         label: 'Open MyCalendar',
         execute: async () => {
             await joplin.views.panels.show(panel);
-            await joplin.views.panels.focus(panel);
+            try {
+                const panelsAny = (joplin as any).views?.panels;
+                if (panelsAny && typeof panelsAny.focus === 'function') {
+                    await panelsAny.focus(panel);
+                }
+            } catch (err) {
+                // На мобілці метод відсутній — це очікувано
+                console.log('[MyCalendar] panels.focus not available on this platform');
+            }
         },
     });
 
@@ -266,5 +274,13 @@ export default async function runPlugin(joplin: any) {
     });
 
     await joplin.views.panels.show(panel);
-    await joplin.views.panels.focus(panel);
+    try {
+        const panelsAny = (joplin as any).views?.panels;
+        if (panelsAny && typeof panelsAny.focus === 'function') {
+            await panelsAny.focus(panel);
+        }
+    } catch (err) {
+        // На мобілці метод відсутній — це очікувано
+        console.log('[MyCalendar] panels.focus not available on this platform');
+    }
 }

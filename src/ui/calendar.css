@@ -23,7 +23,14 @@
     gap: 4px;
 }
 .mc-grid-head { background:var(--joplin-background-color3); }
-.mc-grid-head-cell { padding:6px 8px; font-weight:600; text-align:center; border-right:1px solid var(--joplin-divider-color); }
+
+/* Week day name */
+.mc-grid-head-cell {
+    font-size: 12px;
+    padding: 6px 8px;
+    text-align: center;
+    border-right: 1px solid var(--joplin-divider-color);
+}
 .mc-grid-head-cell:last-child { border-right:none; }
 
 .mc-grid-body .mc-cell {
@@ -115,24 +122,83 @@ html, body {
     color: #ddd !important; /* lighter when creeping */
 }
 
-/* Маленькі екрани — зменшуємо шрифти і поля */
-@media (max-width: 480px) {
+@media (pointer: coarse) and (hover: none) {
+    /* Розтягнути на всю ширину панелі, скинути поля */
     #cal-root {
-        padding: 0;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        box-sizing: border-box;
     }
-    .mc-title {
-        font-size: 12px;
+
+    /* Трохи щільніше розкласти елементи на телефонах */
+    .mc-toolbar-inner {
+        gap: 6px;
+    }
+
+    .mc-grid-head {
+        gap: 2px;
+    }
+
+    .mc-grid-body {
+        gap: 2px;
+    }
+
+    .mc-cell {
+        padding: 6px;
     }
 
     .mc-daynum {
         font-size: 12px;
     }
 
-    .mc-event .mc-title {
-        font-size: 12px;
-    }
-
-    .mc-event .mc-time {
-        font-size: 12px;
+    .mc-count {
+        top: 4px;
+        right: 4px;
+        font-size: 9px;
     }
 }
+
+/*@media (max-width: 600px) {*/
+/*    #cal-root {*/
+/*        padding: 0;*/
+/*        margin: 0;*/
+/*    }*/
+/*    .mc-toolbar-inner {*/
+/*        gap: 6px;*/
+/*        padding: 5px;*/
+/*    }*/
+/*    .mc-grid-head {*/
+/*        padding: 0 5px;*/
+/*    }*/
+/*    .mc-grid-body {*/
+/*        padding: 0 5px 5px 5px;*/
+/*    }*/
+/*    !* за потреби звузити внутрішні поля елементів *!*/
+/*    .mc-event {*/
+/*        padding: 3px 5px;*/
+/*    }*/
+/*}*/
+
+/* Маленькі екрани — зменшуємо шрифти і поля */
+/*@media (max-width: 480px) {*/
+/*    #cal-root {*/
+/*        padding: 0;*/
+/*    }*/
+/*    .mc-title {*/
+/*        font-size: 12px;*/
+/*    }*/
+
+/*    .mc-daynum {*/
+/*        font-size: 12px;*/
+/*    }*/
+
+/*    .mc-event .mc-title {*/
+/*        font-size: 12px;*/
+/*    }*/
+
+/*    .mc-event .mc-time {*/
+/*        font-size: 12px;*/
+/*    }*/
+/*}*/

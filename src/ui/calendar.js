@@ -2,12 +2,12 @@
 (function () {
     function log(...args) {
         console.log('[MyCalendar UI]', ...args);
-        const box = document.getElementById('mc-log');
-        if (box) {
-            const line = document.createElement('div');
-            line.textContent = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
-            box.appendChild(line);
-        }
+        // const box = document.getElementById('mc-log');
+        // if (box) {
+        //     const line = document.createElement('div');
+        //     line.textContent = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
+        //     box.appendChild(line);
+        // }
     }
 
     function init() {
@@ -406,6 +406,8 @@
 
             // Launch
             drawMonth();
+
+            renderDayEvents(localMidnightTs(new Date()));
 
             log('init done');
         } catch (e) {

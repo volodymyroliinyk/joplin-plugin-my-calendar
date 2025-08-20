@@ -19,8 +19,12 @@
 
         j.plugins.register({
             onStart: async () => {
-                console.log('[MyCalendar] onStart (runner)');
-                await runPlugin(j);
+                try {
+                    console.log('[MyCalendar] onStart (runner)');
+                    await runPlugin(j);
+                } catch (e) {
+                    console.error('[MyCalendar] onStart error (caught):', e);
+                }
             },
         });
     } catch (e) {
