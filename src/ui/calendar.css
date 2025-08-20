@@ -117,8 +117,11 @@ html, body {
 
 /* Маленькі екрани — зменшуємо шрифти і поля */
 @media (max-width: 480px) {
+    #cal-root {
+        padding: 0;
+    }
     .mc-title {
-        font-size: 14px;
+        font-size: 12px;
     }
 
     .mc-daynum {
