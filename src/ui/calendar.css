@@ -116,7 +116,7 @@ html, body {
 }
 
 .calendar-nav-btn {
-    color: #fff !important; /* make the text white */
+    color: var(--joplin-color) !important; /* make the text white */
     background: transparent; /* The background is transparent */
     border: none;
     font-size: 12px;
@@ -175,46 +175,3 @@ html, body {
         font-size: 9px;
     }
 }
-
-/*@media (max-width: 600px) {*/
-/*    #cal-root {*/
-/*        padding: 0;*/
-/*        margin: 0;*/
-/*    }*/
-/*    .mc-toolbar-inner {*/
-/*        gap: 6px;*/
-/*        padding: 5px;*/
-/*    }*/
-/*    .mc-grid-head {*/
-/*        padding: 0 5px;*/
-/*    }*/
-/*    .mc-grid-body {*/
-/*        padding: 0 5px 5px 5px;*/
-/*    }*/
-/*    !* за потреби звузити внутрішні поля елементів *!*/
-/*    .mc-event {*/
-/*        padding: 3px 5px;*/
-/*    }*/
-/*}*/
-
-/* Маленькі екрани — зменшуємо шрифти і поля */
-/*@media (max-width: 480px) {*/
-/*    #cal-root {*/
-/*        padding: 0;*/
-/*    }*/
-/*    .mc-title {*/
-/*        font-size: 12px;*/
-/*    }*/
-
-/*    .mc-daynum {*/
-/*        font-size: 12px;*/
-/*    }*/
-
-/*    .mc-event .mc-title {*/
-/*        font-size: 12px;*/
-/*    }*/
-
-/*    .mc-event .mc-time {*/
-/*        font-size: 12px;*/
-/*    }*/
-/*}*/
