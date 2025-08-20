@@ -177,6 +177,7 @@ function buildICS(events: Occurrence[], prodId = '-//MyCalendar//Joplin//EN'){
         lines.push(`DTSTART:${fmtICS(ev.startUtc)}`);
         if (ev.endUtc) lines.push(`DTEND:${fmtICS(ev.endUtc)}`);
         lines.push(`SUMMARY:${icsEscape(ev.title || 'Event')}`);
+        if (ev.location) lines.push(`LOCATION:${icsEscape(ev.location)}`);
         if (ev.desc) lines.push(`DESCRIPTION:${icsEscape(ev.desc)}`);
         if (ev.color) lines.push(`X-COLOR:${icsEscape(ev.color)}`);
         lines.push('END:VEVENT');
