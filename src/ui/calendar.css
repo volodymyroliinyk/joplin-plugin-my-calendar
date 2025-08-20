@@ -102,3 +102,14 @@ html, body {
     display: none;
 }
 
+.calendar-nav-btn {
+    color: white !important; /* робимо текст білим */
+    background: transparent; /* фон прозорий */
+    border: none; /* без рамки */
+    font-size: 14px; /* можна підрегулювати */
+    cursor: pointer;
+}
+
+.calendar-nav-btn:hover {
+    color: #ddd !important; /* світліший при наведенні */
+}

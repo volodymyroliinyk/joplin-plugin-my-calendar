@@ -167,6 +167,7 @@
                 b.title = title;
                 b.textContent = text;
                 b.addEventListener('click', onClick);
+                b.classList.add('calendar-nav-btn');
                 return b;
             }
 
