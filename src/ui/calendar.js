@@ -2,12 +2,12 @@
 (function () {
     function log(...args) {
         console.log('[MyCalendar UI]', ...args);
-        // const box = document.getElementById('mc-log');
-        // if (box) {
-        //     const line = document.createElement('div');
-        //     line.textContent = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
-        //     box.appendChild(line);
-        // }
+        const box = document.getElementById('mc-log');
+        if (box) {
+            const line = document.createElement('div');
+            line.textContent = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
+            box.appendChild(line);
+        }
     }
 
     function init() {
@@ -49,15 +49,18 @@
 
 
             const $toolbar = () => document.getElementById('mc-toolbar');
-            const $grid    = () => document.getElementById('mc-grid');
-            const $elist   = () => document.getElementById('mc-events-list');
+            const $grid = () => document.getElementById('mc-grid');
+            const $elist = () => document.getElementById('mc-events-list');
 
             let current = startOfMonthLocal(new Date());
             let selectedDayUtc = localMidnightTs(new Date());
 
-            let rangeEvents = [];
+            // Події, отримані для поточного діапазону календарної сітки (42 дні)
+            let gridEvents = [];
 
-            function pad2(n){ return String(n).padStart(2,'0'); }
+            function pad2(n) {
+                return String(n).padStart(2, '0');
+            }
 
             function toMidnightUTC(d) {
                 return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0);
@@ -80,10 +83,10 @@
 
 
             function startOfCalendarGrid(monthUtcDate) {
-                const y=monthUtcDate.getUTCFullYear(), m=monthUtcDate.getUTCMonth();
-                const d=new Date(Date.UTC(y,m,1,0,0,0));
-                const wd=(d.getUTCDay()+6)%7; // Mon=0
-                return new Date(d.getTime() - wd*24*3600*1000);
+                const y = monthUtcDate.getUTCFullYear(), m = monthUtcDate.getUTCMonth();
+                const d = new Date(Date.UTC(y, m, 1, 0, 0, 0));
+                const wd = (d.getUTCDay() + 6) % 7; // Mon=0
+                return new Date(d.getTime() - wd * 24 * 3600 * 1000);
             }
 
             function endOfCalendarGrid(monthUtcDate) {
@@ -135,7 +138,7 @@
 
                 if (msg.name === 'rangeEvents') {
                     log('got rangeEvents:', (msg.events || []).length);
-                    rangeEvents = msg.events || [];
+                    gridEvents = msg.events || [];
                     paintGrid();
                     renderDayEvents(selectedDayUtc);
                     return;
@@ -143,7 +146,6 @@
 
                 if (msg.name === 'showEvents') {
                     log('got showEvents:', (msg.events || []).length);
-                    rangeEvents = msg.events || rangeEvents;
                     renderDayEvents(msg.dateUtc);
                     return;
                 }
@@ -197,7 +199,10 @@
                 title.className = 'mc-title';
                 title.textContent = monthLabel(current);
 
-                wrap.appendChild(btnPrev); wrap.appendChild(btnToday); wrap.appendChild(btnNext); wrap.appendChild(title);
+                wrap.appendChild(btnPrev);
+                wrap.appendChild(btnToday);
+                wrap.appendChild(btnNext);
+                wrap.appendChild(title);
                 root.appendChild(wrap);
             }
 
@@ -226,7 +231,7 @@
                 //If for 1200ms did not come rageevents - repeat once
                 if (rangeRequestTimer) clearTimeout(rangeRequestTimer);
                 rangeRequestTimer = setTimeout(() => {
-                    if (!Array.isArray(rangeEvents) || rangeEvents.length === 0) {
+                    if (!Array.isArray(gridEvents) || gridEvents.length === 0) {
                         log('rangeEvents timeout — retrying once');
                         if (window.webviewApi?.postMessage) {
                             window.webviewApi.postMessage({
@@ -314,7 +319,7 @@
                 return new Date(ts).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', hour12: false});
             }
 
-            function paintGrid(){
+            function paintGrid() {
                 const body = document.querySelector('#mc-grid .mc-grid-body');
                 if (!body) return;
 
@@ -327,10 +332,14 @@
 
                 // Gather events by day
                 const byDay = new Map(); // dayUtc -> events[]
-                for (const ev of rangeEvents) {
-                    const dayUtc = localMidnightTs(new Date(ev.startUtc));
-                    if (!byDay.has(dayUtc)) byDay.set(dayUtc, []);
-                    byDay.get(dayUtc).push(ev);
+                // for (const ev of rangeEvents) {
+                for (const ev of gridEvents) {
+                    const start = localMidnightTs(new Date(ev.startUtc));
+                    const end = localMidnightTs(new Date(ev.endUtc || ev.startUtc));
+                    for (let ts = start; ts <= end; ts += 24 * 3600 * 1000) {
+                        if (!byDay.has(ts)) byDay.set(ts, []);
+                        byDay.get(ts).push(ev);
+                    }
                 }
 
                 // Auxiliary: Get/create subsidiaries in a cell
@@ -372,13 +381,25 @@
                 });
             }
 
-
-            function renderDayEvents(dayStartUtc){
+            function renderDayEvents(dayStartUtc) {
                 const ul = $elist();
                 if (!ul) return;
                 ul.innerHTML = '';
-                const dayEndUtc=dayStartUtc+24*3600*1000-1;
-                const dayEvents=rangeEvents.filter(e=>e.startUtc>=dayStartUtc && e.startUtc<=dayEndUtc).sort((a,b)=>a.startUtc-b.startUtc);
+                const dayEndUtc = dayStartUtc + 24 * 3600 * 1000 - 1;
+
+                if (!Array.isArray(gridEvents) || gridEvents.length === 0) {
+                    log('source EMPTY — gridEvents not ready yet');
+                    return;
+                }
+                const source = gridEvents;
+                log('source LENGTH', source.length);
+                // Подія належить дню, якщо інтервал [start,end] ПЕРЕТИНАЄ [dayStart, dayEnd]
+                const dayEvents = source
+                    .filter(e => {
+                        const s = e.startUtc;
+                        const eEnd = (e.endUtc ?? e.startUtc);
+                        return s <= dayEndUtc && eEnd >= dayStartUtc;
+                    })
 
                 log('renderDayEvents', new Date(dayStartUtc).toISOString().slice(0, 10), 'count=', dayEvents.length);
 
@@ -390,26 +411,34 @@
                     return;
                 }
 
-                for (const ev of dayEvents){
-                    const li=document.createElement('li'); li.className='mc-event';
-                    const color=document.createElement('span'); color.className='mc-color'; color.style.background=ev.color||'#2d7ff9';
+                for (const ev of dayEvents) {
+                    const li = document.createElement('li');
+                    li.className = 'mc-event';
+                    const color = document.createElement('span');
+                    color.className = 'mc-color';
+                    color.style.background = ev.color || '#2d7ff9';
                     const title = document.createElement('span');
                     title.className = 'mc-title';
                     title.textContent = ev.title || '(without a title)';
                     const t = document.createElement('span');
                     t.className = 'mc-time';
-                    const label = ev.endUtc ? `${fmtHM(ev.startUtc)}–${fmtHM(ev.endUtc)}` : fmtHM(ev.startUtc);
+                    const label = ev.endUtc
+                        ? `${fmtHM(ev.startUtc)}–${fmtHM(ev.endUtc)}`
+                        : fmtHM(ev.startUtc);
                     t.textContent = label;
-                    li.appendChild(color); li.appendChild(title); li.appendChild(t);
-                    li.addEventListener('click', ()=>{ window.webviewApi?.postMessage?.({ name:'openNote', id: ev.id }); });
+                    li.appendChild(color);
+                    li.appendChild(title);
+                    li.appendChild(t);
+                    li.addEventListener('click', () => {
+                        window.webviewApi?.postMessage?.({name: 'openNote', id: ev.id});
+                    });
                     ul.appendChild(li);
                 }
             }
 
+
             // Launch
             drawMonth();
-
-            renderDayEvents(localMidnightTs(new Date()));
 
             log('init done');
         } catch (e) {
