@@ -10,5 +10,7 @@
     "desktop",
     "mobile"
   ],
-  "permissions": ["notes"]
+  "permissions": [
+    "notes"
+  ]
 }

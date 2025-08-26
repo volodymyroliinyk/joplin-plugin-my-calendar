@@ -1,6 +1,6 @@
 // src/main/pluginMain.ts
-import { createCalendarPanel } from '../calendarView';
-import { parseEventsFromBody, EventInput } from '../eventParser';
+import {createCalendarPanel} from '../calendarView';
+import {parseEventsFromBody, EventInput} from '../eventParser';
 
 const eventCacheByNote = new Map<string, EventInput[]>();
 let allEventsCache: EventInput[] | null = null;
@@ -11,13 +11,13 @@ async function rebuildAllEventsCache(joplin: any) {
     rebuilding = true;
     try {
         console.log('[MyCalendar] rebuildAllEventsCache: start');
-        const fields = ['id','title','body'];
+        const fields = ['id', 'title', 'body'];
         const items: any[] = [];
         let page = 1;
         eventCacheByNote.clear();
 
         while (true) {
-            const res = await joplin.data.get(['notes'], { fields, page, limit: 100 });
+            const res = await joplin.data.get(['notes'], {fields, page, limit: 100});
             items.push(...res.items);
             if (!res.has_more) break;
             page++;
@@ -49,7 +49,7 @@ function invalidateNote(noteId: string) {
     allEventsCache = null;
 }
 
-const DAY_MS = 24*60*60*1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
 type Occurrence = EventInput & { occurrenceId: string; startUtc: number; endUtc?: number };
 
 function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number): Occurrence[] {
@@ -58,14 +58,14 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
         if (start > toUtc) return false;
         const end = dur ? start + dur : start;
         if (end < fromUtc) return true;
-        out.push({ ...ev, occurrenceId: `${ev.id}#${start}`, startUtc: start, endUtc: dur ? end : undefined });
+        out.push({...ev, occurrenceId: `${ev.id}#${start}`, startUtc: start, endUtc: dur ? end : undefined});
         return true;
     };
 
     if (ev.repeat === 'none') {
         const end = ev.endUtc ?? ev.startUtc;
         if (end < fromUtc || ev.startUtc > toUtc) return [];
-        return [{ ...ev, occurrenceId: `${ev.id}#${ev.startUtc}` }];
+        return [{...ev, occurrenceId: `${ev.id}#${ev.startUtc}`}];
     }
 
     const out: Occurrence[] = [];
@@ -77,10 +77,10 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
 
     if (ev.repeat === 'daily') {
         let k = Math.floor((fromUtc - ev.startUtc) / (DAY_MS * step));
-        if (ev.startUtc + k*step*DAY_MS < fromUtc) k++;
+        if (ev.startUtc + k * step * DAY_MS < fromUtc) k++;
         if (k < 0) k = 0;
-        for (;;k++) {
-            const start = ev.startUtc + k*step*DAY_MS;
+        for (; ; k++) {
+            const start = ev.startUtc + k * step * DAY_MS;
             if (start > until) break;
             if (!push(start, out)) break;
         }
@@ -91,18 +91,18 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
         const baseWd = (base.getUTCDay() + 6) % 7; // Mon=0
         const list = ev.byWeekdays && ev.byWeekdays.length ? ev.byWeekdays : [baseWd];
         const baseMidnight = Date.UTC(baseY, baseM, baseD);
-        const mondayOfBase = baseMidnight - baseWd*DAY_MS;
+        const mondayOfBase = baseMidnight - baseWd * DAY_MS;
         const timeOfDayOffset = ev.startUtc - baseMidnight;
 
-        let weekIndex = Math.floor((fromUtc - mondayOfBase) / (7*DAY_MS*step));
-        if (mondayOfBase + weekIndex*7*DAY_MS*step + (list[0]*DAY_MS) + timeOfDayOffset < fromUtc) weekIndex++;
+        let weekIndex = Math.floor((fromUtc - mondayOfBase) / (7 * DAY_MS * step));
+        if (mondayOfBase + weekIndex * 7 * DAY_MS * step + (list[0] * DAY_MS) + timeOfDayOffset < fromUtc) weekIndex++;
         if (weekIndex < 0) weekIndex = 0;
 
-        for (;;weekIndex++) {
-            const weekStart = mondayOfBase + weekIndex*7*DAY_MS*step;
+        for (; ; weekIndex++) {
+            const weekStart = mondayOfBase + weekIndex * 7 * DAY_MS * step;
             if (weekStart > until) break;
             for (const wd of list) {
-                const start = weekStart + wd*DAY_MS + timeOfDayOffset;
+                const start = weekStart + wd * DAY_MS + timeOfDayOffset;
                 if (start > until) continue;
                 const keep = push(start, out);
                 if (!keep) break;
@@ -116,16 +116,19 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
         const dom = ev.byMonthDay ?? baseD;
         let y = baseY, m = baseM;
         let cursor = Date.UTC(y, m, dom, baseH, baseMin, baseS);
-        while (cursor < ev.startUtc) { m += 1; cursor = Date.UTC(y + Math.floor(m/12), (m%12+12)%12, dom, baseH, baseMin, baseS); }
-        for (;;) {
+        while (cursor < ev.startUtc) {
+            m += 1;
+            cursor = Date.UTC(y + Math.floor(m / 12), (m % 12 + 12) % 12, dom, baseH, baseMin, baseS);
+        }
+        for (; ;) {
             if (cursor > until) break;
             const cd = new Date(cursor);
-            const daysInMonth = new Date(Date.UTC(cd.getUTCFullYear(), cd.getUTCMonth()+1, 0)).getUTCDate();
+            const daysInMonth = new Date(Date.UTC(cd.getUTCFullYear(), cd.getUTCMonth() + 1, 0)).getUTCDate();
             if (dom <= daysInMonth) {
                 if (!push(cursor, out)) break;
             }
             m += step;
-            cursor = Date.UTC(y + Math.floor(m/12), (m%12+12)%12, dom, baseH, baseMin, baseS);
+            cursor = Date.UTC(y + Math.floor(m / 12), (m % 12 + 12) % 12, dom, baseH, baseMin, baseS);
             if (cursor > toUtc && cursor > until) break;
         }
         return out;
@@ -134,12 +137,18 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
     if (ev.repeat === 'yearly') {
         let y = baseY;
         let cursor = Date.UTC(y, baseM, baseD, baseH, baseMin, baseS);
-        while (cursor < ev.startUtc) { y += 1; cursor = Date.UTC(y, baseM, baseD, baseH, baseMin, baseS); }
-        while (cursor < fromUtc) { y += (step || 1); cursor = Date.UTC(y, baseM, baseD, baseH, baseMin, baseS); }
-        for (;;){
+        while (cursor < ev.startUtc) {
+            y += 1;
+            cursor = Date.UTC(y, baseM, baseD, baseH, baseMin, baseS);
+        }
+        while (cursor < fromUtc) {
+            y += (step || 1);
+            cursor = Date.UTC(y, baseM, baseD, baseH, baseMin, baseS);
+        }
+        for (; ;) {
             if (cursor > until) break;
             const dt = new Date(cursor);
-            const daysInMonth = new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth()+1, 0)).getUTCDate();
+            const daysInMonth = new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth() + 1, 0)).getUTCDate();
             if (baseD <= daysInMonth) {
                 if (!push(cursor, out)) break;
             }
@@ -160,16 +169,23 @@ function expandAllInRange(evs: EventInput[], fromUtc: number, toUtc: number) {
     return out;
 }
 
-function pad2(n: number){ return String(n).padStart(2,'0'); }
-function fmtICS(tsUtc: number){
+function pad2(n: number) {
+    return String(n).padStart(2, '0');
+}
+
+function fmtICS(tsUtc: number) {
     const d = new Date(tsUtc);
-    return d.getUTCFullYear().toString() + pad2(d.getUTCMonth()+1) + pad2(d.getUTCDate()) +
+    return d.getUTCFullYear().toString() + pad2(d.getUTCMonth() + 1) + pad2(d.getUTCDate()) +
         'T' + pad2(d.getUTCHours()) + pad2(d.getUTCMinutes()) + pad2(d.getUTCSeconds()) + 'Z';
 }
-function icsEscape(s: string){ return (s||'').replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n'); }
-function buildICS(events: Occurrence[], prodId = '-//MyCalendar//Joplin//EN'){
-    const lines = ['BEGIN:VCALENDAR','VERSION:2.0',`PRODID:${prodId}`,'CALSCALE:GREGORIAN'];
-    for (const ev of events){
+
+function icsEscape(s: string) {
+    return (s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+}
+
+function buildICS(events: Occurrence[], prodId = '-//MyCalendar//Joplin//EN') {
+    const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', `PRODID:${prodId}`, 'CALSCALE:GREGORIAN'];
+    for (const ev of events) {
         const uid = ev.occurrenceId || `${ev.id}@mycalendar`;
         lines.push('BEGIN:VEVENT');
         lines.push(`UID:${icsEscape(uid)}`);
@@ -217,8 +233,12 @@ export default async function runPlugin(joplin: any) {
         console.error('[MyCalendar] ensureAllEventsCache error:', err);
     }
 
-    await joplin.workspace.onNoteChange(async ({ id }: { id?: string }) => { if (id) invalidateNote(id); });
-    await joplin.workspace.onSyncComplete(async () => { allEventsCache = null; });
+    await joplin.workspace.onNoteChange(async ({id}: { id?: string }) => {
+        if (id) invalidateNote(id);
+    });
+    await joplin.workspace.onSyncComplete(async () => {
+        allEventsCache = null;
+    });
 
     await joplin.views.panels.onMessage(panel, async (msg: any) => {
         try {
@@ -234,7 +254,7 @@ export default async function runPlugin(joplin: any) {
                 const all = await ensureAllEventsCache(joplin);
                 const list = expandAllInRange(all, msg.fromUtc, msg.toUtc);
                 console.log('[MyCalendar] sending rangeEvents count=', list.length, 'range=', new Date(msg.fromUtc).toISOString(), '→', new Date(msg.toUtc).toISOString());
-                await joplin.views.panels.postMessage(panel, { name: 'rangeEvents', events: list });
+                await joplin.views.panels.postMessage(panel, {name: 'rangeEvents', events: list});
                 return;
             }
 
@@ -245,7 +265,7 @@ export default async function runPlugin(joplin: any) {
                 const list = expandAllInRange(all, dayStart, dayEnd)
                     .filter(e => e.startUtc >= dayStart && e.startUtc <= dayEnd);
                 console.log('[MyCalendar] sending showEvents count=', list.length, 'for', new Date(dayStart).toISOString().slice(0, 10));
-                await joplin.views.panels.postMessage(panel, { name: 'showEvents', dateUtc: msg.dateUtc, events: list });
+                await joplin.views.panels.postMessage(panel, {name: 'showEvents', dateUtc: msg.dateUtc, events: list});
                 return;
             }
 

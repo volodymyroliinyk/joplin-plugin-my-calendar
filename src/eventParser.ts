@@ -27,18 +27,20 @@ type EventInput = {
 const EVENT_BLOCK_RE = /(?:^|\r?\n)[ \t]*```mycalendar-event[ \t]*\r?\n([\s\S]*?)\r?\n[ \t]*```(?=\r?\n|$)/g;
 
 // Map: MO..SU -> 0..6 (Mon..Sun)
-const WD_MAP: Record<string, number> = { MO:0, TU:1, WE:2, TH:3, FR:4, SA:5, SU:6 };
+const WD_MAP: Record<string, number> = {MO: 0, TU: 1, WE: 2, TH: 3, FR: 4, SA: 5, SU: 6};
 
 function parseKeyVal(line: string): [string, string] | null {
     const m = line.match(/^\s*([a-zA-Z_]+)\s*:\s*(.+)\s*$/);
     return m ? [m[1].toLowerCase(), m[2]] : null;
 }
+
 function parseByWeekdays(v: string): number[] | undefined {
     const arr = v.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
     const out: number[] = [];
     for (const t of arr) if (t in WD_MAP) out.push(WD_MAP[t]);
     return out.length ? out : undefined;
 }
+
 function parseIntSafe(v?: string): number | undefined {
     const n = v ? parseInt(v, 10) : NaN;
     return Number.isFinite(n) && n >= 1 ? n : undefined;
@@ -64,11 +66,11 @@ function parseDateTimeToUTC(text: string, tz?: string): number | null {
             year: 'numeric', month: '2-digit', day: '2-digit',
             hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
         });
-        const parts = fmt.formatToParts(local).reduce<Record<string,string>>((a, p) => {
+        const parts = fmt.formatToParts(local).reduce<Record<string, string>>((a, p) => {
             if (p.type !== 'literal') a[p.type] = p.value;
             return a;
         }, {});
-        const y = Number(parts.year), m = Number(parts.month)-1, d = Number(parts.day);
+        const y = Number(parts.year), m = Number(parts.month) - 1, d = Number(parts.day);
         const hh = Number(parts.hour), mm = Number(parts.minute), ss = Number(parts.second);
         return Date.UTC(y, m, d, hh, mm, ss);
     } catch {
@@ -114,7 +116,7 @@ export function parseEventsFromBody(noteId: string, titleFallback: string, body:
 
             else if (k === 'repeat') {
                 const val = v.toLowerCase();
-                repeat = (['daily','weekly','monthly','yearly'].includes(val) ? val : 'none') as RepeatFreq;
+                repeat = (['daily', 'weekly', 'monthly', 'yearly'].includes(val) ? val : 'none') as RepeatFreq;
             } else if (k === 'repeat_interval') {
                 const n = parseIntSafe(v);
                 if (n) repeatInterval = n;
@@ -160,4 +162,4 @@ export function parseEventsFromBody(noteId: string, titleFallback: string, body:
     return out;
 }
 
-export type { EventInput, RepeatFreq };
+export type {EventInput, RepeatFreq};
