@@ -220,7 +220,7 @@ export default async function runPlugin(joplin: any) {
                     await panelsAny.focus(panel);
                 }
             } catch (err) {
-                // На мобілці метод відсутній — це очікувано
+                // The mobile method is missing - it's expected
                 console.log('[MyCalendar] panels.focus not available on this platform');
             }
         },
@@ -295,13 +295,75 @@ export default async function runPlugin(joplin: any) {
     });
 
     await joplin.views.panels.show(panel);
+
+    await registerDesktopToggle(joplin, panel);
     try {
         const panelsAny = (joplin as any).views?.panels;
         if (panelsAny && typeof panelsAny.focus === 'function') {
             await panelsAny.focus(panel);
         }
     } catch (err) {
-        // На мобілці метод відсутній — це очікувано
+        // On the mobil the method is missing - it's expected
         console.log('[MyCalendar] panels.focus not available on this platform');
     }
 }
+
+// === MyCalendar: safe desktop toggle helper ===
+async function registerDesktopToggle(joplin: any, panelId: string) {
+    try {
+        const canShow = !!joplin?.views?.panels?.show;
+        const canHide = !!joplin?.views?.panels?.hide;
+        const canMenu = !!joplin?.views?.menuItems?.create;
+
+        console.info('[MyCalendar] toggle: capabilities', {canShow, canHide, canMenu, panelId});
+
+        if (!canShow || !canHide) {
+            console.info('[MyCalendar] toggle: panels.show/hide not available — skip');
+            return;
+        }
+
+        let mycalendarVisible = true;
+
+        // 3.1 toggle  command
+        await joplin.commands.register({
+            name: 'mycalendar.togglePanel',
+            label: 'Toggle MyCalendar panel',
+            execute: async () => {
+                try {
+                    if (!panelId) return;
+                    if (mycalendarVisible) {
+                        // on Desktop there is Hide (); on Mobile there is no - just do nothing
+                        if (joplin.views?.panels?.hide) {
+                            await joplin.views.panels.hide(panelId);
+                        }
+                        mycalendarVisible = false;
+
+                        console.log('[MyCalendar] toggle Hide');
+                    } else {
+                        await joplin.views.panels.show(panelId);
+                        // We do not call Focus () - on Mobile of this method there is no → were errors in the lounges
+                        mycalendarVisible = true;
+                        console.log('[MyCalendar] toggle Show');
+                    }
+                } catch (e) {
+                    console.log('[MyCalendar] toggle error', e);
+                }
+            },
+        });
+
+        try {
+            await joplin.views.menuItems.create(
+                'mycalendarToggleMenu',
+                'mycalendar.togglePanel',
+                'view'
+            );
+            console.log('[MyCalendar] toggle menu item registered');
+        } catch (e) {
+            console.log('[MyCalendar] menu create failed (non-fatal):', e);
+        }
+
+    } catch (e) {
+        console.warn('[MyCalendar] registerDesktopToggle failed (non-fatal):', e);
+    }
+}
+
