@@ -55,7 +55,7 @@
             let current = startOfMonthLocal(new Date());
             let selectedDayUtc = localMidnightTs(new Date());
 
-            // Події, отримані для поточного діапазону календарної сітки (42 дні)
+            // Events received for the current range of calendar grid (42 days)
             let gridEvents = [];
 
             function pad2(n) {
@@ -393,7 +393,7 @@
                 }
                 const source = gridEvents;
                 log('source LENGTH', source.length);
-                // Подія належить дню, якщо інтервал [start,end] ПЕРЕТИНАЄ [dayStart, dayEnd]
+                // The event belongs to the day if the interval [Start, end] intersects [daystart, daynd]
                 const dayEvents = source
                     .filter(e => {
                         const s = e.startUtc;

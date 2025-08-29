@@ -230,7 +230,7 @@ html, body {
 }
 
 @media (pointer: coarse) and (hover: none) {
-    /* Розтягнути на всю ширину панелі, скинути поля */
+    /* Stretch the entire width of the panel, drop the fields */
     #cal-root {
         margin: 0 !important;
         padding: 0 !important;
@@ -239,7 +239,7 @@ html, body {
         box-sizing: border-box;
     }
 
-    /* Трохи щільніше розкласти елементи на телефонах */
+    /* A little denser to spread the items on the phones */
     .mc-toolbar-inner {
         gap: 6px;
     }
