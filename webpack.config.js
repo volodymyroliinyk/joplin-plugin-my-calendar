@@ -28,7 +28,7 @@ module.exports = {
         new CopyWebpackPlugin({
             patterns: [
                 { from: 'src/manifest.json', to: 'manifest.json' },
-                { from: 'src/ui', to: 'ui' }, // calendar.js, calendar.css
+                {from: 'src/ui', to: 'ui'}, // calendar.js, calendar.css icalImport.js
             ],
         }),
     ],
