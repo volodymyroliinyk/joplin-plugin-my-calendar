@@ -105,40 +105,40 @@
         );
 
         // 3) Absolute path (desktop)
-        const pathInput = el("input", {
-            id: "ical-path",
-            type: "text",
-            placeholder: "Absolute path to .ics (desktop only)",
-            style:
-                "flex:1; padding:6px; border:1px solid var(--joplin-divider-color);" +
-                "background:var(--joplin-background-color); color:var(--joplin-color);"
-        });
+        // const pathInput = el("input", {
+        //     id: "ical-path",
+        //     type: "text",
+        //     placeholder: "Absolute path to .ics (desktop only)",
+        //     style:
+        //         "flex:1; padding:6px; border:1px solid var(--joplin-divider-color);" +
+        //         "background:var(--joplin-background-color); color:var(--joplin-color);"
+        // });
 
-        const btnImportPath = el(
-            "button",
-            {
-                style: "padding:6px 10px;", onclick: async () => {
-                    const raw = pathInput.value;
-                    const p = normPath(raw);
-                    log("Importing via PATH… initialized");
-                    log("Path (raw):", raw);
-                    log("Path (normalized):", p);
-                    if (!p) return log("Path is empty.");
-                    window.webviewApi?.postMessage?.({name: "icalImport", mode: "file", path: p});
-                }
-            },
-            ["Import path"]
-        );
+        // const btnImportPath = el(
+        //     "button",
+        //     {
+        //         style: "padding:6px 10px;", onclick: async () => {
+        //             const raw = pathInput.value;
+        //             const p = normPath(raw);
+        //             log("Importing via PATH… initialized");
+        //             log("Path (raw):", raw);
+        //             log("Path (normalized):", p);
+        //             if (!p) return log("Path is empty.");
+        //             window.webviewApi?.postMessage?.({name: "icalImport", mode: "file", path: p});
+        //         }
+        //     },
+        //     ["Import path"]
+        // );
 
         const rowFile = el("div", {style: "display:flex; gap:8px; align-items:center; margin:8px 0;"}, [
             fileInput,
             btnImportFile
         ]);
 
-        const rowPath = el("div", {style: "display:flex; gap:8px; align-items:center; margin:8px 0;"}, [
-            pathInput,
-            btnImportPath
-        ]);
+        // const rowPath = el("div", {style: "display:flex; gap:8px; align-items:center; margin:8px 0;"}, [
+        //     pathInput,
+        //     btnImportPath
+        // ]);
 
         const rowTextBtn = el("div", {style: "display:flex; gap:8px; align-items:center; margin:8px 0;"}, [
             btnImportText
@@ -154,8 +154,8 @@
         root.appendChild(el("div", {style: "font-weight:600;margin-top:10px"}, ["File picker (recommended)"]));
         root.appendChild(rowFile);
 
-        root.appendChild(el("div", {style: "font-weight:600;margin-top:10px"}, ["Absolute path (desktop)"]));
-        root.appendChild(rowPath);
+        // root.appendChild(el("div", {style: "font-weight:600;margin-top:10px"}, ["Absolute path (desktop)"]));
+        // root.appendChild(rowPath);
 
         root.appendChild(el("div", {style: "font-weight:600;margin-top:10px"}, ["Debug log"]));
         root.appendChild(logBox);

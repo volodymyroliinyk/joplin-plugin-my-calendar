@@ -232,7 +232,7 @@
                 if (rangeRequestTimer) clearTimeout(rangeRequestTimer);
                 rangeRequestTimer = setTimeout(() => {
                     if (!Array.isArray(gridEvents) || gridEvents.length === 0) {
-                        log('rangeEvents timeout — retrying once');
+                        log('rangeEvents timeout - retrying once');
                         if (window.webviewApi?.postMessage) {
                             window.webviewApi.postMessage({
                                 name: 'requestRangeEvents',
@@ -388,7 +388,7 @@
                 const dayEndUtc = dayStartUtc + 24 * 3600 * 1000 - 1;
 
                 if (!Array.isArray(gridEvents) || gridEvents.length === 0) {
-                    log('source EMPTY — gridEvents not ready yet');
+                    log('source EMPTY - gridEvents not ready yet');
                     return;
                 }
                 const source = gridEvents;

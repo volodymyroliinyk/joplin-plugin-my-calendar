@@ -70,7 +70,7 @@ function veventToMyCalendarBlock(v: VeEvent): { title: string; body: string } {
         const r = parseRRule(v.RRULE);
         if (r.freq) repeat = r.freq; // daily|weekly|monthly|yearly
         if (r.interval) repeat_interval = r.interval;
-        if (r.until) repeat_until = r.until; // ми дозволимо у вихідному форматі — парсер уже вміє
+        if (r.until) repeat_until = r.until; // ми дозволимо у вихідному форматі - парсер уже вміє
         if (r.byday && r.byday.length) byweekday = r.byday.join(',');
         if (typeof r.bymonthday === 'number') bymonthday = r.bymonthday;
     }
@@ -120,7 +120,7 @@ function parseIcsToVevents(ics: string): VeEvent[] {
         const kv = L.split(':');
         if (kv.length < 2) continue;
         const keyAndParams = kv.shift()!;
-        const value = kv.join(':'); // якщо ":" всередині — зберігаємо
+        const value = kv.join(':'); // якщо ":" всередині - зберігаємо
 
         const [keyRaw, ...params] = keyAndParams.split(';');
         const key = keyRaw.toUpperCase();
@@ -441,11 +441,11 @@ export default async function runPlugin(joplin: any) {
         // Команда для відкриття/фокусу панелі імпорту
         await joplin.commands.register({
             name: 'mycalendar.openIcalImport',
-            label: 'Open MyCalendar — ICS import',
+            label: 'Open MyCalendar - ICS import',
             execute: async () => {
                 if (importPanelId) {
                     await joplin.views.panels.show(importPanelId);
-                    // focus може не бути на мобільному — але імпорт ми й так ховаємо на мобілі
+                    // focus може не бути на мобільному - але імпорт ми й так ховаємо на мобілі
                     try {
                         await joplin.views.panels.focus(importPanelId);
                     } catch {
@@ -582,7 +582,7 @@ export default async function runPlugin(joplin: any) {
         });
 
     } catch (e) {
-        // Нічого критичного — календар продовжить працювати
+        // Нічого критичного - календар продовжить працювати
         console.warn('[MyCalendar] import panel init failed:', e);
     }
 
@@ -607,7 +607,7 @@ async function registerDesktopToggle(joplin: any, panelId: string) {
         console.info('[MyCalendar] toggle: capabilities', {canShow, canHide, canMenu, panelId});
 
         if (!canShow || !canHide) {
-            console.info('[MyCalendar] toggle: panels.show/hide not available — skip');
+            console.info('[MyCalendar] toggle: panels.show/hide not available - skip');
             return;
         }
 
@@ -687,7 +687,7 @@ async function runIcsImport(joplin: any, icsText: string): Promise<{
             const block = veventToMyCalendarBlock(v);
             const existing = await findNoteByUid(joplin, v.UID || '');
             if (existing) {
-                // оновлюємо: перезаписуємо body повністю (можна зробити обережне оновлення — за бажанням)
+                // оновлюємо: перезаписуємо body повністю (можна зробити обережне оновлення - за бажанням)
                 await joplin.data.put(['notes', existing.id], null, {title: block.title, body: block.body});
                 updated++;
             } else {
@@ -706,7 +706,7 @@ async function runIcsImport(joplin: any, icsText: string): Promise<{
 
     // Попросимо календар перечитати кеш, щоб одразу підтягувався новий/оновлений івент
     try {
-        // якщо у тебе вже є функція інвалідації/ребілду кешу — виклич її тут
+        // якщо у тебе вже є функція інвалідації/ребілду кешу - виклич її тут
         // напр. set l=null; чи rebuildAllEventsCache(); (залишаю як коментар)
         // await ensureAllEventsCache(); // або твоя існуюча логіка
     } catch {
@@ -925,7 +925,7 @@ function buildMyCalBlock(e: IcsEvent): string {
     if (start.tz) lines.push(`tz:    ${start.tz}`);
     if (e.color) lines.push(`color: ${e.color}`);
     if (e.description) {
-        // Багаторядковий desc — ок
+        // Багаторядковий desc - ок
         for (const [i, row] of e.description.split('\n').entries()) {
             lines.push(i === 0 ? `desc:  ${row}` : `       ${row}`);
         }
@@ -995,7 +995,7 @@ async function importIcsIntoNotes(
                 await say(`Updated: ${uid}`);
             } catch (e) {
                 errors++;
-                await say(`ERROR update: ${uid} — ${String((e as any)?.message || e)}`);
+                await say(`ERROR update: ${uid} - ${String((e as any)?.message || e)}`);
             }
         } else {
             try {
@@ -1007,7 +1007,7 @@ async function importIcsIntoNotes(
                 await say(`Added: ${uid}`);
             } catch (e) {
                 errors++;
-                await say(`ERROR add: ${uid} — ${String((e as any)?.message || e)}`);
+                await say(`ERROR add: ${uid} - ${String((e as any)?.message || e)}`);
             }
         }
     }
@@ -1028,7 +1028,7 @@ function replaceEventBlockByUid(body: string, uid: string, newBlock: string): st
     });
     if (changed) return out;
 
-    // Якщо не знайшли — додамо наприкінці
+    // Якщо не знайшли - додамо наприкінці
     return (body ? (body.replace(/\s+$/, '') + '\n\n') : '') + newBlock + '\n';
 }
 
