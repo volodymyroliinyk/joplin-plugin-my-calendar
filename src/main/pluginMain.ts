@@ -475,8 +475,40 @@ export default async function runPlugin(joplin: any) {
                     if (mode === 'text') {
                         ics = typeof message.ics === 'string' ? message.ics : '';
                     } else if (mode === 'file') {
+                        console.log('[MyCalendar] icalImport file');
                         const fs = joplin.require('fs-extra');
-                        const p = String(message.path || '').trim();
+                        const pathMod = joplin.require('path');
+                        const os = joplin.require('os');
+                        const url = joplin.require('url');
+
+                        let p = String(message.path || '').trim();
+
+                        // debug: what we received
+                        console.log('[MyCalendar][ICS][FILE] path(raw)=', p);
+
+                        // remove wrapping quotes
+                        p = p.replace(/^"(.*)"$/, '$1').replace(/^'(.*)'$/, '$1');
+
+                        // support file:// URLs
+                        if (/^file:\/\//i.test(p)) {
+                            try {
+                                p = url.fileURLToPath(p);
+                                console.log('[MyCalendar][ICS][FILE] fileURLToPath =>', p);
+                            } catch (e) {
+                                console.warn('[MyCalendar][ICS][FILE] fileURLToPath failed:', e);
+                            }
+                        }
+
+                        // support ~
+                        if (p.startsWith('~/')) {
+                            p = pathMod.join(os.homedir(), p.slice(2));
+                            console.log('[MyCalendar][ICS][FILE] expand ~ =>', p);
+                        }
+
+                        // normalize
+                        p = pathMod.normalize(p);
+                        console.log('[MyCalendar][ICS][FILE] path(normalized)=', p);
+
                         if (!p) {
                             await joplin.views.panels.postMessage(importPanelId!, {
                                 name: 'importError',
@@ -484,7 +516,40 @@ export default async function runPlugin(joplin: any) {
                             });
                             return;
                         }
-                        ics = await fs.readFile(p, 'utf8');
+
+                        try {
+                            const exists = await fs.pathExists(p);
+                            console.log('[MyCalendar][ICS][FILE] exists=', exists);
+                            if (!exists) {
+                                await joplin.views.panels.postMessage(importPanelId!, {
+                                    name: 'importError',
+                                    error: `File does not exist: ${p}`
+                                });
+                                return;
+                            }
+
+                            const st = await fs.stat(p);
+                            console.log('[MyCalendar][ICS][FILE] stat=', {isFile: st.isFile(), size: st.size});
+
+                            if (!st.isFile()) {
+                                await joplin.views.panels.postMessage(importPanelId!, {
+                                    name: 'importError',
+                                    error: `Not a file: ${p}`
+                                });
+                                return;
+                            }
+
+                            // read
+                            ics = await fs.readFile(p, 'utf8');
+                            console.log('[MyCalendar][ICS][FILE] readFile ok, len=', ics?.length || 0);
+                        } catch (e: any) {
+                            console.error('[MyCalendar][ICS][FILE] read failed:', e);
+                            await joplin.views.panels.postMessage(importPanelId!, {
+                                name: 'importError',
+                                error: `Failed to read file: ${p}\n${String(e?.message || e)}`
+                            });
+                            return;
+                        }
                     } else {
                         await joplin.views.panels.postMessage(importPanelId!, {
                             name: 'importError',
