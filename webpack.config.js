@@ -13,7 +13,7 @@ module.exports = {
     output: {
         path: path.resolve(__dirname, 'dist'),
         filename: '[name].js',
-        libraryTarget: 'commonjs2', // <— key
+        libraryTarget: 'commonjs2', // <- key
         clean: true,
     },
     resolve: {
