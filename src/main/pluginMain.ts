@@ -1,6 +1,11 @@
 // src/main/pluginMain.ts
 import {createCalendarPanel} from '../calendarView';
-import {parseEventsFromBody, EventInput} from '../eventParser';
+import {EventInput} from '../eventParser';
+
+import {ensureAllEventsCache, invalidateNote, invalidateAllEventsCache} from './services/eventsCache';
+import {importIcsIntoNotes} from './services/icsImportService';
+import {registerCalendarPanelController} from './uiBridge/panelController';
+
 
 const eventCacheByNote = new Map<string, EventInput[]>();
 let allEventsCache: EventInput[] | null = null;
@@ -79,7 +84,7 @@ function veventToMyCalendarBlock(v: VeEvent): { title: string; body: string } {
     lines.push('```mycalendar-event');
     lines.push(`uid: ${uid}`);
     lines.push(`title: ${sum}`);
-    if (v.DESCRIPTION) lines.push(`desc: ${v.DESCRIPTION}`);
+    if (v.DESCRIPTION) lines.push(`description: ${v.DESCRIPTION}`);
     if (v['X-COLOR']) lines.push(`color: ${v['X-COLOR']}`);
     if (tzStart) lines.push(`tz: ${tzStart}`);
     lines.push(`start: ${startText}`);
@@ -141,49 +146,6 @@ function parseIcsToVevents(ics: string): VeEvent[] {
     }
 
     return events;
-}
-
-async function rebuildAllEventsCache(joplin: any) {
-    if (rebuilding) return;
-    rebuilding = true;
-    try {
-        console.log('[MyCalendar] rebuildAllEventsCache: start');
-        const fields = ['id', 'title', 'body'];
-        const items: any[] = [];
-        let page = 1;
-        eventCacheByNote.clear();
-
-        while (true) {
-            const res = await joplin.data.get(['notes'], {fields, page, limit: 100});
-            items.push(...res.items);
-            if (!res.has_more) break;
-            page++;
-        }
-
-        for (const n of items) {
-            const arr = parseEventsFromBody(n.id, n.title, n.body || '');
-            if (arr.length) eventCacheByNote.set(n.id, arr);
-        }
-        allEventsCache = Array.from(eventCacheByNote.values()).flat();
-        console.log('[MyCalendar] rebuildAllEventsCache: done, events =', allEventsCache.length);
-    } catch (err) {
-        console.error('[MyCalendar] rebuildAllEventsCache: error', err);
-    } finally {
-        rebuilding = false;
-    }
-}
-
-async function ensureAllEventsCache(joplin: any) {
-    if (!allEventsCache) {
-        await rebuildAllEventsCache(joplin);
-    }
-    return allEventsCache!;
-}
-
-function invalidateNote(noteId: string) {
-    console.log('[MyCalendar] invalidateNote', noteId);
-    eventCacheByNote.delete(noteId);
-    allEventsCache = null;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -331,7 +293,7 @@ function buildICS(events: Occurrence[], prodId = '-//MyCalendar//Joplin//EN') {
         if (ev.endUtc) lines.push(`DTEND:${fmtICS(ev.endUtc)}`);
         lines.push(`SUMMARY:${icsEscape(ev.title || 'Event')}`);
         if (ev.location) lines.push(`LOCATION:${icsEscape(ev.location)}`);
-        if (ev.desc) lines.push(`DESCRIPTION:${icsEscape(ev.desc)}`);
+        if (ev.description) lines.push(`DESCRIPTION:${icsEscape(ev.description)}`);
         if (ev.color) lines.push(`X-COLOR:${icsEscape(ev.color)}`);
         lines.push('END:VEVENT');
     }
@@ -372,122 +334,15 @@ export default async function runPlugin(joplin: any) {
 
     await joplin.workspace.onNoteChange(async ({id}: { id?: string }) => {
         if (id) invalidateNote(id);
+        invalidateAllEventsCache();
     });
     await joplin.workspace.onSyncComplete(async () => {
         allEventsCache = null;
     });
 
-    await joplin.views.panels.onMessage(panel, async (msg: any) => {
-        try {
-            console.log('[MyCalendar] onMessage from UI:', msg);
-
-            if (msg.name === 'uiReady') {
-                console.log('[MyCalendar] uiReady ack');
-                await joplin.views.panels.postMessage(panel, {name: 'uiAck'});
-                return;
-            }
-
-            if (msg.name === 'requestRangeEvents') {
-                const all = await ensureAllEventsCache(joplin);
-                const list = expandAllInRange(all, msg.fromUtc, msg.toUtc);
-                console.log('[MyCalendar] sending rangeEvents count=', list.length, 'range=', new Date(msg.fromUtc).toISOString(), '→', new Date(msg.toUtc).toISOString());
-                await joplin.views.panels.postMessage(panel, {name: 'rangeEvents', events: list});
-                return;
-            }
-
-            if (msg.name === 'dateClick') {
-                const dayStart = msg.dateUtc;
-                const dayEnd = dayStart + (24 * 60 * 60 * 1000) - 1;
-                const all = await ensureAllEventsCache(joplin);
-                const list = expandAllInRange(all, dayStart, dayEnd)
-                    .filter(e => e.startUtc >= dayStart && e.startUtc <= dayEnd);
-                console.log('[MyCalendar] sending showEvents count=', list.length, 'for', new Date(dayStart).toISOString().slice(0, 10));
-                await joplin.views.panels.postMessage(panel, {name: 'showEvents', dateUtc: msg.dateUtc, events: list});
-                return;
-            }
-
-            if (msg.name === 'openNote' && msg.id) {
-                console.log('[MyCalendar] openNote', msg.id);
-                await joplin.commands.execute('openNote', msg.id);
-                return;
-            }
-
-            if (msg.name === 'exportRangeIcs' && typeof msg.fromUtc === 'number' && typeof msg.toUtc === 'number') {
-                const all = await ensureAllEventsCache(joplin);
-                const list = expandAllInRange(all, msg.fromUtc, msg.toUtc);
-                const ics = buildICS(list);
-                console.log('[MyCalendar] sending rangeIcs bytes=', ics.length);
-                await joplin.views.panels.postMessage(panel, {
-                    name: 'rangeIcs',
-                    ics,
-                    filename: `mycalendar_${new Date(msg.fromUtc).toISOString().slice(0, 10)}_${new Date(msg.toUtc).toISOString().slice(0, 10)}.ics`,
-                });
-                return;
-            }
-
-            if (msg.name === 'icalImport') {
-                console.log('[MyCalendar] icalImport (main panel)');
-                const mode = msg.mode;
-
-                const sendStatus = async (text: string) => {
-                    await joplin.views.panels.postMessage(panel, {name: 'importStatus', text});
-                };
-
-                try {
-                    let ics = '';
-
-                    if (mode === 'text') {
-                        ics = typeof msg.ics === 'string' ? msg.ics : '';
-                    } else if (mode === 'file') {
-                        // (залишаємо на майбутнє, якщо колись повернеш режим читання файлу по path)
-                        const fs = joplin.require('fs-extra');
-                        const p = String(msg.path || '').trim();
-                        if (!p) {
-                            await joplin.views.panels.postMessage(panel, {name: 'importError', error: 'Path is empty'});
-                            return;
-                        }
-                        ics = await fs.readFile(p, 'utf8');
-                    } else {
-                        await joplin.views.panels.postMessage(panel, {name: 'importError', error: 'Unknown mode'});
-                        return;
-                    }
-
-                    if (!ics || !ics.trim()) {
-                        await joplin.views.panels.postMessage(panel, {
-                            name: 'importError',
-                            error: 'ICS content is empty'
-                        });
-                        return;
-                    }
-
-                    const {added, updated, skipped, errors} = await importIcsIntoNotes(joplin, ics, sendStatus);
-
-                    await joplin.views.panels.postMessage(panel, {
-                        name: 'importDone',
-                        added,
-                        updated,
-                        skipped,
-                        errors,
-                    });
-
-                    // (опційно) після імпорту — примусово оновити дані календаря
-                    // await refreshAllEventsCache(joplin); // якщо є така функція у тебе
-                    // або викликати існуючий механізм refresh, якщо він є
-
-                } catch (err: any) {
-                    await joplin.views.panels.postMessage(panel, {
-                        name: 'importError',
-                        error: String(err?.message || err),
-                    });
-                }
-
-                return;
-            }
-
-            console.warn('[MyCalendar] unknown message from UI', msg);
-        } catch (e) {
-            console.error('[MyCalendar] onMessage error:', e);
-        }
+    await registerCalendarPanelController(joplin, panel, {
+        expandAllInRange,
+        buildICS,
     });
 
     await joplin.views.panels.show(panel);
@@ -821,9 +676,9 @@ function buildMyCalBlock(e: IcsEvent): string {
     if (start.tz) lines.push(`tz:    ${start.tz}`);
     if (e.color) lines.push(`color: ${e.color}`);
     if (e.description) {
-        // Багаторядковий desc - ок
+        // Багаторядковий description - ок
         for (const [i, row] of e.description.split('\n').entries()) {
-            lines.push(i === 0 ? `desc:  ${row}` : `       ${row}`);
+            lines.push(i === 0 ? `description:  ${row}` : `       ${row}`);
         }
     }
     if (r.repeat) {
@@ -837,79 +692,6 @@ function buildMyCalBlock(e: IcsEvent): string {
     return lines.join('\n');
 }
 
-async function importIcsIntoNotes(
-    joplin: any,
-    ics: string,
-    onStatus?: (text: string) => Promise<void>
-): Promise<{ added: number, updated: number, skipped: number, errors: number }> {
-    const say = async (t: string) => {
-        try {
-            if (onStatus) await onStatus(t);
-        } catch {
-        }
-    };
-
-    const events = parseIcs(ics);
-    await say(`Parsed ${events.length} VEVENT(s)`);
-
-    // зберемо карту існуючих нотаток uid -> { id, body }
-    const existing: Record<string, { id: string, body: string }> = {};
-    let page = 1;
-    for (; ;) {
-        const res = await joplin.data.get(['notes'], {fields: ['id', 'title', 'body'], limit: 100, page});
-        for (const n of res.items || []) {
-            if (!n.body || typeof n.body !== 'string') continue;
-            if (!n.body.includes('```mycalendar-event')) continue;
-            const m = n.body.match(/^\s*```mycalendar-event[\s\S]*?^\s*uid:\s*(.+?)\s*$/im);
-            if (m && m[1]) {
-                const uid = m[1].trim();
-                existing[uid] = {id: n.id, body: n.body};
-            }
-        }
-        if (!res.has_more) break;
-        page++;
-    }
-
-    let added = 0, updated = 0, skipped = 0, errors = 0;
-
-    for (const ev of events) {
-        const uid = (ev.uid || '').trim();
-        if (!uid) {
-            skipped++;
-            continue;
-        }
-
-        const block = buildMyCalBlock(ev);
-
-        if (existing[uid]) {
-            // оновлюємо перший блок mycalendar-event по цьому uid
-            try {
-                const {id, body} = existing[uid];
-                const newBody = replaceEventBlockByUid(body, uid, block);
-                await joplin.data.put(['notes', id], null, {body: newBody});
-                updated++;
-                await say(`Updated: ${uid}`);
-            } catch (e) {
-                errors++;
-                await say(`ERROR update: ${uid} - ${String((e as any)?.message || e)}`);
-            }
-        } else {
-            try {
-                await joplin.data.post(['notes'], null, {
-                    title: ev.summary || 'Event',
-                    body: block,
-                });
-                added++;
-                await say(`Added: ${uid}`);
-            } catch (e) {
-                errors++;
-                await say(`ERROR add: ${uid} - ${String((e as any)?.message || e)}`);
-            }
-        }
-    }
-
-    return {added, updated, skipped, errors};
-}
 
 function replaceEventBlockByUid(body: string, uid: string, newBlock: string): string {
     // спробуємо точково замінити блок, який містить цей uid

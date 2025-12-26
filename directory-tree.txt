@@ -1,7 +1,18 @@
 joplin-plugin-my-calendar/
-├── mycalendar/
 ├── src/
 │   ├── main/
+│   │   ├── services/
+│   │   │   ├── eventsCache.ts
+│   │   │   ├── icsImportService.ts
+│   │   │   └── noteService.ts
+│   │   ├── settings/
+│   │   │   └── settings.ts
+│   │   ├── uiBridge/
+│   │   │   ├── panelController.ts
+│   │   │   └── panelMessages.ts
+│   │   ├── utils/
+│   │   │   ├── logger.ts
+│   │   │   └── time.ts
 │   │   └── pluginMain.ts
 │   ├── types/
 │   │   ├── global-joplin.d.ts
@@ -16,6 +27,7 @@ joplin-plugin-my-calendar/
 │   └── manifest.json
 ├── LICENSE
 ├── README.md
+├── directory-tree.txt
 ├── package-lock.json
 ├── package.json
 ├── tsconfig.json
