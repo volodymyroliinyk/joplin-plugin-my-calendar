@@ -46,29 +46,6 @@
             logBox.scrollTop = logBox.scrollHeight;
         }
 
-        const title = el("div", {style: "font-weight:700;margin-bottom:6px"}, ["ICS import"]);
-
-        // 1) Paste text
-        const ta = el("textarea", {
-            id: "ical-text",
-            placeholder: "Paste ICS content here…",
-            style:
-                "width:100%; min-height:120px; padding:6px; border:1px solid var(--joplin-divider-color);" +
-                "background:var(--joplin-background-color); color:var(--joplin-color); resize:vertical;"
-        });
-
-        const btnImportText = el(
-            "button",
-            {
-                style: "padding:6px 10px;", onclick: async () => {
-                    const text = (ta.value || "").trim();
-                    if (!text) return log("Paste ICS content first.");
-                    log("Importing via TEXT…", "len=", text.length);
-                    window.webviewApi?.postMessage?.({name: "icalImport", mode: "text", ics: text, source: "paste"});
-                }
-            },
-            ["Import pasted text"]
-        );
 
         // 2) File picker (recommended)
         const fileInput = el("input", {
@@ -104,65 +81,24 @@
             ["Import selected file"]
         );
 
-        // 3) Absolute path (desktop)
-        // const pathInput = el("input", {
-        //     id: "ical-path",
-        //     type: "text",
-        //     placeholder: "Absolute path to .ics (desktop only)",
-        //     style:
-        //         "flex:1; padding:6px; border:1px solid var(--joplin-divider-color);" +
-        //         "background:var(--joplin-background-color); color:var(--joplin-color);"
-        // });
-
-        // const btnImportPath = el(
-        //     "button",
-        //     {
-        //         style: "padding:6px 10px;", onclick: async () => {
-        //             const raw = pathInput.value;
-        //             const p = normPath(raw);
-        //             log("Importing via PATH… initialized");
-        //             log("Path (raw):", raw);
-        //             log("Path (normalized):", p);
-        //             if (!p) return log("Path is empty.");
-        //             window.webviewApi?.postMessage?.({name: "icalImport", mode: "file", path: p});
-        //         }
-        //     },
-        //     ["Import path"]
-        // );
 
         const rowFile = el("div", {style: "display:flex; gap:8px; align-items:center; margin:8px 0;"}, [
             fileInput,
             btnImportFile
         ]);
 
-        // const rowPath = el("div", {style: "display:flex; gap:8px; align-items:center; margin:8px 0;"}, [
-        //     pathInput,
-        //     btnImportPath
-        // ]);
-
-        const rowTextBtn = el("div", {style: "display:flex; gap:8px; align-items:center; margin:8px 0;"}, [
-            btnImportText
-        ]);
 
         // Render
         root.innerHTML = "";
-        root.appendChild(title);
-        root.appendChild(el("div", {style: "font-weight:600;margin-top:8px"}, ["Paste ICS"]));
-        root.appendChild(ta);
-        root.appendChild(rowTextBtn);
 
         root.appendChild(el("div", {style: "font-weight:600;margin-top:10px"}, ["File picker (recommended)"]));
         root.appendChild(rowFile);
-
-        // root.appendChild(el("div", {style: "font-weight:600;margin-top:10px"}, ["Absolute path (desktop)"]));
-        // root.appendChild(rowPath);
 
         root.appendChild(el("div", {style: "font-weight:600;margin-top:10px"}, ["Debug log"]));
         root.appendChild(logBox);
 
         // Messages from backend
-        window.webviewApi?.onMessage?.((ev) => {
-            const msg = ev && ev.message ? ev.message : ev;
+        mcRegisterOnMessage((msg) => {
             if (!msg || !msg.name) return;
 
             if (msg.name === "importStatus") {
@@ -171,12 +107,31 @@
                 log("[DONE]", `added=${msg.added} updated=${msg.updated} skipped=${msg.skipped} errors=${msg.errors}`);
             } else if (msg.name === "importError") {
                 log("[ERROR]", msg.error || "unknown");
-            } else {
-                log("[UI] unknown message:", msg);
             }
         });
 
         log("initialized");
+    }
+
+    function mcRegisterOnMessage(handler) {
+        window.__mcMsgHandlers = window.__mcMsgHandlers || [];
+        window.__mcMsgHandlers.push(handler);
+
+        if (window.__mcMsgDispatcherInstalled) return;
+        window.__mcMsgDispatcherInstalled = true;
+
+        if (window.webviewApi?.onMessage) {
+            window.webviewApi.onMessage((ev) => {
+                const msg = ev && ev.message ? ev.message : ev;
+                for (const h of window.__mcMsgHandlers) {
+                    try {
+                        h(msg);
+                    } catch (e) {
+                        console.error('[MyCalendar] handler error', e);
+                    }
+                }
+            });
+        }
     }
 
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);

@@ -10,6 +10,27 @@
         }
     }
 
+    function mcRegisterOnMessage(handler) {
+        window.__mcMsgHandlers = window.__mcMsgHandlers || [];
+        window.__mcMsgHandlers.push(handler);
+
+        if (window.__mcMsgDispatcherInstalled) return;
+        window.__mcMsgDispatcherInstalled = true;
+
+        if (window.webviewApi?.onMessage) {
+            window.webviewApi.onMessage((ev) => {
+                const msg = ev && ev.message ? ev.message : ev;
+                for (const h of window.__mcMsgHandlers) {
+                    try {
+                        h(msg);
+                    } catch (e) {
+                        console.error('[MyCalendar] handler error', e);
+                    }
+                }
+            });
+        }
+    }
+
     function init() {
         try {
             log('init start');
@@ -105,7 +126,7 @@
             }
 
             if (window.webviewApi?.onMessage) {
-                window.webviewApi.onMessage(onPluginMessage);
+                mcRegisterOnMessage(onPluginMessage);
             } else {
                 log('webviewApi.onMessage missing');
             }
@@ -157,7 +178,8 @@
             }
 
             if (window.webviewApi?.onMessage) {
-                window.webviewApi.onMessage(onPluginMessage);
+                mcRegisterOnMessage(onPluginMessage);
+
             } else {
                 log('webviewApi.onMessage missing');
             }

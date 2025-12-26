@@ -116,13 +116,13 @@
     box-shadow: inset 0 0 0 2px var(--joplin-color);
 }
 
-#mc-events {
+#mc-events, #mc-import {
     border: 1px solid var(--joplin-divider-color);
     border-radius: 8px;
     overflow: hidden;
 }
 
-.mc-events-header {
+.mc-events-header, .mc-import-header {
     background: var(--joplin-background-color3);
     padding: 6px 10px;
     font-size: 12px;
@@ -229,6 +229,38 @@ html, body {
     color: #ddd !important; /* lighter when creeping */
 }
 
+/* --- Events panel layout: list scroll + import at bottom --- */
+
+
+/* --- Import block inside day events --- */
+
+
+#mc-import > summary {
+    cursor: pointer;
+    font-weight: 600;
+    user-select: none;
+    list-style: none;
+}
+
+/* Прибирає стандартний маркер summary у деяких браузерах (опційно) */
+#mc-import > summary::-webkit-details-marker {
+    display: none;
+}
+
+/* Контейнер, який буде скролитись */
+#mc-import-body {
+    margin: 0px;
+    max-height: 260px; /* підбери висоту під себе */
+    overflow-x: auto; /* скролбар */
+    padding: 8px 6px; /* щоб скрол не “лип” до контенту */
+}
+
+/* Дуже важливо для <input type="file"> у flex-рядку: інакше може роздувати ширину */
+#mc-import-body input[type="file"] {
+    max-width: 100%;
+    min-width: 0;
+}
+
 @media (pointer: coarse) and (hover: none) {
     /* Stretch the entire width of the panel, drop the fields */
     #cal-root {
@@ -260,7 +292,7 @@ html, body {
         font-size: 12px;
     }
 
-    .mc-events-header {
+    .mc-events-header, .mc-import-header {
         font-weight: normal;
         font-size: 12px;
     }

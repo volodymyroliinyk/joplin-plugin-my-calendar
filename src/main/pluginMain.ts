@@ -425,6 +425,65 @@ export default async function runPlugin(joplin: any) {
                 return;
             }
 
+            if (msg.name === 'icalImport') {
+                console.log('[MyCalendar] icalImport (main panel)');
+                const mode = msg.mode;
+
+                const sendStatus = async (text: string) => {
+                    await joplin.views.panels.postMessage(panel, {name: 'importStatus', text});
+                };
+
+                try {
+                    let ics = '';
+
+                    if (mode === 'text') {
+                        ics = typeof msg.ics === 'string' ? msg.ics : '';
+                    } else if (mode === 'file') {
+                        // (залишаємо на майбутнє, якщо колись повернеш режим читання файлу по path)
+                        const fs = joplin.require('fs-extra');
+                        const p = String(msg.path || '').trim();
+                        if (!p) {
+                            await joplin.views.panels.postMessage(panel, {name: 'importError', error: 'Path is empty'});
+                            return;
+                        }
+                        ics = await fs.readFile(p, 'utf8');
+                    } else {
+                        await joplin.views.panels.postMessage(panel, {name: 'importError', error: 'Unknown mode'});
+                        return;
+                    }
+
+                    if (!ics || !ics.trim()) {
+                        await joplin.views.panels.postMessage(panel, {
+                            name: 'importError',
+                            error: 'ICS content is empty'
+                        });
+                        return;
+                    }
+
+                    const {added, updated, skipped, errors} = await importIcsIntoNotes(joplin, ics, sendStatus);
+
+                    await joplin.views.panels.postMessage(panel, {
+                        name: 'importDone',
+                        added,
+                        updated,
+                        skipped,
+                        errors,
+                    });
+
+                    // (опційно) після імпорту — примусово оновити дані календаря
+                    // await refreshAllEventsCache(joplin); // якщо є така функція у тебе
+                    // або викликати існуючий механізм refresh, якщо він є
+
+                } catch (err: any) {
+                    await joplin.views.panels.postMessage(panel, {
+                        name: 'importError',
+                        error: String(err?.message || err),
+                    });
+                }
+
+                return;
+            }
+
             console.warn('[MyCalendar] unknown message from UI', msg);
         } catch (e) {
             console.error('[MyCalendar] onMessage error:', e);
@@ -437,28 +496,28 @@ export default async function runPlugin(joplin: any) {
 
     // --- Створюємо панель імпорту (десктоп)
     try {
-        importPanelId = await createIcalImportPanel(joplin);
-        // Команда для відкриття/фокусу панелі імпорту
-        await joplin.commands.register({
-            name: 'mycalendar.openIcalImport',
-            label: 'Open MyCalendar - ICS import',
-            execute: async () => {
-                if (importPanelId) {
-                    await joplin.views.panels.show(importPanelId);
-                    // focus може не бути на мобільному - але імпорт ми й так ховаємо на мобілі
-                    try {
-                        await joplin.views.panels.focus(importPanelId);
-                    } catch {
-                    }
-                }
-            },
-        });
-        // Пункт меню у Tools (можеш перенести в View)
-        await joplin.views.menuItems.create(
-            'mycalendarOpenIcalImportMenu',
-            'mycalendar.openIcalImport',
-            'tools'
-        );
+        // importPanelId = await createIcalImportPanel(joplin);
+        // // Команда для відкриття/фокусу панелі імпорту
+        // await joplin.commands.register({
+        //     name: 'mycalendar.openIcalImport',
+        //     label: 'Open MyCalendar - ICS import',
+        //     execute: async () => {
+        //         if (importPanelId) {
+        //             await joplin.views.panels.show(importPanelId);
+        //             // focus може не бути на мобільному - але імпорт ми й так ховаємо на мобілі
+        //             try {
+        //                 await joplin.views.panels.focus(importPanelId);
+        //             } catch {
+        //             }
+        //         }
+        //     },
+        // });
+        // // Пункт меню у Tools (можеш перенести в View)
+        // await joplin.views.menuItems.create(
+        //     'mycalendarOpenIcalImportMenu',
+        //     'mycalendar.openIcalImport',
+        //     'tools'
+        // );
 
         // Слухач повідомлень від панелі імпорту
         await joplin.views.panels.onMessage(importPanelId, async (message: any) => {
@@ -715,20 +774,6 @@ async function runIcsImport(joplin: any, icsText: string): Promise<{
     return {created, updated, failed};
 }
 
-async function createIcalImportPanel(joplin: any): Promise<string> {
-    const pid = await joplin.views.panels.create('mycalendarImportPanel');
-    // базовий HTML контейнер
-    await joplin.views.panels.setHtml(pid, `
-    <div id="ical-root" style="padding:8px;font-family:system-ui">
-      <div style="font-weight:700;margin-bottom:4px">ICS import</div>
-    </div>
-  `);
-    // стилі (можеш не підключати, але так консистентніше)
-    await joplin.views.panels.addScript(pid, './ui/calendar.css');
-    // наш UI-скрипт імпорту
-    await joplin.views.panels.addScript(pid, './ui/icalImport.js');
-    return pid;
-}
 
 type IcsEvent = {
     uid?: string;
