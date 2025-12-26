@@ -91,7 +91,6 @@
         // Render
         root.innerHTML = "";
 
-        root.appendChild(el("div", {style: "font-weight:600;margin-top:10px"}, ["File picker (recommended)"]));
         root.appendChild(rowFile);
 
         root.appendChild(el("div", {style: "font-weight:600;margin-top:10px"}, ["Debug log"]));
