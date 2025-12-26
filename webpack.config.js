@@ -1,6 +1,11 @@
 // webpack.config.js
 const path = require('path');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
+const webpack = require('webpack');
+
+
+
+
 
 /** @type {import('webpack').Configuration} */
 module.exports = {
@@ -30,6 +35,12 @@ module.exports = {
                 { from: 'src/manifest.json', to: 'manifest.json' },
                 {from: 'src/ui', to: 'ui'}, // calendar.js, calendar.css icalImport.js
             ],
+        }),
+        new webpack.BannerPlugin({
+            raw: true,
+            banner:
+                "if (typeof module === 'undefined') { var module = { exports: {} }; }\n" +
+                "if (typeof exports === 'undefined') { var exports = module.exports; }\n",
         }),
     ],
     devtool: false,
