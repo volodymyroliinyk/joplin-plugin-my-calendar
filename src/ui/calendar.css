@@ -1,4 +1,19 @@
 /* src/ui/calendar.css */
+
+html, body {
+    height: 100%;
+    margin: 0;
+    overflow: auto;
+}
+
+/* Зовнішній контейнер, який реально скролиться */
+#cal-scroll {
+    height: 100%;
+    max-height: 100%;
+    overflow-y: auto; /* <-- ВКЛЮЧАЄ скрол */
+    overflow-x: hidden;
+}
+
 #cal-root {
     display: grid;
     grid-template-rows: auto auto 1fr;
@@ -169,14 +184,6 @@
     padding: 6px;
 }
 
-html, body {
-    height: 100%;
-    margin: 0;
-}
-
-#cal-root {
-
-}
 
 /* The container of strips in the cell */
 .mc-bars {
@@ -251,7 +258,6 @@ html, body {
 #mc-import-body {
     margin: 0px;
     max-height: 260px; /* підбери висоту під себе */
-    overflow-x: auto; /* скролбар */
     padding: 8px 6px; /* щоб скрол не “лип” до контенту */
 }
 

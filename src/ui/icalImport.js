@@ -32,7 +32,7 @@
             id: "mc-imp-log",
             style:
                 "margin-top:8px; padding:6px; border:1px dashed var(--joplin-divider-color);" +
-                "max-height:220px; overflow:auto; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12px;"
+                "max-height:220px; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12px;"
         });
 
         function log(...args) {
