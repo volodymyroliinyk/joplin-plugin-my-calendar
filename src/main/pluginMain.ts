@@ -212,7 +212,7 @@ export default async function runPlugin(joplin: any) {
 
     await registerDesktopToggle(joplin, panel);
 
-    // --- Створюємо панель імпорту (десктоп)
+    // --- Create the import panel (desktop)
 
     try {
         const panelsAny = (joplin as any).views?.panels;

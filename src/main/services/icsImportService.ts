@@ -35,7 +35,7 @@ function unescapeIcsText(s: string): string {
         .replace(/\\\\/g, '\\');
 }
 
-// беремо значення після ":" (ігноруємо параметри типу DTSTART;TZID=...)
+// Take the value after ":" (ignore parameters like DTSTART;TZID=...)
 function parseLineValue(line: string): { key: string; value: string } | null {
     const i = line.indexOf(':');
     if (i < 0) return null;
@@ -83,7 +83,7 @@ function parseIcs(ics: string): IcsEvent[] {
     return events;
 }
 
-// формуємо блок ```mycalendar-event ... ``` так, як у тебе вже прийнято
+// Form the block ```mycalendar-event ... ``` as you have already done
 function buildMyCalBlock(ev: IcsEvent): string {
     const lines: string[] = [];
     lines.push('```mycalendar-event');
@@ -106,7 +106,7 @@ function escapeReg(s: string) {
 }
 
 function replaceEventBlockByUid(body: string, uid: string, newBlock: string): string {
-    // замінимо перший блок, який містить uid
+    // Replace the first block that contains the uid
     const re = /(^|\r?\n)[ \t]*```mycalendar-event[ \t]*\r?\n([\s\S]*?)\r?\n[ \t]*```(?=\r?\n|$)/g;
     let changed = false;
 
@@ -120,7 +120,7 @@ function replaceEventBlockByUid(body: string, uid: string, newBlock: string): st
 
     if (changed) return out;
 
-    // якщо не знайшли - допишемо в кінець
+    // If not found - add to the end
     return (body ? body.replace(/\s+$/, '') + '\n\n' : '') + newBlock + '\n';
 }
 

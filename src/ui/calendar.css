@@ -37,11 +37,11 @@ body::-webkit-scrollbar-thumb:hover {
     --scrollbar-thumb-color-hover: var(--joplin-scrollbar-thumb-color-hover);
 }
 
-/* Зовнішній контейнер, який реально скролиться */
+/* Outer container that will actually scroll */
 #cal-scroll {
     height: 100%;
     max-height: 100%;
-    overflow-y: auto; /* <-- ВКЛЮЧАЄ скрол */
+    overflow-y: auto;
     overflow-x: hidden;
 }
 
@@ -280,19 +280,19 @@ body::-webkit-scrollbar-thumb:hover {
     list-style: none;
 }
 
-/* Прибирає стандартний маркер summary у деяких браузерах (опційно) */
+/* Removes the standard summary marker in some browsers (optional) */
 #mc-import > summary::-webkit-details-marker {
     display: none;
 }
 
-/* Контейнер, який буде скролитись */
+/* Container to be scrolled */
 #mc-import-body {
     margin: 0px;
-    max-height: 260px; /* підбери висоту під себе */
-    padding: 8px 6px; /* щоб скрол не “лип” до контенту */
+    max-height: 260px; /* choose the height that suits you */
+    padding: 8px 6px; /* so that the scroll does not "stick" to the content */
 }
 
-/* Дуже важливо для <input type="file"> у flex-рядку: інакше може роздувати ширину */
+/* Very important for <input type="file"> in flex-line: otherwise it can inflate the width */
 #mc-import-body input[type="file"] {
     max-width: 100%;
     min-width: 0;

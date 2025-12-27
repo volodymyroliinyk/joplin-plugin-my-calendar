@@ -41,7 +41,7 @@ export async function rebuildAllEventsCache(joplin: any) {
             const body = typeof n.body === 'string' ? n.body : '';
             if (!id || !body) break showNote;
 
-            // витягуємо лише наші блоки
+            // Extract only our blocks
             const evs = parseEventsFromBody(
                 String(n.id || ''),
                 String(n.title || ''),
@@ -52,7 +52,7 @@ export async function rebuildAllEventsCache(joplin: any) {
             eventCacheByNote.set(id, evs);
 
             for (const e of evs) {
-                // збережемо noteId, щоб UI міг відкрити нотатку
+                // Save the noteId so the UI can open the note
                 (e as any).noteId = id;
                 all.push(e);
             }
@@ -62,7 +62,7 @@ export async function rebuildAllEventsCache(joplin: any) {
         console.log('[MyCalendar] rebuildAllEventsCache: done events=', allEventsCache.length);
     } catch (err) {
         console.error('[MyCalendar] rebuildAllEventsCache: error', err);
-        // щоб не залипало у rebuilding=true
+        // So it doesn't get stuck in rebuilding=true
         allEventsCache = allEventsCache || [];
     } finally {
         rebuilding = false;

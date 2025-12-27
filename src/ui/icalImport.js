@@ -18,7 +18,7 @@
 
     function normPath(raw) {
         let p = (raw || "").trim();
-        // прибрати лапки, якщо користувач вставив "/path/file.ics"
+        // Remove quotes if user pasted "/path/file.ics"
         p = p.replace(/^"(.*)"$/, "$1").replace(/^'(.*)'$/, "$1");
         return p;
     }
@@ -173,7 +173,7 @@
 
             if (msg.name === "folders") {
                 populateFolders(msg.folders);
-                // якщо в тебе є log() - можна логнути
+                // If you have log() - you can log
                 // log("[FOLDERS]", `loaded=${(msg.folders || []).length}`);
                 return;
             }

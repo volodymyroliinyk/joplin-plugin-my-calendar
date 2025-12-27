@@ -8,14 +8,14 @@ export async function createCalendarPanel(joplin: any): Promise<string> {
 <div id="cal-scroll">
   <div id="cal-root">
     <div id="mc-toolbar"></div>
-    <!-- КАЛЕНДАР -->
+    <!-- CALENDAR -->
     <div id="mc-grid"></div>
-    <!-- ПОДІЇ ДНЯ -->
+    <!-- EVENTS OF THE DAY -->
     <div id="mc-events">
       <div class="mc-events-header">Today events</div>
       <ul id="mc-events-list"></ul>
     </div>
-    <!-- ІМПОРТ (ОКРЕМИЙ БЛОК ВНИЗУ) -->
+    <!-- IMPORT (SEPARATE BLOCK BELOW) -->
     <div id="mc-import">
       <div class="mc-import-header">ICS import</div>
       <div id="mc-import-body">

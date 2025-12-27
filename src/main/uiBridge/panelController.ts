@@ -59,8 +59,8 @@ function flattenFolderTree(rows: FolderRow[]): FolderOption[] {
 
 
 /**
- * ВАЖЛИВО: expandAllInRange і buildICS залишаємо тимчасово в pluginMain.ts (як було),
- * але щоб не було циклічних імпортів - ми передамо їх як параметри.
+ * IMPORTANT: we leave expandAllInRange and buildICS temporarily in pluginMain.ts (as it was),
+ * but so that there are no cyclic imports - we pass them as parameters.
  */
 export async function registerCalendarPanelController(
     joplin: any,
@@ -142,7 +142,7 @@ export async function registerCalendarPanelController(
                 if (mode === 'text') {
                     ics = typeof msg.ics === 'string' ? msg.ics : '';
                 } else if (mode === 'file') {
-                    // Якщо UI передає вже прочитаний текст файла
+                    // If the UI transmits the already read text of the file
                     ics = typeof msg.ics === 'string' ? msg.ics : '';
                 }
 
@@ -157,7 +157,7 @@ export async function registerCalendarPanelController(
                 try {
                     const targetFolderId = typeof msg.targetFolderId === 'string' ? msg.targetFolderId : undefined;
                     const res = await importIcsIntoNotes(joplin, ics, sendStatus, targetFolderId);
-                    invalidateAllEventsCache(); // щоб календар оновився
+                    invalidateAllEventsCache(); // to update the calendar
 
                     await joplin.views.panels.postMessage(panelId, {
                         name: 'importDone',

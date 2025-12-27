@@ -6,9 +6,9 @@ const webpack = require('webpack');
 /** @type {import('webpack').Configuration} */
 module.exports = {
     mode: 'production',
-    target: 'node', // Joplin plugin runtime (desktop); mobile runner теж ок
+    target: 'node', // Joplin plugin runtime (desktop); mobile runner
 
-    // Один entry - canonical для Joplin plugins
+    // One entry - canonical for Joplin plugins
     entry: {
         index: './src/index.ts',
     },
@@ -30,16 +30,13 @@ module.exports = {
         ],
     },
 
-    // Важливо: api надається Joplin'ом, не бандлити
+    // Important: the api is provided by Joplin, not Bandlit
     externals: {
         api: 'commonjs2 api',
-        // Якщо десь лишився joplin.require('fs-extra') - це не імпорт, externals не потрібен.
-        // Але якщо є `import fs from "fs-extra"`, тоді розкоментуй:
-        // 'fs-extra': 'commonjs2 fs-extra',
     },
 
     plugins: [
-        // Копіюємо manifest і UI-статику
+        // Copy the manifest and UI statics
         new CopyWebpackPlugin({
             patterns: [
                 { from: 'src/manifest.json', to: 'manifest.json' },
@@ -47,7 +44,7 @@ module.exports = {
             ],
         }),
 
-        // Фікс для mobile: прибрати "module is not defined"
+        // Fix for mobile: remove "module is not defined"
         new webpack.BannerPlugin({
             raw: true,
             banner:
