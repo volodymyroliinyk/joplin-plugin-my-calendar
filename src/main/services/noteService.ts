@@ -1,0 +1,1 @@
+// src/main/services/noteService.ts

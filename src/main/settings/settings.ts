@@ -1,3 +1,4 @@
+// src/main/settings/settings.ts
 import joplin from 'api';
 import {setDebugEnabled} from '../utils/logger';
 

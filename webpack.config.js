@@ -8,7 +8,7 @@ module.exports = {
     mode: 'production',
     target: 'node', // Joplin plugin runtime (desktop); mobile runner теж ок
 
-    // Один entry — canonical для Joplin plugins
+    // Один entry - canonical для Joplin plugins
     entry: {
         index: './src/index.ts',
     },
@@ -33,7 +33,7 @@ module.exports = {
     // Важливо: api надається Joplin'ом, не бандлити
     externals: {
         api: 'commonjs2 api',
-        // Якщо десь лишився joplin.require('fs-extra') — це не імпорт, externals не потрібен.
+        // Якщо десь лишився joplin.require('fs-extra') - це не імпорт, externals не потрібен.
         // Але якщо є `import fs from "fs-extra"`, тоді розкоментуй:
         // 'fs-extra': 'commonjs2 fs-extra',
     },

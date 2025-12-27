@@ -120,7 +120,7 @@ function replaceEventBlockByUid(body: string, uid: string, newBlock: string): st
 
     if (changed) return out;
 
-    // якщо не знайшли — допишемо в кінець
+    // якщо не знайшли - допишемо в кінець
     return (body ? body.replace(/\s+$/, '') + '\n\n' : '') + newBlock + '\n';
 }
 

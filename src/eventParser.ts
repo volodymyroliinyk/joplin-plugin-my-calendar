@@ -1,4 +1,5 @@
 // src/eventParser.ts
+
 // Parsing events only if there is a line in the block: calendar: my-calendar-plugin
 export const REQUIRED_CALENDAR_TOKEN = 'my-calendar-plugin';
 
