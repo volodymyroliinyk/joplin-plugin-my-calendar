@@ -3,16 +3,14 @@ joplin-plugin-my-calendar/
 │   ├── main/
 │   │   ├── services/
 │   │   │   ├── eventsCache.ts
-│   │   │   ├── icsImportService.ts
-│   │   │   └── noteService.ts
+│   │   │   └── icsImportService.ts
 │   │   ├── settings/
 │   │   │   └── settings.ts
 │   │   ├── uiBridge/
 │   │   │   ├── panelController.ts
 │   │   │   └── panelMessages.ts
 │   │   ├── utils/
-│   │   │   ├── logger.ts
-│   │   │   └── time.ts
+│   │   │   └── logger.ts
 │   │   └── pluginMain.ts
 │   ├── types/
 │   │   ├── global-joplin.d.ts
