@@ -26,8 +26,8 @@ joplin-plugin-my-calendar/
 ├── LICENSE
 ├── README.md
 ├── directory-tree.txt
+├── list.todo
 ├── package-lock.json
 ├── package.json
 ├── tsconfig.json
-├── volodymyr.oliinyk.name@gmail.com.ics
 └── webpack.config.js
