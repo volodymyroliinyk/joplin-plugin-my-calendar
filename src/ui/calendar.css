@@ -6,6 +6,37 @@ html, body {
     overflow: auto;
 }
 
+body::-webkit-scrollbar {
+    width: var(--scrollbar-size, 7px);
+    height: var(--scrollbar-size, 7px);
+}
+
+body::-webkit-scrollbar-corner {
+    background: none;
+}
+
+body::-webkit-scrollbar-track {
+    border: none;
+}
+
+body::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb-color);
+    border-radius: calc(var(--scrollbar-size, 7px) * 0.7);
+}
+
+body::-webkit-scrollbar-track:hover {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+body::-webkit-scrollbar-thumb:hover {
+    background: var(--scrollbar-thumb-color-hover);
+}
+
+:root {
+    --scrollbar-thumb-color: var(--joplin-scrollbar-thumb-color);
+    --scrollbar-thumb-color-hover: var(--joplin-scrollbar-thumb-color-hover);
+}
+
 /* Зовнішній контейнер, який реально скролиться */
 #cal-scroll {
     height: 100%;
