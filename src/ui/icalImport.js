@@ -87,7 +87,7 @@
             folderSelect.appendChild(placeholder);
 
             for (const f of (list || [])) {
-                const prefix = f.depth ? ("— ".repeat(Math.min(10, f.depth))) : "";
+                const prefix = f.depth ? ("- ".repeat(Math.min(10, f.depth))) : "";
                 const opt = el("option", {value: f.id}, [prefix + f.title]);
                 folderSelect.appendChild(opt);
             }
@@ -169,7 +169,7 @@
 
             if (msg.name === "folders") {
                 populateFolders(msg.folders);
-                // якщо в тебе є log() — можна логнути
+                // якщо в тебе є log() - можна логнути
                 // log("[FOLDERS]", `loaded=${(msg.folders || []).length}`);
                 return;
             }
