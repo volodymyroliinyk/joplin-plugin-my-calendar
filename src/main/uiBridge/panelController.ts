@@ -2,6 +2,62 @@
 import {ensureAllEventsCache, invalidateAllEventsCache} from '../services/eventsCache';
 import {importIcsIntoNotes} from '../services/icsImportService';
 
+type FolderRow = { id: string; title: string; parent_id?: string | null };
+type FolderOption = { id: string; title: string; parent_id?: string | null; depth: number };
+
+async function getAllFolders(joplin: any): Promise<FolderRow[]> {
+    const out: FolderRow[] = [];
+    let page = 1;
+
+    while (true) {
+        const res = await joplin.data.get(['folders'], {
+            page,
+            limit: 100,
+            fields: ['id', 'title', 'parent_id'],
+        });
+
+        if (res?.items?.length) out.push(...res.items);
+        if (!res?.has_more) break;
+        page++;
+    }
+
+    return out;
+}
+
+function flattenFolderTree(rows: FolderRow[]): FolderOption[] {
+    const byId = new Map<string, FolderRow & { children: FolderRow[] }>();
+
+    for (const r of rows) byId.set(r.id, {...r, children: []});
+
+    const roots: (FolderRow & { children: FolderRow[] })[] = [];
+
+    for (const r of byId.values()) {
+        const pid = r.parent_id || '';
+        const parent = pid ? byId.get(pid) : undefined;
+
+        if (parent) parent.children.push(r);
+        else roots.push(r);
+    }
+
+    const sortFn = (a: FolderRow, b: FolderRow) =>
+        a.title.localeCompare(b.title, undefined, {sensitivity: 'base'});
+
+    const walk = (node: FolderRow & { children: FolderRow[] }, depth: number, acc: FolderOption[]) => {
+        acc.push({id: node.id, title: node.title, parent_id: node.parent_id ?? null, depth});
+
+        node.children.sort(sortFn);
+        for (const ch of node.children) walk(ch as any, depth + 1, acc);
+    };
+
+    roots.sort(sortFn);
+
+    const acc: FolderOption[] = [];
+    for (const r of roots) walk(r, 0, acc);
+
+    return acc;
+}
+
+
 /**
  * ВАЖЛИВО: expandAllInRange і buildICS залишаємо тимчасово в pluginMain.ts (як було),
  * але щоб не було циклічних імпортів - ми передамо їх як параметри.
@@ -99,7 +155,8 @@ export async function registerCalendarPanelController(
                 }
 
                 try {
-                    const res = await importIcsIntoNotes(joplin, ics, sendStatus);
+                    const targetFolderId = typeof msg.targetFolderId === 'string' ? msg.targetFolderId : undefined;
+                    const res = await importIcsIntoNotes(joplin, ics, sendStatus, targetFolderId);
                     invalidateAllEventsCache(); // щоб календар оновився
 
                     await joplin.views.panels.postMessage(panelId, {
@@ -115,6 +172,14 @@ export async function registerCalendarPanelController(
 
                 return;
             }
+
+            if (msg?.name === 'requestFolders') {
+                const rows = await getAllFolders(joplin);
+                const folders = flattenFolderTree(rows);
+                await joplin.views.panels.postMessage(panelId, {name: 'folders', folders});
+                return;
+            }
+
 
             // unknown msg - no-op
         } catch (e) {

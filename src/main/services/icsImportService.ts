@@ -127,7 +127,8 @@ function replaceEventBlockByUid(body: string, uid: string, newBlock: string): st
 export async function importIcsIntoNotes(
     joplin: any,
     ics: string,
-    onStatus?: (text: string) => Promise<void>
+    onStatus?: (text: string) => Promise<void>,
+    targetFolderId?: string
 ): Promise<{ added: number; updated: number; skipped: number; errors: number }> {
     const say = async (t: string) => {
         try {
@@ -176,9 +177,14 @@ export async function importIcsIntoNotes(
             try {
                 const {id, body} = existing[uid];
                 const newBody = replaceEventBlockByUid(body, uid, block);
-
+                const patch: any = {
+                    body: newBody
+                }
+                if (targetFolderId) {
+                    patch.parent_id = targetFolderId;
+                }
                 if (newBody !== body) {
-                    await joplin.data.put(['notes', id], null, {body: newBody});
+                    await joplin.data.put(['notes', id], null, patch);
                     updated++;
                     await say(`Updated: ${uid}`);
                 } else {
@@ -190,10 +196,14 @@ export async function importIcsIntoNotes(
             }
         } else {
             try {
-                await joplin.data.post(['notes'], null, {
+                const noteBody: any = {
                     title: ev.summary || 'Event',
                     body: block,
-                });
+                }
+                if (targetFolderId) {
+                    noteBody.parent_id = targetFolderId;
+                }
+                await joplin.data.post(['notes'], null, noteBody);
                 added++;
                 await say(`Added: ${uid}`);
             } catch (e) {

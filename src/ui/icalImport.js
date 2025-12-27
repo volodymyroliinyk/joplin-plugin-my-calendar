@@ -46,6 +46,60 @@
             logBox.scrollTop = logBox.scrollHeight;
         }
 
+        // ---- Notebook selector (dropdown) ----
+        const LS_KEY = "mycalendar.targetFolderId";
+
+        const folderSelect = el("select", {
+            id: "mc-target-folder",
+            style: "flex:1; max-width: 520px;"
+        });
+
+// Reload button (optional)
+        const btnReloadFolders = el("button", {
+            style: "padding:6px 10px;",
+            onclick: () => window.webviewApi?.postMessage?.({name: "requestFolders"})
+        }, ["Reload"]);
+
+        const folderRow = el("div", {style: "display:flex; gap:8px; align-items:center; margin:8px 0;"}, [
+            el("div", {style: "min-width:140px; font-weight:600;"}, ["Target notebook"]),
+            folderSelect,
+            btnReloadFolders,
+        ]);
+
+        folderSelect.addEventListener("change", () => {
+            try {
+                localStorage.setItem(LS_KEY, folderSelect.value || "");
+            } catch (e) {
+            }
+        });
+
+        function populateFolders(list) {
+            let desired = "";
+            try {
+                desired = localStorage.getItem(LS_KEY) || "";
+            } catch (e) {
+            }
+
+            folderSelect.innerHTML = "";
+
+            // Placeholder
+            const placeholder = el("option", {value: "", disabled: "true"}, ["Select a notebook…"]);
+            folderSelect.appendChild(placeholder);
+
+            for (const f of (list || [])) {
+                const prefix = f.depth ? ("— ".repeat(Math.min(10, f.depth))) : "";
+                const opt = el("option", {value: f.id}, [prefix + f.title]);
+                folderSelect.appendChild(opt);
+            }
+
+            // restore selection or pick first real folder
+            const hasDesired = desired && Array.from(folderSelect.options).some(o => o.value === desired);
+            if (hasDesired) folderSelect.value = desired;
+            else if (folderSelect.options.length > 1) folderSelect.selectedIndex = 1;
+
+            if (!folderSelect.value && folderSelect.options.length > 1) folderSelect.selectedIndex = 1;
+        }
+
 
         // 2) File picker (recommended)
         const fileInput = el("input", {
@@ -72,7 +126,8 @@
                             name: "icalImport",
                             mode: "text",
                             ics: text,
-                            source: `filepicker:${f.name}`
+                            source: `filepicker:${f.name}`,
+                            targetFolderId: folderSelect.value || undefined,
                         });
                     };
                     reader.readAsText(f);
@@ -90,11 +145,15 @@
 
         // Render
         root.innerHTML = "";
-
+        root.appendChild(folderRow);
         root.appendChild(rowFile);
 
         root.appendChild(el("div", {style: "font-weight:600;margin-top:10px"}, ["Debug log"]));
         root.appendChild(logBox);
+
+        // Ask plugin for folder tree
+        window.webviewApi?.postMessage?.({name: "requestFolders"});
+
 
         // Messages from backend
         mcRegisterOnMessage((msg) => {
@@ -106,6 +165,13 @@
                 log("[DONE]", `added=${msg.added} updated=${msg.updated} skipped=${msg.skipped} errors=${msg.errors}`);
             } else if (msg.name === "importError") {
                 log("[ERROR]", msg.error || "unknown");
+            }
+
+            if (msg.name === "folders") {
+                populateFolders(msg.folders);
+                // якщо в тебе є log() — можна логнути
+                // log("[FOLDERS]", `loaded=${(msg.folders || []).length}`);
+                return;
             }
         });
 
