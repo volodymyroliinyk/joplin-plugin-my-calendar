@@ -63,7 +63,7 @@ uid: <unique ical id>         # string for event, more important for mass import
 ### Security
 
 - `npm audit;npm audit fix;`
-- need to fine more tools for security scanning;
+- need to find more tools for security scanning;
 
 ### Testing
 
