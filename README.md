@@ -18,7 +18,7 @@ end:   2025-08-12 12:00:00-04:00
 tz:    America/Toronto
 color: #ff8800
 location: rundom string with location
-desc:  Description of the event
+description:  Description of the event
 
 repeat: daily|weekly|monthly|yearly
 repeat_interval: 1

@@ -1,6 +1,7 @@
 // src/index.ts
+
 // NOT ONE import/require('api').
-// We only take API from a global object that plays Joplen Runner.
+// Only take API from a global object that plays Joplen Runner.
 
 (function bootstrap() {
     const j: any = (globalThis as any).joplin || (window as any).joplin;

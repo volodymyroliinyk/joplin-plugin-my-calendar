@@ -1,53 +1,15 @@
 // src/main/pluginMain.ts
 import {createCalendarPanel} from '../calendarView';
-import {parseEventsFromBody, EventInput} from '../eventParser';
+import {EventInput} from '../eventParser';
+
+import {ensureAllEventsCache, invalidateNote, invalidateAllEventsCache} from './services/eventsCache';
+import {registerCalendarPanelController} from './uiBridge/panelController';
+
 
 const eventCacheByNote = new Map<string, EventInput[]>();
 let allEventsCache: EventInput[] | null = null;
 let rebuilding = false;
-
-async function rebuildAllEventsCache(joplin: any) {
-    if (rebuilding) return;
-    rebuilding = true;
-    try {
-        console.log('[MyCalendar] rebuildAllEventsCache: start');
-        const fields = ['id', 'title', 'body'];
-        const items: any[] = [];
-        let page = 1;
-        eventCacheByNote.clear();
-
-        while (true) {
-            const res = await joplin.data.get(['notes'], {fields, page, limit: 100});
-            items.push(...res.items);
-            if (!res.has_more) break;
-            page++;
-        }
-
-        for (const n of items) {
-            const arr = parseEventsFromBody(n.id, n.title, n.body || '');
-            if (arr.length) eventCacheByNote.set(n.id, arr);
-        }
-        allEventsCache = Array.from(eventCacheByNote.values()).flat();
-        console.log('[MyCalendar] rebuildAllEventsCache: done, events =', allEventsCache.length);
-    } catch (err) {
-        console.error('[MyCalendar] rebuildAllEventsCache: error', err);
-    } finally {
-        rebuilding = false;
-    }
-}
-
-async function ensureAllEventsCache(joplin: any) {
-    if (!allEventsCache) {
-        await rebuildAllEventsCache(joplin);
-    }
-    return allEventsCache!;
-}
-
-function invalidateNote(noteId: string) {
-    console.log('[MyCalendar] invalidateNote', noteId);
-    eventCacheByNote.delete(noteId);
-    allEventsCache = null;
-}
+let importPanelId: string | null = null;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 type Occurrence = EventInput & { occurrenceId: string; startUtc: number; endUtc?: number };
@@ -194,7 +156,7 @@ function buildICS(events: Occurrence[], prodId = '-//MyCalendar//Joplin//EN') {
         if (ev.endUtc) lines.push(`DTEND:${fmtICS(ev.endUtc)}`);
         lines.push(`SUMMARY:${icsEscape(ev.title || 'Event')}`);
         if (ev.location) lines.push(`LOCATION:${icsEscape(ev.location)}`);
-        if (ev.desc) lines.push(`DESCRIPTION:${icsEscape(ev.desc)}`);
+        if (ev.description) lines.push(`DESCRIPTION:${icsEscape(ev.description)}`);
         if (ev.color) lines.push(`X-COLOR:${icsEscape(ev.color)}`);
         lines.push('END:VEVENT');
     }
@@ -235,68 +197,23 @@ export default async function runPlugin(joplin: any) {
 
     await joplin.workspace.onNoteChange(async ({id}: { id?: string }) => {
         if (id) invalidateNote(id);
+        invalidateAllEventsCache();
     });
     await joplin.workspace.onSyncComplete(async () => {
         allEventsCache = null;
     });
 
-    await joplin.views.panels.onMessage(panel, async (msg: any) => {
-        try {
-            console.log('[MyCalendar] onMessage from UI:', msg);
-
-            if (msg.name === 'uiReady') {
-                console.log('[MyCalendar] uiReady ack');
-                await joplin.views.panels.postMessage(panel, {name: 'uiAck'});
-                return;
-            }
-
-            if (msg.name === 'requestRangeEvents') {
-                const all = await ensureAllEventsCache(joplin);
-                const list = expandAllInRange(all, msg.fromUtc, msg.toUtc);
-                console.log('[MyCalendar] sending rangeEvents count=', list.length, 'range=', new Date(msg.fromUtc).toISOString(), '→', new Date(msg.toUtc).toISOString());
-                await joplin.views.panels.postMessage(panel, {name: 'rangeEvents', events: list});
-                return;
-            }
-
-            if (msg.name === 'dateClick') {
-                const dayStart = msg.dateUtc;
-                const dayEnd = dayStart + (24 * 60 * 60 * 1000) - 1;
-                const all = await ensureAllEventsCache(joplin);
-                const list = expandAllInRange(all, dayStart, dayEnd)
-                    .filter(e => e.startUtc >= dayStart && e.startUtc <= dayEnd);
-                console.log('[MyCalendar] sending showEvents count=', list.length, 'for', new Date(dayStart).toISOString().slice(0, 10));
-                await joplin.views.panels.postMessage(panel, {name: 'showEvents', dateUtc: msg.dateUtc, events: list});
-                return;
-            }
-
-            if (msg.name === 'openNote' && msg.id) {
-                console.log('[MyCalendar] openNote', msg.id);
-                await joplin.commands.execute('openNote', msg.id);
-                return;
-            }
-
-            if (msg.name === 'exportRangeIcs' && typeof msg.fromUtc === 'number' && typeof msg.toUtc === 'number') {
-                const all = await ensureAllEventsCache(joplin);
-                const list = expandAllInRange(all, msg.fromUtc, msg.toUtc);
-                const ics = buildICS(list);
-                console.log('[MyCalendar] sending rangeIcs bytes=', ics.length);
-                await joplin.views.panels.postMessage(panel, {
-                    name: 'rangeIcs',
-                    ics,
-                    filename: `mycalendar_${new Date(msg.fromUtc).toISOString().slice(0, 10)}_${new Date(msg.toUtc).toISOString().slice(0, 10)}.ics`,
-                });
-                return;
-            }
-
-            console.warn('[MyCalendar] unknown message from UI', msg);
-        } catch (e) {
-            console.error('[MyCalendar] onMessage error:', e);
-        }
+    await registerCalendarPanelController(joplin, panel, {
+        expandAllInRange,
+        buildICS,
     });
 
     await joplin.views.panels.show(panel);
 
     await registerDesktopToggle(joplin, panel);
+
+    // --- Create the import panel (desktop)
+
     try {
         const panelsAny = (joplin as any).views?.panels;
         if (panelsAny && typeof panelsAny.focus === 'function') {
@@ -318,7 +235,7 @@ async function registerDesktopToggle(joplin: any, panelId: string) {
         console.info('[MyCalendar] toggle: capabilities', {canShow, canHide, canMenu, panelId});
 
         if (!canShow || !canHide) {
-            console.info('[MyCalendar] toggle: panels.show/hide not available — skip');
+            console.info('[MyCalendar] toggle: panels.show/hide not available - skip');
             return;
         }
 
@@ -366,4 +283,7 @@ async function registerDesktopToggle(joplin: any, panelId: string) {
         console.warn('[MyCalendar] registerDesktopToggle failed (non-fatal):', e);
     }
 }
+
+
+
 
