@@ -51,17 +51,19 @@
 
         const folderSelect = el("select", {
             id: "mc-target-folder",
-            style: "flex:1; max-width: 520px;"
+            class: "setting-select-control",
+            style: "flex:1; max-width: 80px;"
         });
 
 // Reload button (optional)
         const btnReloadFolders = el("button", {
             style: "padding:6px 10px;",
+            class: "setting-btn",
             onclick: () => window.webviewApi?.postMessage?.({name: "requestFolders"})
         }, ["Reload"]);
 
         const folderRow = el("div", {style: "display:flex; gap:8px; align-items:center; margin:8px 0;"}, [
-            el("div", {style: "min-width:140px; font-weight:600;"}, ["Target notebook"]),
+            el("div", {style: "font-weight:600;"}, ["Target notebook"]),
             folderSelect,
             btnReloadFolders,
         ]);
@@ -131,13 +133,15 @@
                         });
                     };
                     reader.readAsText(f);
-                }
+                },
+                class: "setting-btn",
             },
-            ["Import selected file"]
+            ["Import"]
         );
 
 
         const rowFile = el("div", {style: "display:flex; gap:8px; align-items:center; margin:8px 0;"}, [
+            el("div", {style: "font-weight:600;"}, [".ics file"]),
             fileInput,
             btnImportFile
         ]);
