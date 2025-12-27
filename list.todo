@@ -1,0 +1,9 @@
+TODO:[1]:
+    - Readme.md
+    - css review
+    - multilingual support
+TODO:[2]:
+    - events lasting several days are not drawn, this is a bug
+    - ical backwards compatibility to convert both ways from google to notepad
+    -- ICAL UID uuid@domain , 32 same as joplin.note_id can be done
+
