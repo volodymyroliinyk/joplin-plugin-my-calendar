@@ -1,4 +1,5 @@
 // src/main/uiBridge/panelController.ts
+
 import {ensureAllEventsCache, invalidateAllEventsCache} from '../services/eventsCache';
 import {importIcsIntoNotes} from '../services/icsImportService';
 

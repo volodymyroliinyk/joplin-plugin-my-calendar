@@ -1,6 +1,7 @@
+// src/main/views/calendarView.ts
+
 import joplin from 'api';
 
-// src/calendarView.ts
 export async function createCalendarPanel(joplin: any): Promise<string> {
     const panelId = await joplin.views.panels.create('mycalendarPanel');
 

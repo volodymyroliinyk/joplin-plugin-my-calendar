@@ -1,4 +1,5 @@
 // src/ui/calendar.js
+
 (function () {
     function log(...args) {
         console.log('[MyCalendar UI]', ...args);

@@ -1,4 +1,5 @@
 // src/main/uiBridge/panelMessages.ts
+
 export type UiToPluginMessage =
     | { name: 'requestRangeEvents'; start: string; end: string }
     | { name: 'icalImport'; mode: 'text'; ics: string; source?: string }

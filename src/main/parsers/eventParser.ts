@@ -1,4 +1,4 @@
-// src/eventParser.ts
+// src/main/parsers/eventParser.ts
 
 
 type RepeatFreq = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';

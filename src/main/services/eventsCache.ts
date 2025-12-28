@@ -1,5 +1,6 @@
 // src/main/services/eventsCache.ts
-import {parseEventsFromBody, EventInput} from '../../eventParser';
+
+import {parseEventsFromBody, EventInput} from '../parsers/eventParser';
 
 const eventCacheByNote = new Map<string, EventInput[]>();
 let allEventsCache: EventInput[] | null = null;
