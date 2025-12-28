@@ -110,8 +110,8 @@ body::-webkit-scrollbar-thumb:hover {
 }
 
 .mc-grid-body .mc-cell {
-    position: relative;
-    min-height: 52px;
+    /*position: relative;*/
+    min-height: 50px;
     border-right: 1px solid var(--joplin-divider-color);
     border-top: 1px solid var(--joplin-divider-color);
     padding: 4px 6px;
@@ -125,6 +125,7 @@ body::-webkit-scrollbar-thumb:hover {
 .mc-daynum {
     font-size: 12px;
     opacity: 0.8;
+    margin-bottom: 2px;
 }
 
 .mc-dots {
@@ -218,11 +219,11 @@ body::-webkit-scrollbar-thumb:hover {
 
 /* The container of strips in the cell */
 .mc-bars {
-    position: absolute;
+    /*position: absolute;*/
     left: 4px;
     right: 4px;
     bottom: 6px;
-    display: grid;
+    display: block;
     grid-auto-rows: 4px;
     gap: 2px;
     z-index: 2;
@@ -233,6 +234,7 @@ body::-webkit-scrollbar-thumb:hover {
     border-radius: 2px;
     background: #2d7ff9;
     opacity: 0.95;
+    margin-bottom: 1px;
 }
 
 /* Badge-chiller is up to the right */

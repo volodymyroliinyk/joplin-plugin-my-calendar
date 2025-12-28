@@ -347,10 +347,10 @@
 
                 // Clean the previous indicators
                 body.querySelectorAll('.mc-bars').forEach(b => b.innerHTML = '');
-                body.querySelectorAll('.mc-count').forEach(c => {
-                    c.textContent = '';
-                    c.style.display = 'none';
-                });
+                // body.querySelectorAll('.mc-count').forEach(c => {
+                //     c.textContent = '';
+                //     c.style.display = 'none';
+                // });
 
                 // Gather events by day
                 const byDay = new Map(); // dayUtc -> events[]
@@ -367,18 +367,19 @@
                 // Auxiliary: Get/create subsidiaries in a cell
                 function ensureParts(cell) {
                     let bars = cell.querySelector(':scope > .mc-bars');
-                    let badge = cell.querySelector(':scope > .mc-count');
+                    // let badge = cell.querySelector(':scope > .mc-count');
                     if (!bars) {
                         bars = document.createElement('div');
                         bars.className = 'mc-bars';
                         cell.appendChild(bars);
                     }
-                    if (!badge) {
-                        badge = document.createElement('div');
-                        badge.className = 'mc-count';
-                        cell.appendChild(badge);
-                    }
-                    return {bars, badge};
+                    // if (!badge) {
+                    //     badge = document.createElement('div');
+                    //     badge.className = 'mc-count';
+                    //     cell.appendChild(badge);
+                    // }
+                    // return {bars, badge};
+                    return {bars};
                 }
 
                 // To paint
@@ -386,7 +387,8 @@
                     const cell = body.querySelector(`.mc-cell[data-utc="${dayUtc}"]`);
                     if (!cell) return;
 
-                    const {bars, badge} = ensureParts(cell);
+                    // const {bars,badge} = ensureParts(cell);
+                    const {bars} = ensureParts(cell);
 
                     // Color Event indicators in the calendar grid
                     const top = events.slice().sort((a, b) => a.startUtc - b.startUtc);
@@ -398,8 +400,8 @@
                     }
 
                     // Counter in the upper right corner
-                    badge.textContent = String(events.length);
-                    badge.style.display = 'block';
+                    // badge.textContent = String(events.length);
+                    // badge.style.display = 'block';
                 });
             }
 
