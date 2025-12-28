@@ -25,6 +25,9 @@ The [Joplin](https://joplinapp.org/) plugin provides the ability to:
 
 ### ICS import section (Desktop Joplin only)
 
+Import behavior: each event from ics file is unique by uid, first import note as event will be created, socond import
+each not will be updated or ignored, depends from
+
 - Form for ICS file import:
     - Target notebook select box and reload list button;
     - ICS File picker and import button;

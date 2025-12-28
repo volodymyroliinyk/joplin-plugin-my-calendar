@@ -338,9 +338,25 @@
                 if (sel) sel.classList.add('mc-selected');
             }
 
-            function fmtHM(ts) {
+            function fmtHM(ts, tz) {
+                try {
+                    // tz expected like "America/Toronto"
+                    if (tz) {
+                        return new Intl.DateTimeFormat(undefined, {
+                            timeZone: tz,
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: false,
+                        }).format(new Date(ts));
+                    }
+                } catch (e) {
+                    // ignore invalid tz and fallback
+                }
+
+                // fallback: environment timezone
                 return new Date(ts).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', hour12: false});
             }
+
 
 
 // Slice an event interval into a specific local-day interval.
@@ -468,9 +484,11 @@
                     title.textContent = ev.title || '(without a title)';
                     const t = document.createElement('span');
                     t.className = 'mc-time';
+                    const tz = ev.tz; // comes from plugin-side events
                     const label = (slice.endUtc !== slice.startUtc)
-                        ? `${fmtHM(slice.startUtc)}–${fmtHM(slice.endUtc)}`
-                        : fmtHM(slice.startUtc);
+                        ? `${fmtHM(slice.startUtc, tz)}–${fmtHM(slice.endUtc, tz)}`
+                        : fmtHM(slice.startUtc, tz);
+
                     t.textContent = label;
                     li.appendChild(color);
                     li.appendChild(title);
@@ -479,6 +497,8 @@
                         window.webviewApi?.postMessage?.({name: 'openNote', id: ev.id});
                     });
                     ul.appendChild(li);
+
+                    log('DAY ev.title=', ev.title, 'ev.tz=', ev.tz, 'startUtc=', ev.startUtc);
                 }
             }
 
@@ -491,6 +511,47 @@
             console.error('[MyCalendar UI] init error', e);
             log('init error', e && e.message ? e.message : String(e));
         }
+    }
+
+    function parseYmdHms(s) {
+        // "2025-09-01 15:30:00"
+        const [d, t] = s.trim().split(/\s+/);
+        const [Y, M, D] = d.split('-').map(Number);
+        const [h, m, sec] = (t || '00:00:00').split(':').map(Number);
+        return {Y, M, D, h, m, sec: sec || 0};
+    }
+
+    function getPartsInTz(date, tz) {
+        const fmt = new Intl.DateTimeFormat('en-CA', {
+            timeZone: tz,
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit', second: '2-digit',
+            hour12: false
+        });
+        const parts = fmt.formatToParts(date);
+        const mp = {};
+        for (const p of parts) if (p.type !== 'literal') mp[p.type] = p.value;
+        return {
+            Y: Number(mp.year),
+            M: Number(mp.month),
+            D: Number(mp.day),
+            h: Number(mp.hour),
+            m: Number(mp.minute),
+            sec: Number(mp.second),
+        };
+    }
+
+// zonedTimeToUtc for "local datetime in tz" -> utc ms
+    function zonedTimeToUtcMs(localY, localM, localD, localH, localMin, localSec, tz) {
+        // initial guess: treat local as UTC
+        let guess = Date.UTC(localY, localM - 1, localD, localH, localMin, localSec);
+
+        // refine once (enough for DST cases)
+        const parts = getPartsInTz(new Date(guess), tz);
+        const asIfUtc = Date.UTC(parts.Y, parts.M - 1, parts.D, parts.h, parts.m, parts.sec);
+        const desired = Date.UTC(localY, localM - 1, localD, localH, localMin, localSec);
+        const diff = desired - asIfUtc;
+        return guess + diff;
     }
 
     // Init check

@@ -12,6 +12,65 @@ let allEventsCache: EventInput[] | null = null;
 const DAY_MS = 24 * 60 * 60 * 1000;
 type Occurrence = EventInput & { occurrenceId: string; startUtc: number; endUtc?: number };
 
+function parseYmdHmsLocal(s: string): { Y: number; M: number; D: number; h: number; m: number; sec: number } {
+    // "2025-09-01 15:30:00"
+    const [d, t] = s.trim().split(/\s+/);
+    const [Y, M, D] = d.split('-').map(n => parseInt(n, 10));
+    const [h, m, sec] = (t || '00:00:00').split(':').map(n => parseInt(n, 10));
+    return {Y, M, D, h, m, sec: sec || 0};
+}
+
+function addDaysYMD(Y: number, M: number, D: number, deltaDays: number): { Y: number; M: number; D: number } {
+    const dt = new Date(Date.UTC(Y, M - 1, D) + deltaDays * DAY_MS);
+    return {Y: dt.getUTCFullYear(), M: dt.getUTCMonth() + 1, D: dt.getUTCDate()};
+}
+
+function weekdayMon0(Y: number, M: number, D: number): number {
+    // Monday=0..Sunday=6
+    const dowSun0 = new Date(Date.UTC(Y, M - 1, D)).getUTCDay(); // Sun=0
+    return (dowSun0 + 6) % 7;
+}
+
+function getPartsInTz(msUtc: number, tz: string): { Y: number; M: number; D: number } {
+    const fmt = new Intl.DateTimeFormat('en-CA', {
+        timeZone: tz,
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour12: false,
+    });
+    const parts = fmt.formatToParts(new Date(msUtc));
+    const mp: Record<string, string> = {};
+    for (const p of parts) if (p.type !== 'literal') mp[p.type] = p.value;
+    return {Y: Number(mp.year), M: Number(mp.month), D: Number(mp.day)};
+}
+
+// Convert "local datetime in tz" -> UTC ms (handles DST correctly for that date)
+function zonedTimeToUtcMs(localY: number, localM: number, localD: number, localH: number, localMin: number, localSec: number, tz: string): number {
+    // initial guess: interpret local as UTC
+    let guess = Date.UTC(localY, localM - 1, localD, localH, localMin, localSec);
+
+    const fmt = new Intl.DateTimeFormat('en-CA', {
+        timeZone: tz,
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false,
+    });
+    const parts = fmt.formatToParts(new Date(guess));
+    const mp: Record<string, string> = {};
+    for (const p of parts) if (p.type !== 'literal') mp[p.type] = p.value;
+
+    const gotAsUtc = Date.UTC(
+        Number(mp.year),
+        Number(mp.month) - 1,
+        Number(mp.day),
+        Number(mp.hour),
+        Number(mp.minute),
+        Number(mp.second),
+    );
+
+    const wantAsUtc = Date.UTC(localY, localM - 1, localD, localH, localMin, localSec);
+    return guess + (wantAsUtc - gotAsUtc);
+}
+
 function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number): Occurrence[] {
     const dur = (ev.endUtc ?? ev.startUtc) - ev.startUtc;
     const push = (start: number, out: Occurrence[]) => {
@@ -48,26 +107,52 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
     }
 
     if (ev.repeat === 'weekly') {
-        const baseWd = (base.getUTCDay() + 6) % 7; // Mon=0
-        const list = ev.byWeekdays && ev.byWeekdays.length ? ev.byWeekdays : [baseWd];
-        const baseMidnight = Date.UTC(baseY, baseM, baseD);
-        const mondayOfBase = baseMidnight - baseWd * DAY_MS;
-        const timeOfDayOffset = ev.startUtc - baseMidnight;
+        const tz = ev.tz;
+        if (!tz) {
+            // recurring without tz cannot be expanded safely
+            return out; // або continue + warning
+        }
 
-        let weekIndex = Math.floor((fromUtc - mondayOfBase) / (7 * DAY_MS * step));
-        if (mondayOfBase + weekIndex * 7 * DAY_MS * step + (list[0] * DAY_MS) + timeOfDayOffset < fromUtc) weekIndex++;
+        const baseLocal = parseYmdHmsLocal(ev.startText);
+        const baseWd = weekdayMon0(baseLocal.Y, baseLocal.M, baseLocal.D);
+
+        const list = ev.byWeekdays && ev.byWeekdays.length ? ev.byWeekdays : [baseWd];
+        const step = Math.max(1, ev.repeatInterval || 1);
+
+        // Monday of base week (local date)
+        const mondayBase = addDaysYMD(baseLocal.Y, baseLocal.M, baseLocal.D, -baseWd);
+
+        // Start from the week containing "fromUtc" in local TZ
+        const fromLocal = getPartsInTz(fromUtc, tz);
+        const fromWd = weekdayMon0(fromLocal.Y, fromLocal.M, fromLocal.D);
+        const mondayFrom = addDaysYMD(fromLocal.Y, fromLocal.M, fromLocal.D, -fromWd);
+
+        // Compute week index offset (in local calendar days)
+        const mondayBaseMs = Date.UTC(mondayBase.Y, mondayBase.M - 1, mondayBase.D);
+        const mondayFromMs = Date.UTC(mondayFrom.Y, mondayFrom.M - 1, mondayFrom.D);
+        let weekIndex = Math.floor((mondayFromMs - mondayBaseMs) / (7 * DAY_MS));
         if (weekIndex < 0) weekIndex = 0;
 
-        for (; ; weekIndex++) {
-            const weekStart = mondayOfBase + weekIndex * 7 * DAY_MS * step;
-            if (weekStart > until) break;
+        const until = Math.min(toUtc, ev.repeatUntilUtc ?? Number.POSITIVE_INFINITY);
+
+        for (; ;) {
+            const weekStart = addDaysYMD(mondayBase.Y, mondayBase.M, mondayBase.D, weekIndex * 7 * step);
+
             for (const wd of list) {
-                const start = weekStart + wd * DAY_MS + timeOfDayOffset;
-                if (start > until) continue;
-                const keep = push(start, out);
-                if (!keep) break;
+                const occ = addDaysYMD(weekStart.Y, weekStart.M, weekStart.D, wd);
+
+                const start = zonedTimeToUtcMs(occ.Y, occ.M, occ.D, baseLocal.h, baseLocal.m, baseLocal.sec, tz);
+                if (start < fromUtc || start > until) continue;
+
+                if (!push(start, out)) return out;
             }
-            if (weekStart > toUtc) break;
+
+            // stop condition: next week start beyond range
+            const nextWeek = addDaysYMD(mondayBase.Y, mondayBase.M, mondayBase.D, (weekIndex + 1) * 7 * step);
+            const nextWeekStartUtc = zonedTimeToUtcMs(nextWeek.Y, nextWeek.M, nextWeek.D, 0, 0, 0, tz);
+            if (nextWeekStartUtc > toUtc) break;
+
+            weekIndex++;
         }
         return out;
     }

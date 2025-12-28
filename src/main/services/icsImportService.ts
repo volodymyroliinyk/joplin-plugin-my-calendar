@@ -2,6 +2,7 @@
 
 type IcsEvent = {
     uid?: string;
+    recurrence_id?: string;
 
     // MyCalendar normalized fields (what we write into ```mycalendar-event``` blocks)
     title?: string;
@@ -11,7 +12,6 @@ type IcsEvent = {
 
     start?: string; // "2025-08-12 10:00:00-04:00" or without offset (with tz)
     end?: string;
-
     tz?: string; // IANA tz, e.g. "America/Toronto"
 
     repeat?: 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
@@ -168,6 +168,7 @@ function parseMyCalKeyValueText(text: string): IcsEvent[] {
         const v = m[2].trim();
 
         if (k === 'uid') cur.uid = v;
+        else if (k === 'recurrence_id') cur.recurrence_id = v;
         else if (k === 'title' || k === 'summary') cur.title = v;
         else if (k === 'description') cur.description = v;
         else if (k === 'location') cur.location = v;
@@ -228,6 +229,22 @@ function parseIcs(ics: string): IcsEvent[] {
             if (params['TZID'] && !cur.tz) cur.tz = params['TZID'];
         } else if (key === 'RRULE') {
             Object.assign(cur, parseRRule(value.trim()));
+        } else if (key === 'RECURRENCE-ID') {
+            const ridVal = value.trim();
+            const tzid = params['TZID'];
+            const valType = (params['VALUE'] || '').toUpperCase(); // DATE / DATE-TIME
+
+            if (valType === 'DATE') {
+                // e.g. RECURRENCE-ID;VALUE=DATE:20200727
+                cur.recurrence_id = `DATE:${ridVal}`;
+            } else if (tzid) {
+                // e.g. RECURRENCE-ID;TZID=America/Toronto:20250101T090000
+                cur.recurrence_id = `${tzid}:${ridVal}`;
+                if (!cur.tz) cur.tz = tzid;
+            } else {
+                // e.g. RECURRENCE-ID:20250101T140000Z
+                cur.recurrence_id = ridVal;
+            }
         }
     }
 
@@ -267,6 +284,9 @@ function buildMyCalBlock(ev: IcsEvent): string {
     if (ev.uid) {
         lines.push('');
         lines.push(`uid: ${ev.uid}`);
+        if (ev.recurrence_id) {
+            lines.push(`recurrence_id: ${ev.recurrence_id}`);
+        }
     }
 
     lines.push('```');
@@ -277,24 +297,73 @@ function escapeReg(s: string) {
     return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function replaceEventBlockByUid(body: string, uid: string, newBlock: string): string {
-    // Replace the first block that contains the uid
+function makeEventKey(uid: string, recurrenceId?: string): string {
+    return `${(uid || '').trim()}|${(recurrenceId || '').trim()}`;
+}
+
+function parseUidAndRecurrence(inner: string): { uid?: string; recurrence_id?: string } {
+    const uidM = inner.match(/^\s*uid\s*:\s*(.+?)\s*$/im);
+    const ridM = inner.match(/^\s*recurrence_id\s*:\s*(.+?)\s*$/im);
+    return {
+        uid: uidM?.[1]?.trim(),
+        recurrence_id: ridM?.[1]?.trim(),
+    };
+}
+
+function extractAllEventKeysFromBody(body: string): string[] {
+    const re = /(^|\r?\n)[ \t]*```mycalendar-event[ \t]*\r?\n([\s\S]*?)\r?\n[ \t]*```(?=\r?\n|$)/g;
+    const keys: string[] = [];
+    let m: RegExpExecArray | null;
+
+    while ((m = re.exec(body)) !== null) {
+        const inner = m[2] || '';
+        const meta = parseUidAndRecurrence(inner);
+        if (!meta.uid) continue;
+        keys.push(makeEventKey(meta.uid, meta.recurrence_id));
+    }
+    return keys;
+}
+
+
+function replaceEventBlockByKey(body: string, uid: string, recurrenceId: string | undefined, newBlock: string): string {
+    const targetUid = (uid || '').trim();
+    const targetRid = (recurrenceId || '').trim();
+
     const re = /(^|\r?\n)[ \t]*```mycalendar-event[ \t]*\r?\n([\s\S]*?)\r?\n[ \t]*```(?=\r?\n|$)/g;
     let changed = false;
 
     const out = body.replace(re, (full, p1, inner) => {
-        if (new RegExp(`^\\s*uid:\\s*${escapeReg(uid)}\\s*$`, 'im').test(inner)) {
+        const meta = parseUidAndRecurrence(inner);
+
+        const u = (meta.uid || '').trim();
+        const r = (meta.recurrence_id || '').trim();
+
+        if (u !== targetUid) return full;
+
+        // For master events (no RECURRENCE-ID): match blocks that also have no recurrence_id
+        if (!targetRid) {
+            if (!r) {
+                changed = true;
+                return `${p1}${newBlock}`;
+            }
+            return full;
+        }
+
+        // For occurrences/exceptions: must match recurrence_id exactly
+        if (r === targetRid) {
             changed = true;
             return `${p1}${newBlock}`;
         }
+
         return full;
     });
 
     if (changed) return out;
 
-    // If not found - add to the end
+    // Not found: append
     return (body ? body.replace(/\s+$/, '') + '\n\n' : '') + newBlock + '\n';
 }
+
 
 export async function importIcsIntoNotes(
     joplin: any,
@@ -313,7 +382,7 @@ export async function importIcsIntoNotes(
     await say(`Parsed ${events.length} VEVENT(s)`);
 
     // existing map uid -> {id, body}
-    const existing: Record<string, { id: string; body: string }> = {};
+    const existing: Record<string, { id: string; title: string; body: string }> = {};
     let page = 1;
 
     while (true) {
@@ -323,10 +392,9 @@ export async function importIcsIntoNotes(
             if (!n.body || typeof n.body !== 'string') continue;
             if (!n.body.includes('```mycalendar-event')) continue;
 
-            const m = n.body.match(/^\s*```mycalendar-event[\s\S]*?^\s*uid:\s*(.+?)\s*$/im);
-            if (m && m[1]) {
-                const uid = m[1].trim();
-                existing[uid] = {id: n.id, body: n.body};
+            const keys = extractAllEventKeysFromBody(n.body);
+            for (const k of keys) {
+                existing[k] = {id: n.id, title: n.title || '', body: n.body};
             }
         }
 
@@ -343,46 +411,45 @@ export async function importIcsIntoNotes(
             continue;
         }
 
-        const block = buildMyCalBlock(ev);
+        const rid = (ev.recurrence_id || '').trim();
+        const key = makeEventKey(uid, rid);
 
-        if (existing[uid]) {
+        const block = buildMyCalBlock(ev);
+        const desiredTitle = ev.title || 'Event';
+
+        if (existing[key]) {
             try {
-                const {id, body} = existing[uid];
-                const newBody = replaceEventBlockByUid(body, uid, block);
-                const patch: any = {
-                    body: newBody
-                }
-                if (targetFolderId) {
-                    patch.parent_id = targetFolderId;
-                }
-                if (newBody !== body) {
+                const {id, body, title} = existing[key];
+
+                const newBody = replaceEventBlockByKey(body, uid, rid, block);
+
+                const patch: any = {};
+                if (newBody !== body) patch.body = newBody;
+                if (desiredTitle !== title) patch.title = desiredTitle;
+
+                if (Object.keys(patch).length > 0) {
                     await joplin.data.put(['notes', id], null, patch);
                     updated++;
-                    await say(`Updated: ${uid}`);
                 } else {
                     skipped++;
                 }
             } catch (e) {
                 errors++;
-                await say(`ERROR update: ${uid} - ${String((e as any)?.message || e)}`);
+                await say(`ERROR update: ${key} - ${String((e as any)?.message || e)}`);
             }
         } else {
             try {
-                const noteBody: any = {
-                    title: ev.title || 'Event',
-                    body: block,
-                }
-                if (targetFolderId) {
-                    noteBody.parent_id = targetFolderId;
-                }
+                const noteBody: any = {title: desiredTitle, body: block};
+                if (targetFolderId) noteBody.parent_id = targetFolderId;
+
                 await joplin.data.post(['notes'], null, noteBody);
                 added++;
-                await say(`Added: ${uid}`);
             } catch (e) {
                 errors++;
-                await say(`ERROR add: ${uid} - ${String((e as any)?.message || e)}`);
+                await say(`ERROR create: ${key} - ${String((e as any)?.message || e)}`);
             }
         }
+
     }
 
     return {added, updated, skipped, errors};

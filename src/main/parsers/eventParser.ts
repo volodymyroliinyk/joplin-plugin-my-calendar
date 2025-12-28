@@ -12,6 +12,7 @@ type EventInput = {
 
     startUtc: number;
     endUtc?: number;
+    tz?: string;
 
     startText: string;
     endText?: string;
@@ -180,10 +181,14 @@ export function parseEventsFromBody(noteId: string, titleFallback: string, body:
             description,
             location,
             color,
+
             startUtc,
             endUtc,
+            tz,
+
             startText,
             endText,
+
             repeat,
             repeatInterval,
             repeatUntilUtc,
