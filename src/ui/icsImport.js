@@ -1,4 +1,4 @@
-// src/ui/icalImport.js
+// src/ui/icsImport.js
 
 (function () {
     function el(tag, attrs = {}, children = []) {
@@ -25,7 +25,7 @@
     }
 
     function init() {
-        const root = document.getElementById("ical-root");
+        const root = document.getElementById("ics-root");
         if (!root) return;
 
         // UI
@@ -106,7 +106,7 @@
 
         // 2) File picker (recommended)
         const fileInput = el("input", {
-            id: "ical-file",
+            id: "ics-file",
             type: "file",
             accept: ".ics,text/calendar",
             style: "flex:1;"
@@ -126,7 +126,7 @@
                         const text = String(reader.result || "");
                         log("File read OK. Importing…", "len=", text.length);
                         window.webviewApi?.postMessage?.({
-                            name: "icalImport",
+                            name: "icsImport",
                             mode: "text",
                             ics: text,
                             source: `filepicker:${f.name}`,

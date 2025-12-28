@@ -132,7 +132,7 @@ export async function registerCalendarPanelController(
             }
 
             // --- ICS import (text/file) from UI ---
-            if (msg?.name === 'icalImport') {
+            if (msg?.name === 'icsImport') {
                 const sendStatus = async (text: string) => {
                     await joplin.views.panels.postMessage(panelId, {name: 'importStatus', text});
                 };

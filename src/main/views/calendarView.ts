@@ -20,7 +20,7 @@ export async function createCalendarPanel(joplin: any): Promise<string> {
     <div id="mc-import">
       <div class="mc-import-header">ICS import</div>
       <div id="mc-import-body">
-        <div id="ical-root"></div>
+        <div id="ics-root"></div>
       </div>
     </div>
     <!-- LOG -->
@@ -32,7 +32,7 @@ export async function createCalendarPanel(joplin: any): Promise<string> {
 
     await joplin.views.panels.addScript(panelId, './ui/calendar.css');
     await joplin.views.panels.addScript(panelId, './ui/calendar.js');
-    await joplin.views.panels.addScript(panelId, './ui/icalImport.js');
+    await joplin.views.panels.addScript(panelId, './ui/icsImport.js');
     await joplin.views.panels.show(panelId);
     console.log('[MyCalendar] calendarView created');
 
