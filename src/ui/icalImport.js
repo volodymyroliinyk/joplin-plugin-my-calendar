@@ -51,14 +51,14 @@
 
         const folderSelect = el("select", {
             id: "mc-target-folder",
-            class: "setting-select-control",
-            style: "flex:1; max-width: 80px;"
+            class: "mc-setting-select-control",
+            style: "flex:1;width:100%;"
         });
 
 // Reload button (optional)
         const btnReloadFolders = el("button", {
             style: "padding:6px 10px;",
-            class: "setting-btn",
+            class: "mc-setting-btn",
             onclick: () => window.webviewApi?.postMessage?.({name: "requestFolders"})
         }, ["Reload"]);
 
@@ -134,7 +134,7 @@
                     };
                     reader.readAsText(f);
                 },
-                class: "setting-btn",
+                class: "mc-setting-btn",
             },
             ["Import"]
         );

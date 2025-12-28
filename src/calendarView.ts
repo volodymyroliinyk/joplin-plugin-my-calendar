@@ -5,7 +5,7 @@ export async function createCalendarPanel(joplin: any): Promise<string> {
     const panelId = await joplin.views.panels.create('mycalendarPanel');
 
     await joplin.views.panels.setHtml(panelId, `
-<div id="cal-scroll">
+<div id="mc-cal-scroll">
   <div id="cal-root">
     <div id="mc-toolbar"></div>
     <!-- CALENDAR -->

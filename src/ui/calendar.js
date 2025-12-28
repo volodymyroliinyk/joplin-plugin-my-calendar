@@ -191,7 +191,7 @@
                 b.title = title;
                 b.textContent = text;
                 b.addEventListener('click', onClick);
-                b.classList.add('calendar-nav-btn');
+                b.classList.add('mc-calendar-nav-btn');
                 return b;
             }
 
