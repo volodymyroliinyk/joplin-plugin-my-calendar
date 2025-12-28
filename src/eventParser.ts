@@ -48,33 +48,67 @@ function parseIntSafe(v?: string): number | undefined {
 // "2025-08-12 10:00:00-04:00" | "2025-08-12T10:00:00-04:00" | Without offset (з tz)
 function parseDateTimeToUTC(text: string, tz?: string): number | null {
     const trimmed = text.trim();
-    // There is a clear offset -> we trust Date
-    if (/[+-]\d{2}:?\d{2}$/.test(trimmed)) {
-        const canon = trimmed.replace(' ', 'T').replace(/([+-]\d{2})(\d{2})$/, '$1:$2');
+    if (!trimmed) return null;
+
+    // Explicit offset or Z -> trust Date parsing (absolute moment)
+    if (/[+-]\d{2}:?\d{2}$/.test(trimmed) || /Z$/i.test(trimmed)) {
+        const canon = trimmed
+            .replace(' ', 'T')
+            .replace(/([+-]\d{2})(\d{2})$/, '$1:$2'); // +0300 -> +03:00
         const d = new Date(canon);
         return isNaN(d.getTime()) ? null : d.getTime();
     }
-    // without offset but with tz -> UTC Calculation through intl
-    try {
-        const local = new Date(trimmed.replace(' ', 'T'));
-        if (isNaN(local.getTime())) return null;
-        if (!tz) return local.getTime();
 
+    // No offset: parse wall-clock components
+    const m = trimmed.match(/^([0-9]{4})-([0-9]{2})-([0-9]{2})[ T]([0-9]{2}):([0-9]{2})(?::([0-9]{2}))?$/);
+    if (!m) {
+        const d = new Date(trimmed.replace(' ', 'T'));
+        return isNaN(d.getTime()) ? null : d.getTime();
+    }
+
+    const y = Number(m[1]);
+    const mo = Number(m[2]);
+    const da = Number(m[3]);
+    const hh = Number(m[4]);
+    const mi = Number(m[5]);
+    const ss = Number(m[6] ?? '0');
+
+    // If tz is not provided -> interpret as device-local time (no conversion)
+    if (!tz) {
+        const d = new Date(`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${String(ss).padStart(2, '0')}`);
+        return isNaN(d.getTime()) ? null : d.getTime();
+    }
+
+    // tz provided without offset: interpret components as wall-clock time in that tz, then convert to UTC
+    const wallUtc = Date.UTC(y, mo - 1, da, hh, mi, ss);
+
+    const tzOffsetMs = (utcTs: number, zone: string): number => {
         const fmt = new Intl.DateTimeFormat('en-US', {
-            timeZone: tz,
+            timeZone: zone,
             year: 'numeric', month: '2-digit', day: '2-digit',
             hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
         });
-        const parts = fmt.formatToParts(local).reduce<Record<string, string>>((a, p) => {
+        const parts = fmt.formatToParts(new Date(utcTs)).reduce<Record<string, string>>((a, p) => {
             if (p.type !== 'literal') a[p.type] = p.value;
             return a;
         }, {});
-        const y = Number(parts.year), m = Number(parts.month) - 1, d = Number(parts.day);
-        const hh = Number(parts.hour), mm = Number(parts.minute), ss = Number(parts.second);
-        return Date.UTC(y, m, d, hh, mm, ss);
-    } catch {
-        return null;
-    }
+        const yy = Number(parts.year);
+        const mm = Number(parts.month) - 1;
+        const dd = Number(parts.day);
+        const h2 = Number(parts.hour);
+        const m2 = Number(parts.minute);
+        const s2 = Number(parts.second);
+        const asUtc = Date.UTC(yy, mm, dd, h2, m2, s2);
+        return asUtc - utcTs;
+    };
+
+    // 2-pass to handle DST boundaries
+    const off1 = tzOffsetMs(wallUtc, tz);
+    let utc = wallUtc - off1;
+    const off2 = tzOffsetMs(utc, tz);
+    if (off2 !== off1) utc = wallUtc - off2;
+
+    return utc;
 }
 
 export function parseEventsFromBody(noteId: string, titleFallback: string, body: string): EventInput[] {

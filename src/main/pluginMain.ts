@@ -6,10 +6,7 @@ import {ensureAllEventsCache, invalidateNote, invalidateAllEventsCache} from './
 import {registerCalendarPanelController} from './uiBridge/panelController';
 
 
-const eventCacheByNote = new Map<string, EventInput[]>();
 let allEventsCache: EventInput[] | null = null;
-let rebuilding = false;
-let importPanelId: string | null = null;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 type Occurrence = EventInput & { occurrenceId: string; startUtc: number; endUtc?: number };
