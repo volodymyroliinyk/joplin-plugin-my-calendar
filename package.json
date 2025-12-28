@@ -7,7 +7,8 @@
   "scripts": {
     "clean": "rm -rf dist node_modules package-lock.json",
     "build": "webpack",
-    "pack": "npm run build && cd dist && tar --format=ustar -cf ../mycalendar.jpl manifest.json index.js main/pluginMain.js ui"
+    "pack": "npm run build && cd dist && tar --format=ustar -cf ../publish/com.volodymyroliinyk.joplin.my-calendar.jpl manifest.json index.js main ui",
+    "dist": "npm run pack"
   },
   "devDependencies": {
     "copy-webpack-plugin": "^12.0.0",

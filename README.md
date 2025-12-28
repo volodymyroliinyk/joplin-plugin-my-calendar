@@ -56,9 +56,9 @@ uid: <unique ical id>         # string for event, more important for mass import
 
 ## Development
 
-### Complex build command
+### Build command
 
-`npm run clean;npm install;npm run pack;tar tf mycalendar.jpl; cp mycalendar.jpl mycalendar.tar;`
+`npm run pack;`
 
 ### Security
 

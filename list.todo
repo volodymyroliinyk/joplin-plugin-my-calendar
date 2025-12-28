@@ -1,14 +1,10 @@
 TODO:[1]:
     - multiple manual tests;
-    - main grid markup and CSS need to change!;
-    - Readme.md;
+    - Readme.md more syntax examples for tz;
     - screenshot for readme.md;
     - all css review;
     - unit testing, if it is possible;
     - multilingual support;
 TODO:[2]:
-    - maybe simplify timezones manipulations.;
-    - events lasting several days are not drawn, this is a bug;
-    - ical backwards compatibility to convert both ways from google to notepad;
-    -- ICAL UID uuid@domain , 32 same as joplin.note_id can be done;
+    - ICAL UID uuid@domain , 32 same as joplin.note_id can be done;
 
