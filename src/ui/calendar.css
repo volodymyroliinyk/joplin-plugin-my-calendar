@@ -237,6 +237,10 @@ body::-webkit-scrollbar-thumb:hover {
     margin-bottom: 1px;
 }
 
+.mc-bar:last-child {
+    margin-bottom: 0;
+}
+
 /* Badge-chiller is up to the right */
 .mc-count {
     position: absolute;
