@@ -1,8 +1,9 @@
 TODO:[1]:
-    - multiple manual tests;
+    - multiple manual tests desktop;
+    - multiple manual tests mobile;
     - Readme.md more syntax examples for tz;
     - screenshot for readme.md;
-    - all css review;
+    - all css review, rename classes, replace hardcoded colors;
     - unit testing, if it is possible;
     - multilingual support;
 TODO:[2]:
