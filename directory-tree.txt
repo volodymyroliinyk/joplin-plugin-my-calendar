@@ -1,6 +1,8 @@
 joplin-plugin-my-calendar/
 ├── src/
 │   ├── main/
+│   │   ├── parsers/
+│   │   │   └── eventParser.ts
 │   │   ├── services/
 │   │   │   ├── eventsCache.ts
 │   │   │   └── icsImportService.ts
@@ -11,6 +13,8 @@ joplin-plugin-my-calendar/
 │   │   │   └── panelMessages.ts
 │   │   ├── utils/
 │   │   │   └── logger.ts
+│   │   ├── views/
+│   │   │   └── calendarView.ts
 │   │   └── pluginMain.ts
 │   ├── types/
 │   │   ├── global-joplin.d.ts
@@ -18,9 +22,7 @@ joplin-plugin-my-calendar/
 │   ├── ui/
 │   │   ├── calendar.css
 │   │   ├── calendar.js
-│   │   └── icalImport.js
-│   ├── calendarView.ts
-│   ├── eventParser.ts
+│   │   └── icsImport.js
 │   ├── index.ts
 │   └── manifest.json
 ├── LICENSE

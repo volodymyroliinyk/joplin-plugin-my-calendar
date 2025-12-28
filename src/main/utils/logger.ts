@@ -1,4 +1,5 @@
 // src/main/utils/logger.ts
+
 let debugEnabled = false;
 
 export function setDebugEnabled(v: boolean) {

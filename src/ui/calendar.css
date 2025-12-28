@@ -38,7 +38,7 @@ body::-webkit-scrollbar-thumb:hover {
 }
 
 /* Outer container that will actually scroll */
-#cal-scroll {
+#mc-cal-scroll {
     height: 100%;
     max-height: 100%;
     overflow-y: auto;
@@ -260,7 +260,7 @@ body::-webkit-scrollbar-thumb:hover {
     display: none;
 }
 
-.calendar-nav-btn {
+.mc-calendar-nav-btn {
     color: var(--joplin-color) !important; /* make the text white */
     background: transparent; /* The background is transparent */
     border: none;
@@ -269,7 +269,7 @@ body::-webkit-scrollbar-thumb:hover {
     cursor: pointer;
 }
 
-.calendar-nav-btn:hover {
+.mc-calendar-nav-btn:hover {
     color: var(--joplin-color) !important; /* lighter when creeping */
 }
 
@@ -304,7 +304,7 @@ body::-webkit-scrollbar-thumb:hover {
     min-width: 0;
 }
 
-.setting-select-control {
+.mc-setting-select-control {
     display: inline-block;
     color: var(--joplin-color);
     font-family: var(--joplin-font-family);
@@ -317,7 +317,7 @@ body::-webkit-scrollbar-thumb:hover {
     border-color: var(--joplin-border-color4);
 }
 
-.setting-btn {
+.mc-setting-btn {
     color: var(--joplin-color);
     background-color: var(--joplin-background-color);
     align-items: center;

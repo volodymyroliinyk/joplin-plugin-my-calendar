@@ -1,6 +1,7 @@
 // src/main/pluginMain.ts
-import {createCalendarPanel} from '../calendarView';
-import {EventInput} from '../eventParser';
+
+import {createCalendarPanel} from './views/calendarView';
+import {EventInput} from './parsers/eventParser';
 
 import {ensureAllEventsCache, invalidateNote, invalidateAllEventsCache} from './services/eventsCache';
 import {registerCalendarPanelController} from './uiBridge/panelController';

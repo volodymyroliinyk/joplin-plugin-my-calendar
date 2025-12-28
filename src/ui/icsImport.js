@@ -1,4 +1,5 @@
-// src/ui/icalImport.js
+// src/ui/icsImport.js
+
 (function () {
     function el(tag, attrs = {}, children = []) {
         const n = document.createElement(tag);
@@ -24,7 +25,7 @@
     }
 
     function init() {
-        const root = document.getElementById("ical-root");
+        const root = document.getElementById("ics-root");
         if (!root) return;
 
         // UI
@@ -51,14 +52,14 @@
 
         const folderSelect = el("select", {
             id: "mc-target-folder",
-            class: "setting-select-control",
-            style: "flex:1; max-width: 80px;"
+            class: "mc-setting-select-control",
+            style: "flex:1;width:100%;"
         });
 
 // Reload button (optional)
         const btnReloadFolders = el("button", {
             style: "padding:6px 10px;",
-            class: "setting-btn",
+            class: "mc-setting-btn",
             onclick: () => window.webviewApi?.postMessage?.({name: "requestFolders"})
         }, ["Reload"]);
 
@@ -105,7 +106,7 @@
 
         // 2) File picker (recommended)
         const fileInput = el("input", {
-            id: "ical-file",
+            id: "ics-file",
             type: "file",
             accept: ".ics,text/calendar",
             style: "flex:1;"
@@ -125,7 +126,7 @@
                         const text = String(reader.result || "");
                         log("File read OK. Importing…", "len=", text.length);
                         window.webviewApi?.postMessage?.({
-                            name: "icalImport",
+                            name: "icsImport",
                             mode: "text",
                             ics: text,
                             source: `filepicker:${f.name}`,
@@ -134,7 +135,7 @@
                     };
                     reader.readAsText(f);
                 },
-                class: "setting-btn",
+                class: "mc-setting-btn",
             },
             ["Import"]
         );

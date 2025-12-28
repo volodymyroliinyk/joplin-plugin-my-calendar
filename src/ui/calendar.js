@@ -1,4 +1,5 @@
 // src/ui/calendar.js
+
 (function () {
     function log(...args) {
         console.log('[MyCalendar UI]', ...args);
@@ -191,7 +192,7 @@
                 b.title = title;
                 b.textContent = text;
                 b.addEventListener('click', onClick);
-                b.classList.add('calendar-nav-btn');
+                b.classList.add('mc-calendar-nav-btn');
                 return b;
             }
 
@@ -341,6 +342,20 @@
                 return new Date(ts).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', hour12: false});
             }
 
+
+// Slice an event interval into a specific local-day interval.
+// dayStartTs is epoch ms for local midnight of the day cell.
+// Returns null if the event does not intersect the day.
+            function sliceEventForDay(ev, dayStartTs) {
+                const dayEndTs = dayStartTs + 24 * 3600 * 1000 - 1;
+                const evStart = ev.startUtc;
+                const evEnd = (ev.endUtc ?? ev.startUtc);
+                const segStart = Math.max(evStart, dayStartTs);
+                const segEnd = Math.min(evEnd, dayEndTs);
+                if (segEnd < segStart) return null;
+                return {startUtc: segStart, endUtc: segEnd};
+            }
+
             function paintGrid() {
                 const body = document.querySelector('#mc-grid .mc-grid-body');
                 if (!body) return;
@@ -352,15 +367,16 @@
                 //     c.style.display = 'none';
                 // });
 
-                // Gather events by day
-                const byDay = new Map(); // dayUtc -> events[]
-                // for (const ev of rangeEvents) {
+                // Gather events by day (store per-day slices so multi-day events render correctly)
+                const byDay = new Map(); // dayStartTs (local midnight epoch ms) -> [{ ev, slice }]
                 for (const ev of gridEvents) {
-                    const start = localMidnightTs(new Date(ev.startUtc));
-                    const end = localMidnightTs(new Date(ev.endUtc || ev.startUtc));
-                    for (let ts = start; ts <= end; ts += 24 * 3600 * 1000) {
+                    const startDay = localMidnightTs(new Date(ev.startUtc));
+                    const endDay = localMidnightTs(new Date((ev.endUtc ?? ev.startUtc)));
+                    for (let ts = startDay; ts <= endDay; ts += 24 * 3600 * 1000) {
+                        const slice = sliceEventForDay(ev, ts);
+                        if (!slice) continue;
                         if (!byDay.has(ts)) byDay.set(ts, []);
-                        byDay.get(ts).push(ev);
+                        byDay.get(ts).push({ev, slice});
                     }
                 }
 
@@ -391,8 +407,9 @@
                     const {bars} = ensureParts(cell);
 
                     // Color Event indicators in the calendar grid
-                    const top = events.slice().sort((a, b) => a.startUtc - b.startUtc);
-                    for (const ev of top) {
+                    const top = events.slice().sort((a, b) => a.slice.startUtc - b.slice.startUtc);
+                    for (const item of top) {
+                        const ev = item.ev;
                         const bar = document.createElement('div');
                         bar.className = 'mc-bar';
                         if (ev.color) bar.style.background = ev.color;
@@ -418,16 +435,19 @@
                 const source = gridEvents;
                 log('source LENGTH', source.length);
                 // The event belongs to the day if the interval [Start, end] intersects [daystart, daynd]
-                const dayEvents = source
-                    .filter(e => {
-                        const s = e.startUtc;
-                        const eEnd = (e.endUtc ?? e.startUtc);
-                        return s <= dayEndUtc && eEnd >= dayStartUtc;
-                    })
 
-                log('renderDayEvents', new Date(dayStartUtc).toISOString().slice(0, 10), 'count=', dayEvents.length);
+                const daySlices = [];
+                for (const ev of source) {
+                    const slice = sliceEventForDay(ev, dayStartUtc);
+                    if (!slice) continue;
+                    daySlices.push({ev, slice});
+                }
 
-                if (!dayEvents.length) {
+                daySlices.sort((a, b) => a.slice.startUtc - b.slice.startUtc);
+
+                log('renderDayEvents', new Date(dayStartUtc).toISOString().slice(0, 10), 'count=', daySlices.length);
+
+                if (!daySlices.length) {
                     const li = document.createElement('li');
                     li.className = 'mc-empty';
                     li.textContent = 'There are no events';
@@ -435,7 +455,9 @@
                     return;
                 }
 
-                for (const ev of dayEvents) {
+                for (const item of daySlices) {
+                    const ev = item.ev;
+                    const slice = item.slice;
                     const li = document.createElement('li');
                     li.className = 'mc-event';
                     const color = document.createElement('span');
@@ -446,9 +468,9 @@
                     title.textContent = ev.title || '(without a title)';
                     const t = document.createElement('span');
                     t.className = 'mc-time';
-                    const label = ev.endUtc
-                        ? `${fmtHM(ev.startUtc)}–${fmtHM(ev.endUtc)}`
-                        : fmtHM(ev.startUtc);
+                    const label = (slice.endUtc !== slice.startUtc)
+                        ? `${fmtHM(slice.startUtc)}–${fmtHM(slice.endUtc)}`
+                        : fmtHM(slice.startUtc);
                     t.textContent = label;
                     li.appendChild(color);
                     li.appendChild(title);
