@@ -1,10 +1,11 @@
 TODO:[1]:
+    - multiple manual tests;
+    - main grid markup and CSS need to change!;
     - Readme.md;
     - screenshot for readme.md;
-    - multiple manual tests;
-    - css review;
-    - multilingual support;
+    - all css review;
     - unit testing, if it is possible;
+    - multilingual support;
 TODO:[2]:
     - maybe simplify timezones manipulations.;
     - events lasting several days are not drawn, this is a bug;
