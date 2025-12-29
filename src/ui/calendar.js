@@ -478,7 +478,7 @@
                     li.className = 'mc-event';
                     const color = document.createElement('span');
                     color.className = 'mc-color';
-                    color.style.background = ev.color || '#2d7ff9';
+                    color.style.background = ev.color || 'var(--mc-default-event-color)';
                     const title = document.createElement('span');
                     title.className = 'mc-title';
                     title.textContent = ev.title || '(without a title)';
