@@ -72,6 +72,13 @@ function zonedTimeToUtcMs(localY: number, localM: number, localD: number, localH
 }
 
 function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number): Occurrence[] {
+    // Invariant: recurring events must have timezone
+    const tz = ev.tz || Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    if (ev.repeat !== 'none' && !ev.tz) {
+        console.warn('[MyCalendar] recurring event has no tz; using device tz:', tz, ev.title, ev.id);
+    }
+
     const dur = (ev.endUtc ?? ev.startUtc) - ev.startUtc;
     const push = (start: number, out: Occurrence[]) => {
         if (start > toUtc) return false;
@@ -95,8 +102,9 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
     const step = Math.max(1, ev.repeatInterval || 1);
 
     if (ev.repeat === 'daily') {
-        let k = Math.floor((fromUtc - ev.startUtc) / (DAY_MS * step));
-        if (ev.startUtc + k * step * DAY_MS < fromUtc) k++;
+        const from2 = fromUtc - Math.max(0, dur);
+        let k = Math.floor((from2 - ev.startUtc) / (DAY_MS * step));
+        if (ev.startUtc + k * step * DAY_MS < from2) k++;
         if (k < 0) k = 0;
         for (; ; k++) {
             const start = ev.startUtc + k * step * DAY_MS;
@@ -118,6 +126,7 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
 
         const list = ev.byWeekdays && ev.byWeekdays.length ? ev.byWeekdays : [baseWd];
         const step = Math.max(1, ev.repeatInterval || 1);
+        const from2 = fromUtc - Math.max(0, dur);
 
         // Monday of base week (local date)
         const mondayBase = addDaysYMD(baseLocal.Y, baseLocal.M, baseLocal.D, -baseWd);
@@ -130,8 +139,12 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
         // Compute week index offset (in local calendar days)
         const mondayBaseMs = Date.UTC(mondayBase.Y, mondayBase.M - 1, mondayBase.D);
         const mondayFromMs = Date.UTC(mondayFrom.Y, mondayFrom.M - 1, mondayFrom.D);
-        let weekIndex = Math.floor((mondayFromMs - mondayBaseMs) / (7 * DAY_MS));
-        if (weekIndex < 0) weekIndex = 0;
+
+        let weeksDiff = Math.floor((mondayFromMs - mondayBaseMs) / (7 * DAY_MS));
+        if (weeksDiff < 0) weeksDiff = 0;
+
+// 🔥 weekIndex = індекс повтору (кожні step тижнів), а не "номер тижня"
+        let weekIndex = Math.floor(weeksDiff / step);
 
         const until = Math.min(toUtc, ev.repeatUntilUtc ?? Number.POSITIVE_INFINITY);
 
@@ -142,7 +155,7 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
                 const occ = addDaysYMD(weekStart.Y, weekStart.M, weekStart.D, wd);
 
                 const start = zonedTimeToUtcMs(occ.Y, occ.M, occ.D, baseLocal.h, baseLocal.m, baseLocal.sec, tz);
-                if (start < fromUtc || start > until) continue;
+                if (start < from2 || start > until) continue;
 
                 if (!push(start, out)) return out;
             }
