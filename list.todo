@@ -1,8 +1,4 @@
 TODO:[1]:
-    - Fix note.put, need make more flaxible andd stable
-        if (newBody !== body) {
-                        await joplin.data.put(['notes', id], null, patch);
-    -
     - multiple manual tests desktop;
     - multiple manual tests mobile;
     - Readme.md more syntax examples for tz;

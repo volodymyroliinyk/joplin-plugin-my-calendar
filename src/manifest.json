@@ -2,7 +2,7 @@
   "manifest_version": 1,
   "name": "My Calendar",
   "id": "com.volodymyroliinyk.joplin.my-calendar",
-  "app_min_version": "3.0",
+  "app_min_version": "3.2",
   "version": "1.0.0",
   "description": "Calendar view from notes with event syntax",
   "author": "Volodymyr Oliinyk",
@@ -13,5 +13,16 @@
   "permissions": [
     "notes"
   ],
-  "homepage_url": "https://github.com/volodymyroliinyk/joplin-plugin-my-calendar"
+  "homepage_url": "https://github.com/volodymyroliinyk/joplin-plugin-my-calendar",
+  "repository_url": "https://github.com/volodymyroliinyk/joplin-plugin-my-calendar",
+  "keywords": [
+    "joplin",
+    "plugin",
+    "calendar",
+    "event",
+    "my calendar",
+    "ics",
+    "import",
+    "ical"
+  ]
 }

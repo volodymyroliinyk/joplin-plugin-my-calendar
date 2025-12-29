@@ -6,7 +6,8 @@ The [Joplin](https://joplinapp.org/) plugin provides the ability to:
 
 - Use notes as events;
 - Display notes as events in the monthly calendar section;
-- Import the contents of an *.ics file into notes as events in a previously specified notebook (Desktop Joplin only).
+- Import the contents of an *.ics file into notes as events in a previously specified notebook (
+  Desktop [Joplin](https://joplinapp.org/) only).
 
 ---
 
@@ -55,6 +56,32 @@ uid: <unique ical id>         # string for event, more important for mass import
 ```
 ~~~
 
+### start,end and tz variations:
+
+1) This time will be converted to ...
+
+```
+TODO
+```
+
+2) This time will be converted to ...
+
+```
+TODO
+```
+
+3) This time will be converted to ...
+
+```
+TODO
+```
+
+4) This time will be converted to ...
+
+```
+TODO
+```
+
 ---
 
 ## Development
@@ -70,8 +97,8 @@ uid: <unique ical id>         # string for event, more important for mass import
 
 ### Testing
 
-- Tested just manually with Joplin Desktop (Ubuntu 24 release);
-- Tested just manually with Joplin Android;
+- Tested just manually with [Joplin](https://joplinapp.org/) Desktop (Ubuntu 24 release);
+- Tested just manually with [Joplin](https://joplinapp.org/) Android;
 - Automated testing will be soon, hope;
 
 ---
