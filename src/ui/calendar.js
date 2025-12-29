@@ -73,6 +73,21 @@
             const $toolbar = () => document.getElementById('mc-toolbar');
             const $grid = () => document.getElementById('mc-grid');
             const $elist = () => document.getElementById('mc-events-list');
+            const $dayLabel = () => document.getElementById('mc-events-day-label');
+
+            function updateDayEventsHeader(dayStartTs) {
+                const el = $dayLabel();
+                if (!el) return;
+
+                const d = new Date(dayStartTs);
+
+                // Показує тільки "день + місяць" (локалізовано мовою UI/системи)
+                el.textContent = d.toLocaleDateString(undefined, {
+                    day: 'numeric',
+                    month: 'long',
+                });
+            }
+
 
             let current = startOfMonthLocal(new Date());
             let selectedDayUtc = localMidnightTs(new Date());
@@ -439,6 +454,8 @@
             }
 
             function renderDayEvents(dayStartUtc) {
+                updateDayEventsHeader(dayStartUtc);
+
                 const ul = $elist();
                 if (!ul) return;
                 ul.innerHTML = '';
