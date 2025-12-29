@@ -13,7 +13,10 @@ export async function createCalendarPanel(joplin: any): Promise<string> {
     <div id="mc-grid"></div>
     <!-- EVENTS OF THE DAY -->
     <div id="mc-events">
-      <div class="mc-events-header">Day events</div>
+      <div class="mc-events-header">
+        <span>Day events</span>
+        <span id="mc-events-day-label"></span>
+       </div>
       <ul id="mc-events-list"></ul>
     </div>
     <!-- IMPORT (SEPARATE BLOCK BELOW) -->

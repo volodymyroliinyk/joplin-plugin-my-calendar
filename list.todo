@@ -1,15 +1,9 @@
 TODO:[1]:
-    - Fix note.put, need make more flaxible andd stable
-        if (newBody !== body) {
-                        await joplin.data.put(['notes', id], null, patch);
-    -
     - multiple manual tests desktop;
     - multiple manual tests mobile;
-    - Readme.md more syntax examples for tz;
     - screenshot for readme.md;
-    - all css review, rename classes, replace hardcoded colors;
     - unit testing, if it is possible;
-    - multilingual support;
 TODO:[2]:
+    - multilingual support;
     - ICAL UID uuid@domain , 32 same as joplin.note_id can be done;
 

@@ -73,6 +73,21 @@
             const $toolbar = () => document.getElementById('mc-toolbar');
             const $grid = () => document.getElementById('mc-grid');
             const $elist = () => document.getElementById('mc-events-list');
+            const $dayLabel = () => document.getElementById('mc-events-day-label');
+
+            function updateDayEventsHeader(dayStartTs) {
+                const el = $dayLabel();
+                if (!el) return;
+
+                const d = new Date(dayStartTs);
+
+                // Показує тільки "день + місяць" (локалізовано мовою UI/системи)
+                el.textContent = d.toLocaleDateString(undefined, {
+                    day: 'numeric',
+                    month: 'long',
+                });
+            }
+
 
             let current = startOfMonthLocal(new Date());
             let selectedDayUtc = localMidnightTs(new Date());
@@ -439,6 +454,8 @@
             }
 
             function renderDayEvents(dayStartUtc) {
+                updateDayEventsHeader(dayStartUtc);
+
                 const ul = $elist();
                 if (!ul) return;
                 ul.innerHTML = '';
@@ -478,7 +495,7 @@
                     li.className = 'mc-event';
                     const color = document.createElement('span');
                     color.className = 'mc-color';
-                    color.style.background = ev.color || '#2d7ff9';
+                    color.style.background = ev.color || 'var(--mc-default-event-color)';
                     const title = document.createElement('span');
                     title.className = 'mc-title';
                     title.textContent = ev.title || '(without a title)';

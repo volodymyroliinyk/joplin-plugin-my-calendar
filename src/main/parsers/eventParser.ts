@@ -1,5 +1,9 @@
 // src/main/parsers/eventParser.ts
 
+// NOTE:
+// Hand-written calendar notes are treated as untrusted input.
+// Any invalid syntax, date, or timezone MUST NOT break calendar rendering.
+// Invalid events are silently skipped.
 
 type RepeatFreq = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
 
@@ -74,8 +78,13 @@ function parseDateTimeToUTC(text: string, tz?: string): number | null {
     const mi = Number(m[5]);
     const ss = Number(m[6] ?? '0');
 
+    // Якщо tz задано, але вона невалідна — НЕ намагайся конвертувати, поверни null (і подія буде пропущена)
+    const safeTz = normalizeTz(tz);
+
     // If tz is not provided -> interpret as device-local time (no conversion)
-    if (!tz) {
+    if (!safeTz) {
+        if (tz && tz.trim()) return null;
+
         const d = new Date(`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${String(ss).padStart(2, '0')}`);
         return isNaN(d.getTime()) ? null : d.getTime();
     }
@@ -84,32 +93,51 @@ function parseDateTimeToUTC(text: string, tz?: string): number | null {
     const wallUtc = Date.UTC(y, mo - 1, da, hh, mi, ss);
 
     const tzOffsetMs = (utcTs: number, zone: string): number => {
-        const fmt = new Intl.DateTimeFormat('en-US', {
-            timeZone: zone,
-            year: 'numeric', month: '2-digit', day: '2-digit',
-            hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
-        });
-        const parts = fmt.formatToParts(new Date(utcTs)).reduce<Record<string, string>>((a, p) => {
-            if (p.type !== 'literal') a[p.type] = p.value;
-            return a;
-        }, {});
-        const yy = Number(parts.year);
-        const mm = Number(parts.month) - 1;
-        const dd = Number(parts.day);
-        const h2 = Number(parts.hour);
-        const m2 = Number(parts.minute);
-        const s2 = Number(parts.second);
-        const asUtc = Date.UTC(yy, mm, dd, h2, m2, s2);
-        return asUtc - utcTs;
+        try {
+            const fmt = new Intl.DateTimeFormat('en-US', {
+                timeZone: zone,
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+            });
+            const parts = fmt.formatToParts(new Date(utcTs)).reduce<Record<string, string>>((a, p) => {
+                if (p.type !== 'literal') a[p.type] = p.value;
+                return a;
+            }, {});
+            const yy = Number(parts.year);
+            const mm = Number(parts.month) - 1;
+            const dd = Number(parts.day);
+            const h2 = Number(parts.hour);
+            const m2 = Number(parts.minute);
+            const s2 = Number(parts.second);
+            const asUtc = Date.UTC(yy, mm, dd, h2, m2, s2);
+            return asUtc - utcTs;
+        } catch {
+            return null;
+        }
     };
 
-    // 2-pass to handle DST boundaries
-    const off1 = tzOffsetMs(wallUtc, tz);
-    let utc = wallUtc - off1;
-    const off2 = tzOffsetMs(utc, tz);
-    if (off2 !== off1) utc = wallUtc - off2;
+    try {
+        const off1 = tzOffsetMs(wallUtc, safeTz);
+        let utc = wallUtc - off1;
+        const off2 = tzOffsetMs(utc, safeTz);
+        if (off2 !== off1) utc = wallUtc - off2;
+        return utc;
+    } catch {
+        return null;
+    }
+}
 
-    return utc;
+function normalizeTz(tz?: string): string | undefined {
+    const z = (tz || '').trim();
+    if (!z) return undefined;
+
+    try {
+        // Якщо таймзона не IANA — тут буде RangeError
+        new Intl.DateTimeFormat('en-US', {timeZone: z}).format(new Date());
+        return z;
+    } catch {
+        return undefined;
+    }
 }
 
 export function parseEventsFromBody(noteId: string, titleFallback: string, body: string): EventInput[] {

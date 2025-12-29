@@ -35,6 +35,7 @@ body::-webkit-scrollbar-thumb:hover {
 :root {
     --scrollbar-thumb-color: var(--joplin-scrollbar-thumb-color);
     --scrollbar-thumb-color-hover: var(--joplin-scrollbar-thumb-color-hover);
+    --mc-default-event-color: #1470d9;
 }
 
 /* Outer container that will actually scroll */
@@ -77,8 +78,9 @@ body::-webkit-scrollbar-thumb:hover {
 }
 
 .mc-title {
-    margin-left: 12px;
+    margin-left: 4px;
     font-weight: 700;
+    flex: 1;
 }
 
 #mc-grid {
@@ -137,14 +139,6 @@ body::-webkit-scrollbar-thumb:hover {
     gap: 3px;
 }
 
-.mc-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: #2d7ff9;
-    display: inline-block;
-}
-
 .mc-more {
     font-size: 11px;
     opacity: 0.7;
@@ -161,6 +155,19 @@ body::-webkit-scrollbar-thumb:hover {
 
 .mc-selected {
     box-shadow: inset 0 0 0 2px var(--joplin-color);
+}
+
+.mc-events-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+#mc-events-day-label {
+    opacity: 0.8;
+    font-weight: 600;
+    white-space: nowrap;
 }
 
 #mc-events, #mc-import {
@@ -202,10 +209,6 @@ body::-webkit-scrollbar-thumb:hover {
     display: inline-block;
 }
 
-.mc-title {
-    flex: 1;
-}
-
 .mc-time {
     opacity: 0.7;
     font-size: 12px;
@@ -232,7 +235,7 @@ body::-webkit-scrollbar-thumb:hover {
 .mc-bar {
     height: 4px;
     border-radius: 2px;
-    background: #2d7ff9;
+    background: var(--mc-default-event-color);
     opacity: 0.95;
     margin-bottom: 1px;
 }
@@ -293,7 +296,7 @@ body::-webkit-scrollbar-thumb:hover {
 
 /* Container to be scrolled */
 #mc-import-body {
-    margin: 0px;
+    margin: 0;
     max-height: 260px; /* choose the height that suits you */
     padding: 8px 6px; /* so that the scroll does not "stick" to the content */
 }

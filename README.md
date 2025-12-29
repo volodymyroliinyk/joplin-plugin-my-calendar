@@ -6,7 +6,8 @@ The [Joplin](https://joplinapp.org/) plugin provides the ability to:
 
 - Use notes as events;
 - Display notes as events in the monthly calendar section;
-- Import the contents of an *.ics file into notes as events in a previously specified notebook (Desktop Joplin only).
+- Import the contents of an *.ics file into notes as events in a previously specified notebook (
+  Desktop [Joplin](https://joplinapp.org/) only).
 
 ---
 
@@ -25,8 +26,8 @@ The [Joplin](https://joplinapp.org/) plugin provides the ability to:
 
 ### ICS import section (Desktop Joplin only)
 
-Import behavior: each event from ics file is unique by uid, first import note as event will be created, socond import
-each not will be updated or ignored, depends from
+Import behavior: each event from ics file is unique by uid, first import note as event will be created, second import
+each not will be updated or ignored, depends on all ics event properties.
 
 - Form for ICS file import:
     - Target notebook select box and reload list button;
@@ -52,8 +53,36 @@ repeat_until: 2025-12-31 23:59:59-04:00
 byweekday: MO,TU,WE,TH,FR     # weekly
 bymonthday: 12                # monthly
 uid: <unique ical id>         # string for event, more important for mass import from ical. Not required for manually created note (as a calendar event).
+recurrence_id: <RECURRENCE-ID>
 ```
 ~~~
+
+### start,end and tz variations:
+
+1) This time will be converted to current device timezone.
+```
+start: 2025-12-18 08:00:00
+end:   2025-12-18 09:00:00
+tz: America/Toronto
+```
+
+2) This time will be converted to current device timezone.
+```
+start: 2025-12-18 08:00:00-05:00
+end:   2025-12-18 09:00:00-05:00
+```
+
+3) This time will be shown in current device timezone without timezone conversion.
+```
+start: 2025-12-18 08:00:00
+end:   2025-12-18 09:00:00
+```
+
+4) This time will be converted to ...
+
+```
+TODO
+```
 
 ---
 
@@ -70,8 +99,8 @@ uid: <unique ical id>         # string for event, more important for mass import
 
 ### Testing
 
-- Tested just manually with Joplin Desktop (Ubuntu 24 release);
-- Tested just manually with Joplin Android;
+- Tested just manually with [Joplin](https://joplinapp.org/) Desktop (Ubuntu 24 release);
+- Tested just manually with [Joplin](https://joplinapp.org/) Android;
 - Automated testing will be soon, hope;
 
 ---
