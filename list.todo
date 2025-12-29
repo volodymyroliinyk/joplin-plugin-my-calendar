@@ -1,11 +1,11 @@
 TODO:[1]:
+    - Readme.md more syntax examples for tz , check time difference for notes like "event2 TZ TEST";
     - multiple manual tests desktop;
     - multiple manual tests mobile;
-    - Readme.md more syntax examples for tz;
     - screenshot for readme.md;
-    - all css review, rename classes, replace hardcoded colors;
+    - all css review,  replace hardcoded colors;
     - unit testing, if it is possible;
-    - multilingual support;
 TODO:[2]:
+    - multilingual support;
     - ICAL UID uuid@domain , 32 same as joplin.note_id can be done;
 
