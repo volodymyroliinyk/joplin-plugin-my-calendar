@@ -296,7 +296,7 @@ body::-webkit-scrollbar-thumb:hover {
 
 /* Container to be scrolled */
 #mc-import-body {
-    margin: 0px;
+    margin: 0;
     max-height: 260px; /* choose the height that suits you */
     padding: 8px 6px; /* so that the scroll does not "stick" to the content */
 }
