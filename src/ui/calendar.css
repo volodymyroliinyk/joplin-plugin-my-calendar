@@ -1,34 +1,36 @@
 /* src/ui/calendar.css */
 
+
 html, body {
     height: 100%;
     margin: 0;
     overflow: auto;
 }
 
-body::-webkit-scrollbar {
+/* TODO:[1]: parent --scrollbar-size is invisible inside of iframe, and size is 7px always. How to solve that? */
+body::-webkit-scrollbar, select::-webkit-scrollbar {
     width: var(--scrollbar-size, 7px);
     height: var(--scrollbar-size, 7px);
 }
 
-body::-webkit-scrollbar-corner {
+body::-webkit-scrollbar-corner, select::-webkit-scrollbar-corner {
     background: none;
 }
 
-body::-webkit-scrollbar-track {
+body::-webkit-scrollbar-track, select::-webkit-scrollbar-track {
     border: none;
 }
 
-body::-webkit-scrollbar-thumb {
+body::-webkit-scrollbar-thumb, select::-webkit-scrollbar-thumb {
     background: var(--scrollbar-thumb-color);
     border-radius: calc(var(--scrollbar-size, 7px) * 0.7);
 }
 
-body::-webkit-scrollbar-track:hover {
+body::-webkit-scrollbar-track:hover, select::-webkit-scrollbar-track:hover {
     background: rgba(0, 0, 0, 0.1);
 }
 
-body::-webkit-scrollbar-thumb:hover {
+body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
     background: var(--scrollbar-thumb-color-hover);
 }
 
@@ -37,6 +39,11 @@ body::-webkit-scrollbar-thumb:hover {
     --scrollbar-thumb-color-hover: var(--joplin-scrollbar-thumb-color-hover);
     --mc-default-event-color: #1470d9;
 }
+
+/*#joplin-plugin-content-root {*/
+/*    min-width: 315px;*/
+/*}*/
+
 
 /* Outer container that will actually scroll */
 #mc-cal-scroll {
