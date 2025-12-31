@@ -19,6 +19,8 @@ type IcsEvent = {
     repeat_until?: string;
     byweekday?: string;   // "MO,TU,WE"
     bymonthday?: string;  // "12"
+
+    all_day?: boolean;
 };
 
 
@@ -214,6 +216,8 @@ function parseIcs(ics: string): IcsEvent[] {
         const parsed = parseLineValue(L);
         if (!parsed) continue;
         const {key, value, params} = parsed;
+        const isDateOnly = (value: string, params: Record<string, string>) =>
+            (params['VALUE'] || '').toUpperCase() === 'DATE' || /^\d{8}$/.test(value.trim());
 
         if (key === 'UID') cur.uid = value.trim();
         else if (key === 'SUMMARY') cur.title = unescapeIcsText(value);
@@ -223,9 +227,11 @@ function parseIcs(ics: string): IcsEvent[] {
 
         else if (key === 'DTSTART') {
             cur.start = icsDateToMyCalText(value) || value.trim();
+            if (isDateOnly(value, params)) cur.all_day = true;
             if (params['TZID'] && !cur.tz) cur.tz = params['TZID'];
         } else if (key === 'DTEND') {
             cur.end = icsDateToMyCalText(value) || value.trim();
+            if (isDateOnly(value, params)) cur.all_day = true;
             if (params['TZID'] && !cur.tz) cur.tz = params['TZID'];
         } else if (key === 'RRULE') {
             Object.assign(cur, parseRRule(value.trim()));
@@ -280,6 +286,8 @@ function buildMyCalBlock(ev: IcsEvent): string {
         if (ev.byweekday) lines.push(`byweekday: ${ev.byweekday}`);
         if (ev.bymonthday) lines.push(`bymonthday: ${ev.bymonthday}`);
     }
+
+    if (ev.all_day) lines.push(`all_day: true`);
 
     if (ev.uid) {
         lines.push('');
