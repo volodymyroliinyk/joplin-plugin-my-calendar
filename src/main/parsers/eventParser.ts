@@ -26,6 +26,8 @@ type EventInput = {
     repeatUntilUtc?: number;
     byWeekdays?: number[];
     byMonthDay?: number;
+
+    allDay?: boolean;
 };
 
 const EVENT_BLOCK_RE = /(?:^|\r?\n)[ \t]*```mycalendar-event[ \t]*\r?\n([\s\S]*?)\r?\n[ \t]*```(?=\r?\n|$)/g;
@@ -141,6 +143,8 @@ function normalizeTz(tz?: string): string | undefined {
 }
 
 export function parseEventsFromBody(noteId: string, titleFallback: string, body: string): EventInput[] {
+    let allDay: boolean | undefined;
+
     const out: EventInput[] = [];
     let m: RegExpExecArray | null;
 
@@ -190,6 +194,10 @@ export function parseEventsFromBody(noteId: string, titleFallback: string, body:
             } else if (k === 'bymonthday') {
                 const n = parseInt(v, 10);
                 if (Number.isFinite(n) && n >= 1 && n <= 31) byMonthDay = n;
+            } else if (k === 'all_day') {
+                const vv = v.trim().toLowerCase();
+                if (vv === 'true' || vv === '1' || vv === 'yes') allDay = true;
+                else if (vv === 'false' || vv === '0' || vv === 'no') allDay = false;
             }
         }
 
@@ -201,6 +209,19 @@ export function parseEventsFromBody(noteId: string, titleFallback: string, body:
         if (endText) {
             const e = parseDateTimeToUTC(endText, tz);
             if (e != null) endUtc = e;
+        }
+
+        const DAY_MS = 24 * 60 * 60 * 1000;
+
+        if (allDay) {
+            if (endUtc != null) {
+                // ICS all-day uses exclusive end -> make it inclusive for UI
+                if (endUtc > startUtc) endUtc = endUtc - 1;
+                else endUtc = startUtc + DAY_MS - 1; // страховка
+            } else {
+                // if end not provided, treat as one-day all-day
+                endUtc = startUtc + DAY_MS - 1;
+            }
         }
 
         out.push({
@@ -222,6 +243,8 @@ export function parseEventsFromBody(noteId: string, titleFallback: string, body:
             repeatUntilUtc,
             byWeekdays,
             byMonthDay,
+
+            allDay,
         });
     }
 
