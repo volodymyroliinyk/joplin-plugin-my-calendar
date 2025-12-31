@@ -1,9 +1,5 @@
 TODO:[1]:
-    - multiple manual tests desktop;
-    - multiple manual tests mobile;
     - screenshot for readme.md;
     - unit testing, if it is possible;
-TODO:[2]:
     - multilingual support;
-    - ICAL UID uuid@domain , 32 same as joplin.note_id can be done;
 

@@ -17,16 +17,11 @@
         return n;
     }
 
-    function normPath(raw) {
-        let p = (raw || "").trim();
-        // Remove quotes if user pasted "/path/file.ics"
-        p = p.replace(/^"(.*)"$/, "$1").replace(/^'(.*)'$/, "$1");
-        return p;
-    }
-
     function init() {
         const root = document.getElementById("ics-root");
         if (!root) return;
+
+        const debug = false
 
         // UI
         const logBox = el("div", {
@@ -43,8 +38,10 @@
             console.log("[MyCalendar Import]", ...args);
             const div = document.createElement("div");
             div.textContent = line;
-            logBox.appendChild(div);
-            logBox.scrollTop = logBox.scrollHeight;
+            if (debug) {
+                logBox.appendChild(div);
+                logBox.scrollTop = logBox.scrollHeight;
+            }
         }
 
         // ---- Notebook selector (dropdown) ----
@@ -230,16 +227,16 @@
             ])
         ]);
 
-
-
         // Render
         root.innerHTML = "";
         root.appendChild(folderRow);
         root.appendChild(rowFile);
         root.appendChild(optionsRow);
 
-        root.appendChild(el("div", {style: "font-weight:600;margin-top:10px"}, ["Debug log"]));
-        root.appendChild(logBox);
+        if (debug) {
+            root.appendChild(el("div", {style: "font-weight:600;margin-top:10px"}, ["Debug log"]));
+            root.appendChild(logBox);
+        }
 
         // Ask plugin for folder tree
         window.webviewApi?.postMessage?.({name: "requestFolders"});

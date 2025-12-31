@@ -1,10 +1,12 @@
 // src/ui/calendar.js
 
 (function () {
+    const debug = false;
+
     function log(...args) {
         console.log('[MyCalendar UI]', ...args);
         const box = document.getElementById('mc-log');
-        if (box) {
+        if (box && debug) {
             const line = document.createElement('div');
             line.textContent = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
             box.appendChild(line);
