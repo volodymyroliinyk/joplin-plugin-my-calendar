@@ -78,12 +78,6 @@ start: 2025-12-18 08:00:00
 end:   2025-12-18 09:00:00
 ```
 
-4) This time will be converted to ...
-
-```
-TODO
-```
-
 ---
 
 ## Development
