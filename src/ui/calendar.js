@@ -515,7 +515,7 @@
                     });
                     ul.appendChild(li);
 
-                    log('DAY ev.title=', ev.title, 'ev.tz=', ev.tz, 'startUtc=', ev.startUtc);
+                    // log('DAY ev.title=', ev.title, 'ev.tz=', ev.tz, 'startUtc=', ev.startUtc);
                 }
             }
 
