@@ -2,6 +2,7 @@
 
 import {ensureAllEventsCache, invalidateAllEventsCache} from '../services/eventsCache';
 import {importIcsIntoNotes} from '../services/icsImportService';
+import {showToast} from '../utils/toast';
 
 type FolderRow = { id: string; title: string; parent_id?: string | null };
 type FolderOption = { id: string; title: string; parent_id?: string | null; depth: number };
@@ -134,57 +135,57 @@ export async function registerCalendarPanelController(
             // --- ICS import (text/file) from UI ---
             if (msg?.name === 'icsImport') {
                 const sendStatus = async (text: string) => {
-                    await joplin.views.panels.postMessage(panelId, {name: 'importStatus', text});
-                };
-
-                const mode = msg.mode;
-
-                let ics = '';
-                if (mode === 'text') {
-                    ics = typeof msg.ics === 'string' ? msg.ics : '';
-                } else if (mode === 'file') {
-                    // If the UI transmits the already read text of the file
-                    ics = typeof msg.ics === 'string' ? msg.ics : '';
-                }
-
-                if (!ics || !ics.trim()) {
                     await joplin.views.panels.postMessage(panelId, {
-                        name: 'importError',
-                        error: 'ICS content is empty'
+                        name: 'importStatus',
+                        text,
                     });
-                    return;
-                }
+
+                    await showToast('info', text, 2000);
+                };
 
                 try {
                     const targetFolderId = typeof msg.targetFolderId === 'string' ? msg.targetFolderId : undefined;
                     const preserveLocalColor = msg.preserveLocalColor !== false; // default true
-                    const importDefaultColor = typeof msg.importDefaultColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(msg.importDefaultColor)
-                        ? msg.importDefaultColor
-                        : undefined;
+
+                    const importDefaultColor =
+                        typeof msg.importDefaultColor === 'string' &&
+                        /^#[0-9a-fA-F]{6}$/.test(msg.importDefaultColor)
+                            ? msg.importDefaultColor
+                            : undefined;
 
                     const res = await importIcsIntoNotes(
                         joplin,
-                        ics,
+                        msg.ics,
                         sendStatus,
                         targetFolderId,
                         preserveLocalColor,
-                        importDefaultColor);
+                        importDefaultColor
+                    );
 
-                    invalidateAllEventsCache(); // to update the calendar
+                    invalidateAllEventsCache();
 
                     await joplin.views.panels.postMessage(panelId, {
                         name: 'importDone',
                         ...res,
                     });
+
+                    const doneText = `ICS import finished: added=${res.added}, updated=${res.updated}, skipped=${res.skipped}, errors=${res.errors}`;
+                    await showToast(res.errors > 0 ? 'warning' : 'success', doneText, 4000);
+
                 } catch (e: any) {
+                    const errText = String(e?.message || e);
+
                     await joplin.views.panels.postMessage(panelId, {
                         name: 'importError',
-                        error: String(e?.message || e),
+                        error: errText,
                     });
+
+                    await showToast('error', `ICS import failed: ${errText}`, 5000);
                 }
 
                 return;
             }
+
 
             if (msg?.name === 'requestFolders') {
                 const rows = await getAllFolders(joplin);

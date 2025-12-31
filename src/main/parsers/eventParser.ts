@@ -78,7 +78,7 @@ function parseDateTimeToUTC(text: string, tz?: string): number | null {
     const mi = Number(m[5]);
     const ss = Number(m[6] ?? '0');
 
-    // Якщо tz задано, але вона невалідна — НЕ намагайся конвертувати, поверни null (і подія буде пропущена)
+    // If tz is given but is invalid - DO NOT try to convert, return null (and the event will be skipped)
     const safeTz = normalizeTz(tz);
 
     // If tz is not provided -> interpret as device-local time (no conversion)
@@ -132,7 +132,7 @@ function normalizeTz(tz?: string): string | undefined {
     if (!z) return undefined;
 
     try {
-        // Якщо таймзона не IANA — тут буде RangeError
+        // If the timezone is not IANA, there will be a RangeError here
         new Intl.DateTimeFormat('en-US', {timeZone: z}).format(new Date());
         return z;
     } catch {

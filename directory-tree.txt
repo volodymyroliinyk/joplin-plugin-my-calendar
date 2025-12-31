@@ -12,7 +12,8 @@ joplin-plugin-my-calendar/
 │   │   │   ├── panelController.ts
 │   │   │   └── panelMessages.ts
 │   │   ├── utils/
-│   │   │   └── logger.ts
+│   │   │   ├── logger.ts
+│   │   │   └── toast.ts
 │   │   ├── views/
 │   │   │   └── calendarView.ts
 │   │   └── pluginMain.ts
