@@ -118,7 +118,7 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
         const tz = ev.tz;
         if (!tz) {
             // recurring without tz cannot be expanded safely
-            return out; // або continue + warning
+            return out; // or continue + warning
         }
 
         const baseLocal = parseYmdHmsLocal(ev.startText);
@@ -143,7 +143,6 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
         let weeksDiff = Math.floor((mondayFromMs - mondayBaseMs) / (7 * DAY_MS));
         if (weeksDiff < 0) weeksDiff = 0;
 
-// 🔥 weekIndex = індекс повтору (кожні step тижнів), а не "номер тижня"
         let weekIndex = Math.floor(weeksDiff / step);
 
         const until = Math.min(toUtc, ev.repeatUntilUtc ?? Number.POSITIVE_INFINITY);

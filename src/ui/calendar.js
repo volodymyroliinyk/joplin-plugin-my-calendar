@@ -81,7 +81,7 @@
 
                 const d = new Date(dayStartTs);
 
-                // Показує тільки "день + місяць" (локалізовано мовою UI/системи)
+                // Shows only "day + month" (localized by UI/system language)
                 el.textContent = d.toLocaleDateString(undefined, {
                     day: 'numeric',
                     month: 'long',

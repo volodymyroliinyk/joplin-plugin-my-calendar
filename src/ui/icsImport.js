@@ -174,7 +174,7 @@
 
         // Default import color (default OFF)
         let importColorEnabled = false;
-        let importColorValue = "#3b82f6"; // або постав свій “дефолт” (можеш взяти з CSS fallback)
+        let importColorValue = "#1470d9";
 
         try {
             const en = localStorage.getItem(LS_IMPORT_COLOR_ENABLED_KEY);
