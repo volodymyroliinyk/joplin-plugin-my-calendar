@@ -7,16 +7,16 @@ export async function showToast(
     message: string,
     duration = 3000
 ) {
-    // showToast є в joplin.views.dialogs, але TypeScript typings інколи відстають,
-    // тому використовуємо "as any".
+    // showToast is in joplin.views.dialogs, but TypeScript typings sometimes lag,
+    // so we use "as any".
     const dialogs = joplin.views.dialogs as any;
 
     await dialogs.showToast({
         type,
         message,
         duration,
-        // timestamp допомагає, якщо однакові тости не показуються повторно
-        // (Joplin може ігнорувати повтор з тим же message/duration/type).
+        // timestamp helps if identical toasts are not shown repeatedly
+        // (Joplin can ignore a repeat with the same message/duration/type).
         timestamp: Date.now(),
     });
 }

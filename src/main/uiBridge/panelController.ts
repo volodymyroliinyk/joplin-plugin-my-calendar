@@ -140,7 +140,6 @@ export async function registerCalendarPanelController(
                         text,
                     });
 
-                    // toast у main (Joplin підтримує)
                     await showToast('info', text, 2000);
                 };
 
