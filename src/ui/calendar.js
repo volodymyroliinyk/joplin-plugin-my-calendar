@@ -175,6 +175,16 @@
                     return;
                 }
 
+                // --- ICS import завершився (успіх або помилка) -> перезавантажити грід ---
+                if (msg.name === 'importDone' || msg.name === 'importError') {
+                    log('import finished -> refreshing calendar grid');
+                    // скидаємо, щоб retry-логіка не думала що дані вже є
+                    gridEvents = [];
+                    // перемалювати поточний місяць і запросити діапазон ще раз
+                    drawMonth();
+                    return;
+                }
+
                 if (msg.name === 'rangeEvents') {
                     log('got rangeEvents:', (msg.events || []).length);
                     gridEvents = msg.events || [];
@@ -373,7 +383,6 @@
                 // fallback: environment timezone
                 return new Date(ts).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', hour12: false});
             }
-
 
 
 // Slice an event interval into a specific local-day interval.

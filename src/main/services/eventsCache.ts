@@ -8,6 +8,7 @@ let rebuilding = false;
 
 export function invalidateAllEventsCache() {
     allEventsCache = null;
+    eventCacheByNote.clear();
 }
 
 export function invalidateNote(noteId: string) {
