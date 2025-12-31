@@ -49,6 +49,9 @@
 
         // ---- Notebook selector (dropdown) ----
         const LS_KEY = "mycalendar.targetFolderId";
+        const LS_PRESERVE_COLOR_KEY = "mycalendar_preserve_local_color";
+        const LS_IMPORT_COLOR_ENABLED_KEY = "mycalendar_import_color_enabled";
+        const LS_IMPORT_COLOR_VALUE_KEY = "mycalendar_import_color_value";
 
         const folderSelect = el("select", {
             id: "mc-target-folder",
@@ -131,6 +134,8 @@
                             ics: text,
                             source: `filepicker:${f.name}`,
                             targetFolderId: folderSelect.value || undefined,
+                            preserveLocalColor: preserveLocalColor,
+                            importDefaultColor: importColorEnabled ? importColorValue : undefined,
                         });
                     };
                     reader.readAsText(f);
@@ -147,11 +152,91 @@
             btnImportFile
         ]);
 
+        // Preserve local color (default ON)
+        let preserveLocalColor = true;
+        try {
+            const v = localStorage.getItem(LS_PRESERVE_COLOR_KEY);
+            if (v === "0") preserveLocalColor = false;
+        } catch (e) {
+        }
+
+        const preserveColorInput = el("input", {
+            type: "checkbox",
+            checked: preserveLocalColor ? "true" : undefined,
+            onchange: () => {
+                preserveLocalColor = !!preserveColorInput.checked;
+                try {
+                    localStorage.setItem(LS_PRESERVE_COLOR_KEY, preserveLocalColor ? "1" : "0");
+                } catch (e) {
+                }
+            }
+        });
+
+        // Default import color (default OFF)
+        let importColorEnabled = false;
+        let importColorValue = "#3b82f6"; // або постав свій “дефолт” (можеш взяти з CSS fallback)
+
+        try {
+            const en = localStorage.getItem(LS_IMPORT_COLOR_ENABLED_KEY);
+            if (en === "1") importColorEnabled = true;
+            const cv = localStorage.getItem(LS_IMPORT_COLOR_VALUE_KEY);
+            if (cv && /^#[0-9a-fA-F]{6}$/.test(cv)) importColorValue = cv;
+        } catch (e) {
+        }
+
+        const importColorEnabledInput = el("input", {
+            type: "checkbox",
+            checked: importColorEnabled ? "true" : undefined,
+            onchange: () => {
+                importColorEnabled = !!importColorEnabledInput.checked;
+                importColorPicker.disabled = !importColorEnabled;
+                try {
+                    localStorage.setItem(LS_IMPORT_COLOR_ENABLED_KEY, importColorEnabled ? "1" : "0");
+                } catch (e) {
+                }
+            }
+        });
+
+        const importColorPicker = el("input", {
+            type: "color",
+            value: importColorValue,
+            disabled: importColorEnabled ? undefined : "true",
+            onchange: () => {
+                importColorValue = String(importColorPicker.value || "").trim();
+                try {
+                    localStorage.setItem(LS_IMPORT_COLOR_VALUE_KEY, importColorValue);
+                } catch (e) {
+                }
+            }
+        });
+
+// Options row
+        const optionsRow = el("div", {style: "display:flex; flex-direction:column; gap:6px; margin:8px 0;"}, [
+            el("div", {style: "font-weight:600;"}, ["Options"]),
+
+            el("label", {style: "display:flex; align-items:center; gap:8px; cursor:pointer;"}, [
+                preserveColorInput,
+                el("span", {}, ["Preserve local color on re-import"])
+            ]),
+
+            el("label", {style: "display:flex; align-items:center; gap:8px; cursor:pointer;"}, [
+                importColorEnabledInput,
+                el("span", {}, ["Set default color for imported events without color"])
+            ]),
+
+            el("div", {style: "display:flex; align-items:center; gap:8px; margin-left:24px;"}, [
+                importColorPicker,
+                el("span", {style: "opacity:0.85;"}, ["Default import color"])
+            ])
+        ]);
+
+
 
         // Render
         root.innerHTML = "";
         root.appendChild(folderRow);
         root.appendChild(rowFile);
+        root.appendChild(optionsRow);
 
         root.appendChild(el("div", {style: "font-weight:600;margin-top:10px"}, ["Debug log"]));
         root.appendChild(logBox);

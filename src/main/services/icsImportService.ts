@@ -364,12 +364,49 @@ function replaceEventBlockByKey(body: string, uid: string, recurrenceId: string 
     return (body ? body.replace(/\s+$/, '') + '\n\n' : '') + newBlock + '\n';
 }
 
+function parseColor(inner: string): string | undefined {
+    const m = inner.match(/^\s*color\s*:\s*(.+?)\s*$/im);
+    return m?.[1]?.trim();
+}
+
+function extractEventColorFromBody(body: string, uid: string, recurrenceId?: string): string | undefined {
+    const targetUid = (uid || '').trim();
+    const targetRid = (recurrenceId || '').trim();
+
+    const re = /(^|\r?\n)[ \t]*```mycalendar-event[ \t]*\r?\n([\s\S]*?)\r?\n[ \t]*```(?=\r?\n|$)/g;
+    let m: RegExpExecArray | null;
+
+    while ((m = re.exec(body)) !== null) {
+        const inner = m[2] || '';
+        const meta = parseUidAndRecurrence(inner);
+
+        const u = (meta.uid || '').trim();
+        const r = (meta.recurrence_id || '').trim();
+
+        if (u !== targetUid) continue;
+
+        // master event
+        if (!targetRid) {
+            if (!r) return parseColor(inner);
+            continue;
+        }
+
+        // recurrence instance
+        if (r === targetRid) return parseColor(inner);
+    }
+
+    return undefined;
+}
+
+
 
 export async function importIcsIntoNotes(
     joplin: any,
     ics: string,
     onStatus?: (text: string) => Promise<void>,
-    targetFolderId?: string
+    targetFolderId?: string,
+    preserveLocalColor: boolean = true,
+    importDefaultColor?: string,
 ): Promise<{ added: number; updated: number; skipped: number; errors: number }> {
     const say = async (t: string) => {
         try {
@@ -413,6 +450,16 @@ export async function importIcsIntoNotes(
 
         const rid = (ev.recurrence_id || '').trim();
         const key = makeEventKey(uid, rid);
+
+        if (preserveLocalColor && existing[key] && !ev.color) {
+            const existingColor = extractEventColorFromBody(existing[key].body, uid, rid);
+            if (existingColor) ev.color = existingColor;
+        }
+
+        // 2) apply default import color if still missing
+        if (!ev.color && importDefaultColor) {
+            ev.color = importDefaultColor;
+        }
 
         const block = buildMyCalBlock(ev);
         const desiredTitle = ev.title || 'Event';

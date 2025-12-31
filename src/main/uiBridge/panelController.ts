@@ -157,7 +157,19 @@ export async function registerCalendarPanelController(
 
                 try {
                     const targetFolderId = typeof msg.targetFolderId === 'string' ? msg.targetFolderId : undefined;
-                    const res = await importIcsIntoNotes(joplin, ics, sendStatus, targetFolderId);
+                    const preserveLocalColor = msg.preserveLocalColor !== false; // default true
+                    const importDefaultColor = typeof msg.importDefaultColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(msg.importDefaultColor)
+                        ? msg.importDefaultColor
+                        : undefined;
+
+                    const res = await importIcsIntoNotes(
+                        joplin,
+                        ics,
+                        sendStatus,
+                        targetFolderId,
+                        preserveLocalColor,
+                        importDefaultColor);
+
                     invalidateAllEventsCache(); // to update the calendar
 
                     await joplin.views.panels.postMessage(panelId, {
