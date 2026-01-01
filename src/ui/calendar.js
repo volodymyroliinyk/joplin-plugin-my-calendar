@@ -157,6 +157,62 @@
                 log('webviewApi.postMessage missing at init');
             }
 
+            // ---- Backend readiness (webviewApi race fix) ----
+            // Sometimes on first Joplin start the panel DOM is ready earlier than webviewApi injection.
+            // Then initial uiReady/requestRangeEvents are lost until user clicks "Today".
+            function ensureBackendReady(cb) {
+                // shared flags across reloads
+                window.__mcBackendReady = window.__mcBackendReady || false;
+                window.__mcUiReadySent = window.__mcUiReadySent || false;
+                window.__mcOnMessageRegistered = window.__mcOnMessageRegistered || false;
+
+                const tryNow = () => {
+                    const canPost = !!window.webviewApi?.postMessage;
+                    const canOnMsg = !!window.webviewApi?.onMessage;
+                    if (!canPost || !canOnMsg) return false;
+
+                    if (!window.__mcOnMessageRegistered) {
+                        mcRegisterOnMessage(onPluginMessage);
+                        window.__mcOnMessageRegistered = true;
+                    }
+
+                    if (!window.__mcUiReadySent) {
+                        window.webviewApi.postMessage({name: 'uiReady'});
+                        window.__mcUiReadySent = true;
+                        log('uiReady sent');
+                    }
+
+                    window.__mcBackendReady = true;
+                    return true;
+                };
+
+                if (window.__mcBackendReady && window.__mcUiReadySent && window.__mcOnMessageRegistered) {
+                    cb && cb();
+                    return;
+                }
+
+                if (tryNow()) {
+                    cb && cb();
+                    return;
+                }
+
+                log('backend not ready yet; waiting for webviewApi...');
+                let attempts = 0;
+                const timer = setInterval(() => {
+                    attempts++;
+                    if (tryNow()) {
+                        clearInterval(timer);
+                        cb && cb();
+                        return;
+                    }
+                    // ~5 seconds max
+                    if (attempts >= 50) {
+                        clearInterval(timer);
+                        log('backend still not ready after waiting; will keep UI visible, user action may trigger later');
+                    }
+                }, 100);
+            }
+
             function onPluginMessage(msg) {
                 // Joplin Sometimes a sealing { message: <payload> }
                 if (msg && typeof msg === 'object' && 'message' in msg && msg.message) {
@@ -270,26 +326,26 @@
 
             function requestMonthRangeWithRetry(from, to) {
                 // First request
-                if (window.webviewApi?.postMessage) {
+                ensureBackendReady(() => {
                     log('requestRange', from.toISOString(), '→', to.toISOString());
                     window.webviewApi.postMessage({
                         name: 'requestRangeEvents',
                         fromUtc: from.getTime(),
                         toUtc: to.getTime(),
                     });
-                }
+                });
                 //If for 1200ms did not come rageevents - repeat once
                 if (rangeRequestTimer) clearTimeout(rangeRequestTimer);
                 rangeRequestTimer = setTimeout(() => {
                     if (!Array.isArray(gridEvents) || gridEvents.length === 0) {
                         log('rangeEvents timeout - retrying once');
-                        if (window.webviewApi?.postMessage) {
+                        ensureBackendReady(() => {
                             window.webviewApi.postMessage({
                                 name: 'requestRangeEvents',
                                 fromUtc: from.getTime(),
                                 toUtc: to.getTime(),
                             });
-                        }
+                        });
                     }
                 }, 1200);
             }
@@ -532,6 +588,9 @@
 
 
             // Launch
+            // Ensure backend handshake is not lost on first start
+            ensureBackendReady(() => {
+            });
             drawMonth();
 
             log('init done');
