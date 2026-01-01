@@ -1,5 +1,7 @@
 TODO:[1]:
-    - screenshot for readme.md;
-    - unit testing, if it is possible Jest;
+    - readme.md:
+        -screenshot for readme.md;
+    - testing:
+        - Jest, review existing testa and need to find more not covered test cases;
     - multilingual support;
 

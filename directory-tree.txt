@@ -27,11 +27,23 @@ joplin-plugin-my-calendar/
 │   ├── index.ts
 │   └── manifest.json
 ├── tests/
+│   ├── main/
+│   │   └── pluginMain.test.ts
 │   ├── parsers/
 │   │   └── eventParser.test.ts
 │   ├── services/
-│       ├── eventsCache.test.ts
-│       └── icsImportService.test.ts
+│   │   ├── eventsCache.test.ts
+│   │   └── icsImportService.test.ts
+│   ├── ui/
+│   │   ├── calendar.test.ts
+│   │   └── icsImport.test.ts
+│   ├── uiBridge/
+│   │   └── panelController.test.ts
+│   ├── utils/
+│   │   ├── logger.test.ts
+│   │   └── toast.test.ts
+│   ├── views/
+│       └── calendarView.test.ts
 ├── LICENSE
 ├── README.md
 ├── directory-tree.txt
