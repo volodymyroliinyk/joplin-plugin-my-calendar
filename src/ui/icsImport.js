@@ -4,6 +4,8 @@
     function el(tag, attrs = {}, children = []) {
         const n = document.createElement(tag);
         for (const [k, v] of Object.entries(attrs)) {
+            if (v === undefined || v === null) continue;   // <-- FIX
+
             if (k === "style") n.setAttribute("style", v);
             else if (k === "class") n.className = v;
             else if (k.startsWith("on") && typeof v === "function") n.addEventListener(k.slice(2), v);
