@@ -175,12 +175,12 @@
                     return;
                 }
 
-                // --- ICS import завершився (успіх або помилка) -> перезавантажити грід ---
+                // --- ICS import complete (success or error) -> restart grid ---
                 if (msg.name === 'importDone' || msg.name === 'importError') {
                     log('import finished -> refreshing calendar grid');
-                    // скидаємо, щоб retry-логіка не думала що дані вже є
+                    // reset so that the retry logic does not think that the data already exists
                     gridEvents = [];
-                    // перемалювати поточний місяць і запросити діапазон ще раз
+                    // redraw the current month and request the range again
                     drawMonth();
                     return;
                 }

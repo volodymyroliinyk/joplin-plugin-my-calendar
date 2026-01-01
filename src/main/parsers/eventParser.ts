@@ -217,7 +217,7 @@ export function parseEventsFromBody(noteId: string, titleFallback: string, body:
             if (endUtc != null) {
                 // ICS all-day uses exclusive end -> make it inclusive for UI
                 if (endUtc > startUtc) endUtc = endUtc - 1;
-                else endUtc = startUtc + DAY_MS - 1; // страховка
+                else endUtc = startUtc + DAY_MS - 1; // insurance
             } else {
                 // if end not provided, treat as one-day all-day
                 endUtc = startUtc + DAY_MS - 1;

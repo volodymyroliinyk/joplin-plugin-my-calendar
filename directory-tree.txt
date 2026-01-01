@@ -26,9 +26,16 @@ joplin-plugin-my-calendar/
 │   │   └── icsImport.js
 │   ├── index.ts
 │   └── manifest.json
+├── tests/
+│   ├── parsers/
+│   │   └── eventParser.test.ts
+│   ├── services/
+│       ├── eventsCache.test.ts
+│       └── icsImportService.test.ts
 ├── LICENSE
 ├── README.md
 ├── directory-tree.txt
+├── jest.config.js
 ├── list.todo
 ├── package-lock.json
 ├── package.json
