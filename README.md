@@ -1,30 +1,43 @@
 # Attention!!! Under development, under usability testing.
 
-# joplin-plugin-my-calendar
+# 🗓️ joplin-plugin-my-calendar
 
 The [Joplin](https://joplinapp.org/) plugin provides the ability to:
 
-- Use notes as events;
+- Use notes as calendar events;
 - Display notes as events in the monthly calendar section;
-- Import the contents of an *.ics file into notes as events in a previously specified notebook (
+- Import the contents of an *.ics file into notes as calendar events in a previously specified notebook (
   Desktop [Joplin](https://joplinapp.org/) only).
+
+| N | Feature          | Desktop Joplin | Mobile Joplin |
+|---|------------------|----------------|---------------|
+| 1 | Monthly calendar | +              | +             |
+| 2 | Day events       | +              | +             |
+| 3 | *.ics import     | +              | -             |
 
 ---
 
-## Sections
+## Features
 
-### Monthly calendar section
+### 1) Monthly calendar
 
-- Navigation: previous month, current month, next month buttons, selected month name and year;
-- A grid with all days of the month;
-- Event bar(s) inside the day grid;
+- Navigation:
+    - previous month,
+    - current month,
+    - next month buttons,
+    - selected month name and year label;
+- A grid with all numbered days of the current/selected month;
+- Colored event bar(s) inside the day tail;
 
-### Day events section
+### 2) Current/Selected day events
 
-- Selected day events list with event details like: color, title and time;
-- Event list item is clickable;
+- Month and day number label;
+- Events list with details like:
+    - color,
+    - title, is clickable,
+    - time;
 
-### ICS import section (Desktop Joplin only)
+### 3) ICS import section
 
 Import behavior: each event from ics file is unique by uid, first import note as event will be created, second import
 each not will be updated or ignored, depends on all ics event properties.
@@ -32,6 +45,7 @@ each not will be updated or ignored, depends on all ics event properties.
 - Form for ICS file import:
     - Target notebook select box and reload list button;
     - ICS File picker and import button;
+  - Options related to the event color;
 
 ---
 
@@ -54,10 +68,11 @@ byweekday: MO,TU,WE,TH,FR     # weekly
 bymonthday: 12                # monthly
 uid: <unique ical id>         # string for event, more important for mass import from ical. Not required for manually created note (as a calendar event).
 recurrence_id: <RECURRENCE-ID>
+all_day: true
 ```
 ~~~
 
-### start,end and tz variations:
+## start,end and tz variations:
 
 1) This time will be converted to current device timezone.
 ```
@@ -82,7 +97,7 @@ end:   2025-12-18 09:00:00
 
 ## Development
 
-### Build command
+### Build
 
 `npm run pack;`
 
@@ -93,9 +108,11 @@ end:   2025-12-18 09:00:00
 
 ### Testing
 
-- Tested just manually with [Joplin](https://joplinapp.org/) Desktop (Ubuntu 24 release);
-- Tested just manually with [Joplin](https://joplinapp.org/) Android;
-- Automated testing will be soon, hope;
+- Tested manually with [Joplin](https://joplinapp.org/) Desktop (Ubuntu 24 release);
+- Tested manually with [Joplin](https://joplinapp.org/) Android;
+- Automated testing commands:
+    - `npx jest --runInBand;`;
+    - `npm test;`;
 
 ---
 
