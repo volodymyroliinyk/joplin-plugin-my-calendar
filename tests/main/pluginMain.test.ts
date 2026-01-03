@@ -1,6 +1,8 @@
 // tests/main/pluginMain.test.ts
 // src/main/pluginMain.ts
-
+//
+// npx jest tests/main/pluginMain.test.ts --runInBand --no-cache;
+//
 import runPlugin from '../../src/main/pluginMain';
 
 jest.mock('../../src/main/views/calendarView', () => ({
@@ -40,6 +42,7 @@ function makeJoplinMock(opts?: {
 
     const panels: any = {
         show: jest.fn().mockResolvedValue(undefined),
+        postMessage: jest.fn().mockResolvedValue(undefined),
     };
 
     if (withHide) {
@@ -78,6 +81,17 @@ function makeJoplinMock(opts?: {
             onSyncComplete: jest.fn(async (cb: AnyFn) => {
                 onSyncCompleteCb = cb;
             }),
+        },
+        settings: {
+            registerSection: jest.fn().mockResolvedValue(undefined),
+            registerSettings: jest.fn().mockResolvedValue(undefined),
+            value: jest.fn().mockResolvedValue('monday'), // default for weekStart (or false for debug)
+            onChange: jest.fn().mockResolvedValue(undefined),
+            settingItemType: {
+                Bool: 3,
+                String: 2,
+                Int: 1,
+            },
         },
     };
 

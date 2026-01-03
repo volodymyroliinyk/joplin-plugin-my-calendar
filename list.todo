@@ -1,7 +1,10 @@
 TODO:[1]:
+    - Bug with settings, need more manual test;
+    - ESLint;
+    - Prettier;
     - readme.md:
         -screenshot for readme.md;
     - testing:
-        - Jest, review existing testa and need to find more not covered test cases;
+        - Jest, review existing tests and need to find more not covered Jest cases;
     - multilingual support;
 

@@ -1,5 +1,13 @@
 /** @jest-environment jsdom */
 
+//
+// tests/ui/icsImport.test.ts
+// src/ui/icsImport.js
+//
+// npx jest tests/ui/icsImport.test.ts --runInBand --no-cache;
+
+// npx jest --clearCache;rm -rf node_modules/.cache/jest;npx jest tests/ui/icsImport.test.ts --runInBand --no-cache;
+
 export {};
 
 function setupDom(hasRoot = true) {
@@ -33,6 +41,11 @@ function sendPluginMessage(getOnMessageCb: () => any, payload: any) {
     if (!cb) throw new Error('webviewApi.onMessage callback not installed');
     cb({message: payload});
 }
+
+function sendUiSettings(getOnMessageCb: () => any, debug: boolean) {
+    sendPluginMessage(getOnMessageCb, {name: 'uiSettings', debug});
+}
+
 
 function qs(sel: string) {
     const el = document.querySelector(sel) as HTMLElement | null;
@@ -90,6 +103,7 @@ describe('src/ui/icsImport.js', () => {
         expect(document.querySelector('input[type="color"]')).toBeTruthy();
 
         // requestFolders called once at init
+        expect(postMessage).toHaveBeenCalledWith({name: 'uiReady'});
         expect(postMessage).toHaveBeenCalledWith({name: 'requestFolders'});
     });
 
@@ -246,8 +260,9 @@ describe('src/ui/icsImport.js', () => {
 
     test('Import button: no file selected -> logs "No file selected." and does not post message', async () => {
         setupDom(true);
-        const {postMessage} = installWebviewApi();
+        const {postMessage, getOnMessageCb} = installWebviewApi();
         loadIcsImportFresh();
+        sendUiSettings(getOnMessageCb, true);
 
         const importBtn = Array.from(document.querySelectorAll('button'))
             .find(b => (b.textContent || '').trim() === 'Import') as HTMLButtonElement;
@@ -361,6 +376,7 @@ describe('src/ui/icsImport.js', () => {
         setupDom(true);
         const {getOnMessageCb} = installWebviewApi();
         loadIcsImportFresh();
+        sendUiSettings(getOnMessageCb, true);
 
         sendPluginMessage(getOnMessageCb, {name: 'importStatus', text: 'Parsing'});
         sendPluginMessage(getOnMessageCb, {name: 'importDone', added: 1, updated: 2, skipped: 3, errors: 0});

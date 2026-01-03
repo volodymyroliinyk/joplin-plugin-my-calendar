@@ -23,7 +23,7 @@
         const root = document.getElementById("ics-root");
         if (!root) return;
 
-        const debug = false
+        let debug = false
 
         // UI
         const logBox = el("div", {
@@ -33,17 +33,25 @@
                 "max-height:220px; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12px;"
         });
 
+        applyDebugUI();
+
         function log(...args) {
             const line = args
                 .map(a => (typeof a === "object" ? JSON.stringify(a) : String(a)))
                 .join(" ");
-            console.log("[MyCalendar Import]", ...args);
+            if (debug) console.log("[MyCalendar Import]", ...args);
+            if (!debug) return;
             const div = document.createElement("div");
             div.textContent = line;
             if (debug) {
                 logBox.appendChild(div);
                 logBox.scrollTop = logBox.scrollHeight;
             }
+        }
+
+        function applyDebugUI() {
+            if (!logBox) return;
+            logBox.style.display = debug ? "" : "none";
         }
 
         // ---- Notebook selector (dropdown) ----
@@ -240,7 +248,8 @@
             root.appendChild(logBox);
         }
 
-        // Ask plugin for folder tree
+        // Ask plugin for settings + folder tree
+        window.webviewApi?.postMessage?.({name: "uiReady"});
         window.webviewApi?.postMessage?.({name: "requestFolders"});
 
 
@@ -255,6 +264,16 @@
             } else if (msg.name === "importError") {
                 log("[ERROR]", msg.error || "unknown");
             }
+
+
+            if (msg.name === "uiSettings") {
+                if (typeof msg.debug === "boolean") {
+                    debug = msg.debug;
+                    applyDebugUI();
+                }
+                return;
+            }
+
 
             if (msg.name === "folders") {
                 populateFolders(msg.folders);

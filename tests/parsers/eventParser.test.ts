@@ -1,6 +1,8 @@
 // test/parsers/eventParser.test.ts
 // src/main/parsers/eventParser.ts
 //
+// npx jest test/parsers/eventParser.test.ts --runInBand --no-cache;
+//
 // Notes for deterministic tests:
 // - Some parsing paths (no tz + no explicit offset) depend on the machine timezone.
 //   For stable results, run Jest with TZ=UTC, e.g.:
@@ -12,6 +14,7 @@
 // - datetime parsing (offset, tz conversion, invalid inputs)
 // - all_day behavior (inclusive end, default end, safety)
 // - repeat rules parsing
+//
 
 import {parseEventsFromBody} from '../../src/main/parsers/eventParser';
 

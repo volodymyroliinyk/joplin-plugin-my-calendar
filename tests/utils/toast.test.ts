@@ -1,5 +1,8 @@
 // tests/utils/toast.test.ts
 // src/main/utils/toast.ts
+//
+// npx jest tests/utils/toast.test.ts --runInBand --no-cache;
+//
 import {showToast} from '../../src/main/utils/toast';
 
 describe('toast', () => {
