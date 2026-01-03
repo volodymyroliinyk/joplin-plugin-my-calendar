@@ -112,7 +112,7 @@ end:   2025-12-18 09:00:00
 - Tested manually with [Joplin](https://joplinapp.org/) Android;
 - Covered by automated testing, commands:
   - `npx jest --runInBand --no-cache;`;
-    - `npm test;`;
+  - `npm test;`;
 
 ### File structure
 

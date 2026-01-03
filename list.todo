@@ -1,7 +1,5 @@
 TODO:[1]:
-    - Bug with settings, need more manual test;
-    - ESLint;
-    - Prettier;
+    - Bug with settings, need fix and automated tests;
     - readme.md:
         -screenshot for readme.md;
     - testing:

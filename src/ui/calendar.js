@@ -1,11 +1,9 @@
 // src/ui/calendar.js
 
 (function () {
-    const uiSettings = {weekStart: 'monday', debug: undefined}; // debug is provided by main via uiSettings
-    // Expose for tests/diagnostics (harmless in production)
-    if (typeof window !== 'undefined') {
-        window.__mcUiSettings = uiSettings;
-    }
+    // Ensure a single shared settings object across all UI scripts.
+    window.__mcUiSettings = window.__mcUiSettings || {weekStart: 'monday', debug: undefined};
+    const uiSettings = window.__mcUiSettings;
 
     function log(...args) {
         if (uiSettings.debug !== true) return;
