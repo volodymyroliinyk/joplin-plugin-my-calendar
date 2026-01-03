@@ -1,5 +1,8 @@
 // tests/views/calendarView.test.ts
 // src/main/views/calendarView.ts
+//
+// npx jest tests/views/calendarView.test.ts --runInBand --no-cache;
+//
 import {createCalendarPanel} from '../../src/main/views/calendarView';
 
 type MockedPanels = {

@@ -1,5 +1,10 @@
 /** @jest-environment jsdom */
 
+// tests/ui/calendar.test.ts
+// src/ui/calendar.js
+//
+// npx jest tests/ui/calendar.test.ts --runInBand --no-cache;
+//
 export {};
 
 function setupDom() {

@@ -1,5 +1,8 @@
 // tests/uiBridge/panelController.test.ts
 // src/main/uiBridge/panelController.ts
+//
+// npx jest tests/uiBridge/panelController.test.ts --runInBand --no-cache;
+//
 
 import {registerCalendarPanelController} from '../../src/main/uiBridge/panelController';
 

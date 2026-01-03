@@ -5,7 +5,8 @@ import {EventInput} from './parsers/eventParser';
 
 import {ensureAllEventsCache, invalidateNote, invalidateAllEventsCache} from './services/eventsCache';
 import {registerCalendarPanelController} from './uiBridge/panelController';
-
+import {getDebugEnabled, getWeekStart, registerSettings} from './settings/settings';
+import {setDebugEnabled} from './utils/logger';
 
 let allEventsCache: EventInput[] | null = null;
 
@@ -259,18 +260,67 @@ function buildICS(events: Occurrence[], prodId = '-//MyCalendar//Joplin//EN') {
     return lines.join('\r\n');
 }
 
+async function pushUiSettings(joplin: any, panelId: string) {
+    const weekStart = await getWeekStart(joplin);
+    const debug = await getDebugEnabled(joplin);
+
+    // Main-side logger should follow the same setting
+    setDebugEnabled(!!debug);
+
+    const pm = joplin?.views?.panels?.postMessage;
+    if (typeof pm !== 'function') return;
+
+    await pm(panelId, {name: 'uiSettings', weekStart, debug: !!debug});
+}
+
+// Ensure UI always receives current settings when the webview (re)initializes.
+async function registerUiMessageHandlers(joplin: any, panelId: string) {
+    const onMessage = (joplin as any)?.views?.panels?.onMessage;
+    if (typeof onMessage !== 'function') return;
+
+    await onMessage(panelId, async (msg: any) => {
+        // Joplin sometimes wraps payload as { message: <payload> }
+        if (msg && typeof msg === 'object' && 'message' in msg && (msg as any).message) {
+            msg = (msg as any).message;
+        }
+        if (!msg || !msg.name) return;
+
+        if (msg.name === 'uiReady') {
+            await pushUiSettings(joplin, panelId);
+            // Force a redraw so weekStart takes effect immediately.
+            const pm = joplin?.views?.panels?.postMessage;
+            if (typeof pm === 'function') {
+                await pm(panelId, {name: 'redrawMonth'});
+            }
+            return;
+        }
+    });
+}
+
+
 export default async function runPlugin(joplin: any) {
 
     console.log('[MyCalendar] pluginMain: start');
 
+    await registerSettings(joplin);
+
     const panel = await createCalendarPanel(joplin);
     console.log('[MyCalendar] panel id:', panel);
+    await registerUiMessageHandlers(joplin, panel);
+
 
     await joplin.commands.register({
         name: 'mycalendar.open',
         label: 'Open MyCalendar',
         execute: async () => {
             await joplin.views.panels.show(panel);
+            // Ensure the UI gets the latest weekStart when the panel becomes visible.
+            await pushUiSettings(joplin, panel);
+            try {
+                const pm = joplin?.views?.panels?.postMessage;
+                if (typeof pm === 'function') await pm(panel, {name: 'redrawMonth'});
+            } catch {
+            }
             try {
                 const panelsAny = (joplin as any).views?.panels;
                 if (panelsAny && typeof panelsAny.focus === 'function') {
@@ -303,7 +353,13 @@ export default async function runPlugin(joplin: any) {
         buildICS,
     });
 
+    await pushUiSettings(joplin, panel);
+
     await joplin.views.panels.show(panel);
+
+    await joplin.settings.onChange(async () => {
+        await pushUiSettings(joplin, panel);
+    });
 
     await registerDesktopToggle(joplin, panel);
 
@@ -378,7 +434,3 @@ async function registerDesktopToggle(joplin: any, panelId: string) {
         console.warn('[MyCalendar] registerDesktopToggle failed (non-fatal):', e);
     }
 }
-
-
-
-

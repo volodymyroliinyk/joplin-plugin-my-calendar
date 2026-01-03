@@ -110,11 +110,26 @@ end:   2025-12-18 09:00:00
 
 - Tested manually with [Joplin](https://joplinapp.org/) Desktop (Ubuntu 24 release);
 - Tested manually with [Joplin](https://joplinapp.org/) Android;
-- Automated testing commands:
-    - `npx jest --runInBand;`;
-    - `npm test;`;
+- Covered by automated testing, commands:
+  - `npx jest --runInBand --no-cache;`;
+  - `npm test;`;
+
+### File structure
+
+- See: [directory-tree.txt](directory-tree.txt)
+
+### Todo
+
+- See [list.todo](list.todo);
+- In the code;
 
 ---
+
+## License
+
+- [LICENSE](LICENSE)
+
+
 
 
 

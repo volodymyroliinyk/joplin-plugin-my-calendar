@@ -1,17 +1,26 @@
 // src/ui/calendar.js
 
 (function () {
-    const debug = false;
+    // Ensure a single shared settings object across all UI scripts.
+    window.__mcUiSettings = window.__mcUiSettings || {weekStart: 'monday', debug: undefined};
+    const uiSettings = window.__mcUiSettings;
 
     function log(...args) {
+        if (uiSettings.debug !== true) return;
         console.log('[MyCalendar UI]', ...args);
         const box = document.getElementById('mc-log');
-        if (box && debug) {
+        if (box) {
             const line = document.createElement('div');
             line.textContent = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
             box.appendChild(line);
         }
     }
+
+    function applyDebugUI() {
+        const box = document.getElementById('mc-log');
+        if (box) box.style.display = (uiSettings.debug === true) ? '' : 'none';
+    }
+
 
     function mcRegisterOnMessage(handler) {
         window.__mcMsgHandlers = window.__mcMsgHandlers || [];
@@ -22,7 +31,7 @@
 
         if (window.webviewApi?.onMessage) {
             window.webviewApi.onMessage((ev) => {
-                const msg = ev && ev.message ? ev.message : ev;
+                const msg = (ev && ev.message) ? ev.message : ev;
                 for (const h of window.__mcMsgHandlers) {
                     try {
                         h(msg);
@@ -60,12 +69,16 @@
             // Beginning 6-week mesh (Monday)-locally
             function startOfCalendarGridLocal(current) {
                 const first = new Date(current.getFullYear(), current.getMonth(), 1);
-                const dowMon0 = (first.getDay() + 6) % 7; // Mon=0..Sun=6
-                const start = new Date(first.getTime() - dowMon0 * DAY);
+
+                const firstDayJs = (uiSettings.weekStart === 'sunday') ? 0 : 1; // Sun=0, Mon=1
+                const jsDow = first.getDay(); // Sun=0..Sat=6
+                const offset = (jsDow - firstDayJs + 7) % 7;
+
+                const start = new Date(first.getTime() - offset * DAY);
                 return new Date(start.getFullYear(), start.getMonth(), start.getDate());
             }
 
-// End of the grid (42 cells)
+            // End of the grid (42 cells)
             function endOfCalendarGridLocal(current) {
                 const s = startOfCalendarGridLocal(current);
                 return new Date(s.getTime() + 42 * DAY - 1);
@@ -151,8 +164,29 @@
 
             // Connecting with backend.
             if (window.webviewApi?.postMessage) {
+                applyDebugUI();
                 window.webviewApi.postMessage({name: 'uiReady'});
                 log('uiReady sent');
+
+                // Desktop/Mobile: panel can be hidden/shown without reloading the plugin backend.
+                // When UI becomes visible again, re-announce readiness so backend re-sends uiSettings.
+                let _uiReadyDebounce = 0;
+
+                function sendUiReadyAgain() {
+                    clearTimeout(_uiReadyDebounce);
+                    _uiReadyDebounce = setTimeout(() => {
+                        try {
+                            window.webviewApi?.postMessage?.({name: 'uiReady'});
+                        } catch {
+                        }
+                    }, 50);
+                }
+
+                document.addEventListener('visibilitychange', () => {
+                    if (!document.hidden) sendUiReadyAgain();
+                });
+                window.addEventListener('focus', () => sendUiReadyAgain());
+
             } else {
                 log('webviewApi.postMessage missing at init');
             }
@@ -230,6 +264,24 @@
                     log('uiAck received');
                     return;
                 }
+
+                if (msg.name === 'uiSettings') {
+                    if (msg.weekStart === 'monday' || msg.weekStart === 'sunday') {
+                        uiSettings.weekStart = msg.weekStart;
+                    }
+                    if (typeof msg.debug === 'boolean') {
+                        uiSettings.debug = msg.debug;
+                        applyDebugUI();
+                    }
+                    drawMonth(); // rerender the grid for the new beginning of the week
+                    return;
+                }
+
+                if (msg.name === 'redrawMonth') {
+                    drawMonth();
+                    return;
+                }
+
 
                 // --- ICS import complete (success or error) -> restart grid ---
                 if (msg.name === 'importDone' || msg.name === 'importError') {
@@ -356,11 +408,16 @@
                 if (!grid) return;
                 grid.innerHTML = '';
 
-                const weekdayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                function getWeekdayNames() {
+                    const base = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                    return uiSettings.weekStart === 'sunday'
+                        ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+                        : base;
+                }
 
                 const head = document.createElement('div');
                 head.className = 'mc-grid-head';
-                for (const n of weekdayNames) {
+                for (const n of getWeekdayNames()) {
                     const c = document.createElement('div');
                     c.className = 'mc-grid-head-cell';
                     c.textContent = n;
@@ -441,9 +498,9 @@
             }
 
 
-// Slice an event interval into a specific local-day interval.
-// dayStartTs is epoch ms for local midnight of the day cell.
-// Returns null if the event does not intersect the day.
+            // Slice an event interval into a specific local-day interval.
+            // dayStartTs is epoch ms for local midnight of the day cell.
+            // Returns null if the event does not intersect the day.
             function sliceEventForDay(ev, dayStartTs) {
                 const dayEndTs = dayStartTs + 24 * 3600 * 1000 - 1;
                 const evStart = ev.startUtc;
@@ -600,48 +657,8 @@
         }
     }
 
-    function parseYmdHms(s) {
-        // "2025-09-01 15:30:00"
-        const [d, t] = s.trim().split(/\s+/);
-        const [Y, M, D] = d.split('-').map(Number);
-        const [h, m, sec] = (t || '00:00:00').split(':').map(Number);
-        return {Y, M, D, h, m, sec: sec || 0};
-    }
 
-    function getPartsInTz(date, tz) {
-        const fmt = new Intl.DateTimeFormat('en-CA', {
-            timeZone: tz,
-            year: 'numeric', month: '2-digit', day: '2-digit',
-            hour: '2-digit', minute: '2-digit', second: '2-digit',
-            hour12: false
-        });
-        const parts = fmt.formatToParts(date);
-        const mp = {};
-        for (const p of parts) if (p.type !== 'literal') mp[p.type] = p.value;
-        return {
-            Y: Number(mp.year),
-            M: Number(mp.month),
-            D: Number(mp.day),
-            h: Number(mp.hour),
-            m: Number(mp.minute),
-            sec: Number(mp.second),
-        };
-    }
-
-// zonedTimeToUtc for "local datetime in tz" -> utc ms
-    function zonedTimeToUtcMs(localY, localM, localD, localH, localMin, localSec, tz) {
-        // initial guess: treat local as UTC
-        let guess = Date.UTC(localY, localM - 1, localD, localH, localMin, localSec);
-
-        // refine once (enough for DST cases)
-        const parts = getPartsInTz(new Date(guess), tz);
-        const asIfUtc = Date.UTC(parts.Y, parts.M - 1, parts.D, parts.h, parts.m, parts.sec);
-        const desired = Date.UTC(localY, localM - 1, localD, localH, localMin, localSec);
-        const diff = desired - asIfUtc;
-        return guess + diff;
-    }
-
-    // Init check
+// Init check
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
     else init();
 

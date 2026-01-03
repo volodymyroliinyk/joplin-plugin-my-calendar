@@ -2,7 +2,7 @@
 
 declare global {
     // eslint-disable-next-line no-var
-    var joplin: any;
+    const joplin: any;
 
     interface Window {
         joplin?: any;

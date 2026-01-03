@@ -1,5 +1,8 @@
 // tests/utils/logger.test.ts
 // src/main/utils/logger.ts
+//
+// npx jest tests/utils/logger.test.ts --runInBand --no-cache;
+//
 import {setDebugEnabled, dbg, info, warn, err} from '../../src/main/utils/logger';
 
 describe('logger', () => {

@@ -1,6 +1,10 @@
 // src/ui/icsImport.js
 
 (function () {
+    // Ensure a single shared settings object across all UI scripts.
+    window.__mcUiSettings = window.__mcUiSettings || {weekStart: 'monday', debug: undefined};
+    const uiSettings = window.__mcUiSettings;
+
     function el(tag, attrs = {}, children = []) {
         const n = document.createElement(tag);
         for (const [k, v] of Object.entries(attrs)) {
@@ -23,7 +27,7 @@
         const root = document.getElementById("ics-root");
         if (!root) return;
 
-        const debug = false
+        let debug = false
 
         // UI
         const logBox = el("div", {
@@ -33,17 +37,26 @@
                 "max-height:220px; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12px;"
         });
 
+        applyDebugUI();
+
         function log(...args) {
+            if (uiSettings.debug !== true) return;
+
             const line = args
                 .map(a => (typeof a === "object" ? JSON.stringify(a) : String(a)))
                 .join(" ");
-            console.log("[MyCalendar Import]", ...args);
+            if (uiSettings.debug) console.log("[MyCalendar Import]", ...args);
             const div = document.createElement("div");
             div.textContent = line;
-            if (debug) {
+            if (uiSettings.debug) {
                 logBox.appendChild(div);
                 logBox.scrollTop = logBox.scrollHeight;
             }
+        }
+
+        function applyDebugUI() {
+            if (!logBox) return;
+            logBox.style.display = (uiSettings.debug === true) ? '' : 'none';
         }
 
         // ---- Notebook selector (dropdown) ----
@@ -235,13 +248,14 @@
         root.appendChild(rowFile);
         root.appendChild(optionsRow);
 
-        if (debug) {
+        if (uiSettings.debug) {
             root.appendChild(el("div", {style: "font-weight:600;margin-top:10px"}, ["Debug log"]));
             root.appendChild(logBox);
         }
 
-        // Ask plugin for folder tree
-        window.webviewApi?.postMessage?.({name: "requestFolders"});
+        // // Ask plugin for settings + folder tree
+        // window.webviewApi?.postMessage?.({name: "uiReady"});
+        // window.webviewApi?.postMessage?.({name: "requestFolders"});
 
 
         // Messages from backend
@@ -256,6 +270,16 @@
                 log("[ERROR]", msg.error || "unknown");
             }
 
+
+            if (msg.name === "uiSettings") {
+                if (typeof msg.debug === "boolean") {
+                    uiSettings.debug = msg.debug;
+                    applyDebugUI();
+                }
+                return;
+            }
+
+
             if (msg.name === "folders") {
                 populateFolders(msg.folders);
                 // If you have log() - you can log
@@ -263,6 +287,10 @@
                 return;
             }
         });
+
+        // Ask plugin for settings + folder tree (send AFTER handler is installed)
+        window.webviewApi?.postMessage?.({name: "uiReady"});
+        window.webviewApi?.postMessage?.({name: "requestFolders"});
 
         log("initialized");
     }

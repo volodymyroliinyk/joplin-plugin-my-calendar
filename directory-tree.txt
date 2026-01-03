@@ -28,7 +28,8 @@ joplin-plugin-my-calendar/
 │   └── manifest.json
 ├── tests/
 │   ├── main/
-│   │   └── pluginMain.test.ts
+│   │   ├── pluginMain.test.ts
+│   │   └── weekStartFlow.test.ts
 │   ├── parsers/
 │   │   └── eventParser.test.ts
 │   ├── services/
@@ -36,6 +37,7 @@ joplin-plugin-my-calendar/
 │   │   └── icsImportService.test.ts
 │   ├── ui/
 │   │   ├── calendar.test.ts
+│   │   ├── calendar.weekStart.test.ts
 │   │   └── icsImport.test.ts
 │   ├── uiBridge/
 │   │   └── panelController.test.ts

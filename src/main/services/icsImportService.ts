@@ -406,8 +406,6 @@ function extractEventColorFromBody(body: string, uid: string, recurrenceId?: str
     return undefined;
 }
 
-
-
 export async function importIcsIntoNotes(
     joplin: any,
     ics: string,

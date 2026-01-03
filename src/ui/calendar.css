@@ -1,6 +1,5 @@
 /* src/ui/calendar.css */
 
-
 html, body {
     height: 100%;
     margin: 0;
@@ -349,6 +348,7 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
     #mc-import {
         display: none !important;
     }
+
     /* Stretch the entire width of the panel, drop the fields */
     #cal-root {
         margin: 0 !important;
