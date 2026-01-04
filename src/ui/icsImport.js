@@ -36,8 +36,7 @@
                 "margin-top:8px; padding:6px; border:1px dashed var(--joplin-divider-color);" +
                 "max-height:220px; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12px;"
         });
-
-        applyDebugUI();
+        const debugHeader = el("div", {style: "font-weight:600;margin-top:10px"}, ["Debug log"]);
 
         function log(...args) {
             if (uiSettings.debug !== true) return;
@@ -55,8 +54,13 @@
         }
 
         function applyDebugUI() {
-            if (!logBox) return;
-            logBox.style.display = (uiSettings.debug === true) ? '' : 'none';
+            if (debugHeader.parentNode) root.removeChild(debugHeader);
+            if (logBox.parentNode) root.removeChild(logBox);
+
+            if (uiSettings.debug) {
+                root.appendChild(debugHeader);
+                root.appendChild(logBox);
+            }
         }
 
         // ---- Notebook selector (dropdown) ----
@@ -248,10 +252,7 @@
         root.appendChild(rowFile);
         root.appendChild(optionsRow);
 
-        if (uiSettings.debug) {
-            root.appendChild(el("div", {style: "font-weight:600;margin-top:10px"}, ["Debug log"]));
-            root.appendChild(logBox);
-        }
+        applyDebugUI();
 
         // // Ask plugin for settings + folder tree
         // window.webviewApi?.postMessage?.({name: "uiReady"});
