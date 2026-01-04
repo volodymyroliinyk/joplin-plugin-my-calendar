@@ -2,8 +2,14 @@
 
 (function () {
     // Ensure a single shared settings object across all UI scripts.
-    window.__mcUiSettings = window.__mcUiSettings || {weekStart: 'monday', debug: undefined};
+    window.__mcUiSettings = window.__mcUiSettings || {weekStart: undefined, debug: undefined};
     const uiSettings = window.__mcUiSettings;
+    let __mcHasUiSettings = false;
+
+    // TODO:[1]: remove debug string like this, everywhere.
+    console.log('[MyCalendar][DBG][weekStart] uiSettings 3::', uiSettings);
+    console.log('[MyCalendar][DBG][weekStart] window 3.1::', window);
+
 
     function log(...args) {
         if (uiSettings.debug !== true) return;
@@ -70,6 +76,8 @@
             function startOfCalendarGridLocal(current) {
                 const first = new Date(current.getFullYear(), current.getMonth(), 1);
 
+                console.log('[MyCalendar][DBG][weekStart] uiSettings.weekStart 4::', uiSettings.weekStart);
+
                 const firstDayJs = (uiSettings.weekStart === 'sunday') ? 0 : 1; // Sun=0, Mon=1
                 const jsDow = first.getDay(); // Sun=0..Sat=6
                 const offset = (jsDow - firstDayJs + 7) % 7;
@@ -110,51 +118,12 @@
             // Events received for the current range of calendar grid (42 days)
             let gridEvents = [];
 
-            function pad2(n) {
-                return String(n).padStart(2, '0');
-            }
-
-            function toMidnightUTC(d) {
-                return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0);
-            }
-
-            function startOfMonthUTC(d) {
-                return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1, 0, 0, 0));
-            }
-
-            function addMonths(dateUtc, delta) {
-                const d = new Date(dateUtc.getTime());
-                d.setUTCMonth(d.getUTCMonth() + delta);
-                return startOfMonthUTC(d);
-            }
 
             // Local device TZ
             function monthLabel(d) {
                 return d.toLocaleString(undefined, {month: 'long', year: 'numeric'});
             }
 
-
-            function startOfCalendarGrid(monthUtcDate) {
-                const y = monthUtcDate.getUTCFullYear(), m = monthUtcDate.getUTCMonth();
-                const d = new Date(Date.UTC(y, m, 1, 0, 0, 0));
-                const wd = (d.getUTCDay() + 6) % 7; // Mon=0
-                return new Date(d.getTime() - wd * 24 * 3600 * 1000);
-            }
-
-            function endOfCalendarGrid(monthUtcDate) {
-                const s = startOfCalendarGrid(monthUtcDate);
-                return new Date(s.getTime() + 42 * 24 * 3600 * 1000 - 1);
-            }
-
-            function isSameUTCDate(tsUtc, d2) {
-                const a = new Date(tsUtc);
-                return a.getUTCFullYear() === d2.getUTCFullYear() && a.getUTCMonth() === d2.getUTCMonth() && a.getUTCDate() === d2.getUTCDate();
-            }
-
-            function todayUTCDate() {
-                const n = new Date();
-                return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate(), 0, 0, 0));
-            }
 
             if (window.webviewApi?.onMessage) {
                 mcRegisterOnMessage(onPluginMessage);
@@ -266,14 +235,32 @@
                 }
 
                 if (msg.name === 'uiSettings') {
+                    const prevWeekStart = uiSettings.weekStart;
+
+                    console.log('[MyCalendar][DBG][weekStart] msg.name 5::', msg.name);
+                    console.log('[MyCalendar][DBG][weekStart] msg.weekStart 6::', msg.weekStart);
+
                     if (msg.weekStart === 'monday' || msg.weekStart === 'sunday') {
                         uiSettings.weekStart = msg.weekStart;
                     }
+
+                    console.log('[MyCalendar][DBG][weekStart] uiSettings.weekStart 6::', uiSettings.weekStart);
+
                     if (typeof msg.debug === 'boolean') {
                         uiSettings.debug = msg.debug;
                         applyDebugUI();
                     }
-                    drawMonth(); // rerender the grid for the new beginning of the week
+
+                    const weekStartChanged = prevWeekStart !== uiSettings.weekStart;
+                    const firstSettingsArrived = !__mcHasUiSettings;
+                    __mcHasUiSettings = true;
+
+                    if (firstSettingsArrived || weekStartChanged) {
+                        drawMonth();
+                    }
+
+                    console.log('[MyCalendar][DBG][weekStart] uiSettings.weekStart 7::', uiSettings.weekStart);
+
                     return;
                 }
 
@@ -365,6 +352,10 @@
             }
 
             function drawMonth() {
+                if (!uiSettings.weekStart) {
+                    log('drawMonth skipped: weekStart not set');
+                    return;
+                }
                 renderToolbar();
                 renderGridSkeleton();
 
@@ -402,18 +393,18 @@
                 }, 1200);
             }
 
+            function getWeekdayNames() {
+                const base = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                return uiSettings.weekStart === 'sunday'
+                    ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+                    : base;
+            }
 
             function renderGridSkeleton() {
                 const grid = $grid();
                 if (!grid) return;
                 grid.innerHTML = '';
 
-                function getWeekdayNames() {
-                    const base = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                    return uiSettings.weekStart === 'sunday'
-                        ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-                        : base;
-                }
 
                 const head = document.createElement('div');
                 head.className = 'mc-grid-head';
@@ -496,7 +487,6 @@
                 // fallback: environment timezone
                 return new Date(ts).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', hour12: false});
             }
-
 
             // Slice an event interval into a specific local-day interval.
             // dayStartTs is epoch ms for local midnight of the day cell.
@@ -643,7 +633,6 @@
                 }
             }
 
-
             // Launch
             // Ensure backend handshake is not lost on first start
             ensureBackendReady(() => {
@@ -656,7 +645,6 @@
             log('init error', e && e.message ? e.message : String(e));
         }
     }
-
 
 // Init check
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

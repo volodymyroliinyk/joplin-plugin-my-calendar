@@ -260,8 +260,9 @@ function buildICS(events: Occurrence[], prodId = '-//MyCalendar//Joplin//EN') {
     return lines.join('\r\n');
 }
 
-async function pushUiSettings(joplin: any, panelId: string) {
+async function pushUiSettings(joplin: any, panel: string) {
     const weekStart = await getWeekStart(joplin);
+    console.log('[MyCalendar][DBG][weekStart] weekStart 1::', weekStart);
     const debug = await getDebugEnabled(joplin);
 
     // Main-side logger should follow the same setting
@@ -269,8 +270,8 @@ async function pushUiSettings(joplin: any, panelId: string) {
 
     const pm = joplin?.views?.panels?.postMessage;
     if (typeof pm !== 'function') return;
-
-    await pm(panelId, {name: 'uiSettings', weekStart, debug: !!debug});
+    console.log('[MyCalendar][DBG][weekStart] weekStart 1::', weekStart);
+    await pm(panel, {name: 'uiSettings', weekStart, debug: !!debug});
 }
 
 // Ensure UI always receives current settings when the webview (re)initializes.
@@ -377,13 +378,13 @@ export default async function runPlugin(joplin: any) {
 }
 
 // === MyCalendar: safe desktop toggle helper ===
-async function registerDesktopToggle(joplin: any, panelId: string) {
+async function registerDesktopToggle(joplin: any, panel: string) {
     try {
         const canShow = !!joplin?.views?.panels?.show;
         const canHide = !!joplin?.views?.panels?.hide;
         const canMenu = !!joplin?.views?.menuItems?.create;
 
-        console.info('[MyCalendar] toggle: capabilities', {canShow, canHide, canMenu, panelId});
+        console.info('[MyCalendar] toggle: capabilities', {canShow, canHide, canMenu, panel});
 
         if (!canShow || !canHide) {
             console.info('[MyCalendar] toggle: panels.show/hide not available - skip');
@@ -398,17 +399,17 @@ async function registerDesktopToggle(joplin: any, panelId: string) {
             label: 'Toggle MyCalendar panel',
             execute: async () => {
                 try {
-                    if (!panelId) return;
+                    if (!panel) return;
                     if (mycalendarVisible) {
                         // on Desktop there is Hide (); on Mobile there is no - just do nothing
                         if (joplin.views?.panels?.hide) {
-                            await joplin.views.panels.hide(panelId);
+                            await joplin.views.panels.hide(panel);
                         }
                         mycalendarVisible = false;
 
                         console.log('[MyCalendar] toggle Hide');
                     } else {
-                        await joplin.views.panels.show(panelId);
+                        await joplin.views.panels.show(panel);
                         // We do not call Focus () - on Mobile of this method there is no → were errors in the lounges
                         mycalendarVisible = true;
                         console.log('[MyCalendar] toggle Show');

@@ -3,9 +3,9 @@
 import joplin from 'api';
 
 export async function createCalendarPanel(joplin: any): Promise<string> {
-    const panelId = await joplin.views.panels.create('mycalendarPanel');
+    const panel = await joplin.views.panels.create('mycalendarPanel');
 
-    await joplin.views.panels.setHtml(panelId, `
+    await joplin.views.panels.setHtml(panel, `
   <div id="cal-root">
     <div id="mc-toolbar"></div>
     <!-- CALENDAR -->
@@ -31,12 +31,12 @@ export async function createCalendarPanel(joplin: any): Promise<string> {
 `);
 
 
-    await joplin.views.panels.addScript(panelId, './ui/calendar.css');
-    await joplin.views.panels.addScript(panelId, './ui/calendar.js');
-    await joplin.views.panels.addScript(panelId, './ui/icsImport.js');
-    await joplin.views.panels.show(panelId);
+    await joplin.views.panels.addScript(panel, './ui/calendar.css');
+    await joplin.views.panels.addScript(panel, './ui/calendar.js');
+    await joplin.views.panels.addScript(panel, './ui/icsImport.js');
+    await joplin.views.panels.show(panel);
     console.log('[MyCalendar] calendarView created');
 
-    return panelId;
+    return panel;
 }
 

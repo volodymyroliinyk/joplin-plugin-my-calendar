@@ -6,7 +6,7 @@
   "scripts": {
     "clean": "rm -rf dist node_modules package-lock.json",
     "build": "webpack",
-    "pack": "npm run build && cd dist && tar --format=ustar -cf ../publish/com.volodymyroliinyk.joplin.my-calendar.jpl manifest.json index.js main ui",
+    "pack": "npm run build && cd dist && tar --format=ustar -cf ../publish/com.volodymyroliinyk.joplin.plugin.my-calendar.jpl manifest.json index.js main ui",
     "dist": "npm run pack",
     "test": "TZ=UTC jest",
     "test:watch": "jest --watch"

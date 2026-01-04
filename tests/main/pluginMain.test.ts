@@ -171,8 +171,8 @@ describe('pluginMain.runPlugin', () => {
 
         // controller registered with helpers
         expect(registerCalendarPanelController).toHaveBeenCalledTimes(1);
-        const [, panelId, helpers] = (registerCalendarPanelController as jest.Mock).mock.calls[0];
-        expect(panelId).toBe('panel-1');
+        const [, panel, helpers] = (registerCalendarPanelController as jest.Mock).mock.calls[0];
+        expect(panel).toBe('panel-1');
         expect(typeof helpers.expandAllInRange).toBe('function');
         expect(typeof helpers.buildICS).toBe('function');
 

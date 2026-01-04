@@ -3,6 +3,8 @@
 import {ensureAllEventsCache, invalidateAllEventsCache} from '../services/eventsCache';
 import {importIcsIntoNotes} from '../services/icsImportService';
 import {showToast} from '../utils/toast';
+import {getDebugEnabled, getWeekStart} from "../settings/settings";
+import {setDebugEnabled} from "../utils/logger";
 
 type FolderRow = { id: string; title: string; parent_id?: string | null };
 type FolderOption = { id: string; title: string; parent_id?: string | null; depth: number };
@@ -59,6 +61,20 @@ function flattenFolderTree(rows: FolderRow[]): FolderOption[] {
     return acc;
 }
 
+async function pushUiSettings(joplin: any, panel: string) {
+    const weekStart = await getWeekStart(joplin);
+    console.log('[MyCalendar][DBG][weekStart] weekStart 1::', weekStart);
+    const debug = await getDebugEnabled(joplin);
+
+    // Main-side logger should follow the same setting
+    setDebugEnabled(!!debug);
+
+    const pm = joplin?.views?.panels?.postMessage;
+    if (typeof pm !== 'function') return;
+    console.log('[MyCalendar][DBG][weekStart] weekStart 1::', weekStart);
+    await pm(panel, {name: 'uiSettings', weekStart, debug: !!debug});
+}
+
 
 /**
  * IMPORTANT: we leave expandAllInRange and buildICS temporarily in pluginMain.ts (as it was),
@@ -66,17 +82,22 @@ function flattenFolderTree(rows: FolderRow[]): FolderOption[] {
  */
 export async function registerCalendarPanelController(
     joplin: any,
-    panelId: string,
+    panel: string,
     helpers: {
         expandAllInRange: (events: any[], fromUtc: number, toUtc: number) => any[];
         buildICS: (events: any[]) => string;
     }
 ) {
-    await joplin.views.panels.onMessage(panelId, async (msg: any) => {
+    await joplin.views.panels.onMessage(panel, async (msg: any) => {
         try {
             // --- UI handshake ---
             if (msg?.name === 'uiReady') {
-                await joplin.views.panels.postMessage(panelId, {name: 'uiAck'});
+                await pushUiSettings(joplin, panel);
+                // Force a redraw so weekStart takes effect immediately.
+                const pm = joplin?.views?.panels?.postMessage;
+                if (typeof pm === 'function') {
+                    await pm(panel, {name: 'redrawMonth'});
+                }
                 return;
             }
 
@@ -85,7 +106,7 @@ export async function registerCalendarPanelController(
                 const all = await ensureAllEventsCache(joplin);
                 const list = helpers.expandAllInRange(all, msg.fromUtc, msg.toUtc);
 
-                await joplin.views.panels.postMessage(panelId, {
+                await joplin.views.panels.postMessage(panel, {
                     name: 'rangeEvents',
                     events: list,
                 });
@@ -102,7 +123,7 @@ export async function registerCalendarPanelController(
                     (e: any) => e.startUtc >= dayStart && e.startUtc <= dayEnd
                 );
 
-                await joplin.views.panels.postMessage(panelId, {
+                await joplin.views.panels.postMessage(panel, {
                     name: 'showEvents',
                     dateUtc: msg.dateUtc,
                     events: list,
@@ -122,7 +143,7 @@ export async function registerCalendarPanelController(
                 const list = helpers.expandAllInRange(all, msg.fromUtc, msg.toUtc);
                 const ics = helpers.buildICS(list);
 
-                await joplin.views.panels.postMessage(panelId, {
+                await joplin.views.panels.postMessage(panel, {
                     name: 'rangeIcs',
                     ics,
                     filename: `mycalendar_${new Date(msg.fromUtc).toISOString().slice(0, 10)}_${new Date(
@@ -135,7 +156,7 @@ export async function registerCalendarPanelController(
             // --- ICS import (text/file) from UI ---
             if (msg?.name === 'icsImport') {
                 const sendStatus = async (text: string) => {
-                    await joplin.views.panels.postMessage(panelId, {
+                    await joplin.views.panels.postMessage(panel, {
                         name: 'importStatus',
                         text,
                     });
@@ -164,7 +185,7 @@ export async function registerCalendarPanelController(
 
                     invalidateAllEventsCache();
 
-                    await joplin.views.panels.postMessage(panelId, {
+                    await joplin.views.panels.postMessage(panel, {
                         name: 'importDone',
                         ...res,
                     });
@@ -175,7 +196,7 @@ export async function registerCalendarPanelController(
                 } catch (e: any) {
                     const errText = String(e?.message || e);
 
-                    await joplin.views.panels.postMessage(panelId, {
+                    await joplin.views.panels.postMessage(panel, {
                         name: 'importError',
                         error: errText,
                     });
@@ -190,7 +211,7 @@ export async function registerCalendarPanelController(
             if (msg?.name === 'requestFolders') {
                 const rows = await getAllFolders(joplin);
                 const folders = flattenFolderTree(rows);
-                await joplin.views.panels.postMessage(panelId, {name: 'folders', folders});
+                await joplin.views.panels.postMessage(panel, {name: 'folders', folders});
                 return;
             }
 

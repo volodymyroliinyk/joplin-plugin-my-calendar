@@ -41,7 +41,7 @@ describe('calendarView.createCalendarPanel', () => {
         jest.clearAllMocks();
     });
 
-    test('happy path: creates panel, sets html, adds scripts, shows panel, returns panelId', async () => {
+    test('happy path: creates panel, sets html, adds scripts, shows panel, returns panel', async () => {
         const {joplin, panels} = makeJoplinMock();
 
         panels.create.mockResolvedValue('panel-123');
@@ -49,9 +49,9 @@ describe('calendarView.createCalendarPanel', () => {
         panels.addScript.mockResolvedValue(undefined);
         panels.show.mockResolvedValue(undefined);
 
-        const panelId = await createCalendarPanel(joplin);
+        const panel = await createCalendarPanel(joplin);
 
-        expect(panelId).toBe('panel-123');
+        expect(panel).toBe('panel-123');
 
         // create called with fixed id
         expect(panels.create).toHaveBeenCalledWith('mycalendarPanel');
