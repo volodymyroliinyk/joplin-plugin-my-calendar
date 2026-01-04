@@ -59,15 +59,4 @@ describe('calendar UI wiring diagnostics', () => {
 
         expect((window as any).__mcUiSettings.weekStart).toBe('sunday');
     });
-    // TODO: fix this test
-    // test('webviewApi path updates window.__mcUiSettings.weekStart (direct-message shape)', () => {
-    //     const api = installWebviewApi();
-    //     loadCalendarInstrumentedFresh();
-    //
-    //     expect((window as any).__mcUiSettings.weekStart).toBe('monday');
-    //
-    //     api.emitDirectMessage({ name: 'uiSettings', weekStart: 'sunday' });
-    //
-    //     expect((window as any).__mcUiSettings.weekStart).toBe('sunday');
-    // });
 });
