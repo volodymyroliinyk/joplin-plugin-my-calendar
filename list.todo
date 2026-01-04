@@ -4,6 +4,11 @@ TODO:[1]:
         - more details;
     - testing:
         - Jest, review existing tests and need to find more not covered Jest cases;
+    - full code review and refactoring;
+    - eslint;
+    - prettier;
+    - regular manual tests check;
+    - regular jest check;
 TODO:[2]:
     - multilingual support;
 

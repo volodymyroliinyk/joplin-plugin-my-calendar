@@ -9,11 +9,12 @@ The [Joplin](https://joplinapp.org/) plugin provides the ability to:
 - Import the contents of an *.ics file into notes as calendar events in a previously specified notebook (
   Desktop [Joplin](https://joplinapp.org/) only).
 
-| N | Feature          | Desktop Joplin | Mobile Joplin |
-|---|------------------|----------------|---------------|
-| 1 | Monthly calendar | +              | +             |
-| 2 | Day events       | +              | +             |
-| 3 | *.ics import     | +              | -             |
+| N | Feature                  | Desktop Joplin | Mobile Joplin |
+|---|--------------------------|----------------|---------------|
+| 1 | Monthly calendar section | +              | +             |
+| 2 | Day events section       | +              | +             |
+| 3 | *.ics import section     | +              | -             |
+| 4 | User settings page       | +              | +             |
 
 ---
 
@@ -29,7 +30,7 @@ The [Joplin](https://joplinapp.org/) plugin provides the ability to:
 - A grid with all numbered days of the current/selected month;
 - Colored event bar(s) inside the day tail;
 
-### 2) Current/Selected day events
+### 2) Day events (Current/Selected day events)
 
 - Month and day number label;
 - Events list with details like:
@@ -46,6 +47,13 @@ each not will be updated or ignored, depends on all ics event properties.
     - Target notebook select box and reload list button;
     - ICS File picker and import button;
   - Options related to the event color;
+
+### 4) User settings page
+
+Available options:
+
+1) Enable debug logging:  `Yes | No`;
+2) Week starts on: `Monday | Sunday`;
 
 ---
 
