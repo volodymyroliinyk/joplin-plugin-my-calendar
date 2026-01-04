@@ -1,6 +1,7 @@
 // tests/main/pluginMain.test.ts
 // src/main/pluginMain.ts
 //
+// npx jest --runInBand --no-cache;
 // npx jest tests/main/pluginMain.test.ts --runInBand --no-cache;
 //
 import runPlugin from '../../src/main/pluginMain';

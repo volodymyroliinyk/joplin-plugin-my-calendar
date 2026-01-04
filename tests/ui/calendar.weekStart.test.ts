@@ -48,6 +48,11 @@ describe('calendar UI wiring diagnostics', () => {
         const api = installWebviewApi();
         loadCalendarInstrumentedFresh();
 
+        // Initially, weekStart should be undefined
+        expect((window as any).__mcUiSettings.weekStart).toBeUndefined();
+
+        // After receiving settings, it should be updated
+        api.emitEventObject({name: 'uiSettings', weekStart: 'monday'});
         expect((window as any).__mcUiSettings.weekStart).toBe('monday');
 
         api.emitEventObject({name: 'uiSettings', weekStart: 'sunday'});

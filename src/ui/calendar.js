@@ -8,7 +8,6 @@
 
     // TODO:[1]: remove debug string like this, everywhere.
     console.log('[MyCalendar][DBG][weekStart] uiSettings 3::', uiSettings);
-    console.log('[MyCalendar][DBG][weekStart] window 3.1::', window);
 
 
     function log(...args) {

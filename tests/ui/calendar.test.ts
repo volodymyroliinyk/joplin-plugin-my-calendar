@@ -99,8 +99,9 @@ describe('src/ui/calendar.js', () => {
     });
 
     test('init: draws grid skeleton with 42 day cells', () => {
-        installWebviewApi();
+        const {getOnMessageCb} = installWebviewApi();
         loadCalendarJsFresh();
+        sendPluginMessage(getOnMessageCb, {name: 'uiSettings', weekStart: 'sunday'});
 
         const cells = findGridCells();
         expect(cells.length).toBe(42);
@@ -111,8 +112,10 @@ describe('src/ui/calendar.js', () => {
     });
 
     test('init: first drawMonth triggers requestRangeEvents (postMessage)', () => {
-        const {postMessage} = installWebviewApi();
+        const {postMessage, getOnMessageCb} = installWebviewApi();
         loadCalendarJsFresh();
+        sendPluginMessage(getOnMessageCb, {name: 'uiSettings', weekStart: 'sunday'});
+
 
         // there must be at least 1 range request
         const calls = postMessage.mock.calls.filter(c => c[0]?.name === 'requestRangeEvents');
@@ -125,8 +128,10 @@ describe('src/ui/calendar.js', () => {
     });
 
     test('requestMonthRangeWithRetry: if rangeEvents not received within 1200ms -> retries once', () => {
-        const {postMessage} = installWebviewApi();
+        const {postMessage, getOnMessageCb} = installWebviewApi();
         loadCalendarJsFresh();
+        sendPluginMessage(getOnMessageCb, {name: 'uiSettings', weekStart: 'sunday'});
+
 
         const initial = postMessage.mock.calls.filter(c => c[0]?.name === 'requestRangeEvents').length;
         expect(initial).toBeGreaterThanOrEqual(1);
@@ -141,6 +146,8 @@ describe('src/ui/calendar.js', () => {
     test('rangeEvents: saves gridEvents, paints indicators, renders day list', () => {
         const {getOnMessageCb} = installWebviewApi();
         loadCalendarJsFresh();
+        sendPluginMessage(getOnMessageCb, {name: 'uiSettings', weekStart: 'sunday'});
+
 
         // take selected day from DOM (init sets selectedDayUtc as local midnight today)
         const sel = findSelectedCell();
@@ -176,6 +183,8 @@ describe('src/ui/calendar.js', () => {
     test('showEvents: renders day list for provided dateUtc without touching grid indicators', () => {
         const {getOnMessageCb} = installWebviewApi();
         loadCalendarJsFresh();
+        sendPluginMessage(getOnMessageCb, {name: 'uiSettings', weekStart: 'sunday'});
+
 
         const cells = findGridCells();
         const dayTs = Number(cells[10].dataset.utc);
@@ -206,6 +215,8 @@ describe('src/ui/calendar.js', () => {
     test('importDone/importError: clears gridEvents and triggers refresh (new requestRangeEvents)', () => {
         const {getOnMessageCb, postMessage} = installWebviewApi();
         loadCalendarJsFresh();
+        sendPluginMessage(getOnMessageCb, {name: 'uiSettings', weekStart: 'sunday'});
+
 
         const before = postMessage.mock.calls.filter(c => c[0]?.name === 'requestRangeEvents').length;
 
@@ -216,8 +227,10 @@ describe('src/ui/calendar.js', () => {
     });
 
     test('clicking a grid cell posts dateClick and updates selection class', () => {
-        const {postMessage} = installWebviewApi();
+        const {postMessage, getOnMessageCb} = installWebviewApi();
         loadCalendarJsFresh();
+        sendPluginMessage(getOnMessageCb, {name: 'uiSettings', weekStart: 'sunday'});
+
 
         const cells = findGridCells();
         const target = cells[5];
@@ -240,6 +253,8 @@ describe('src/ui/calendar.js', () => {
     test('renderDayEvents: when no events intersect day -> shows "There are no events"', () => {
         const {getOnMessageCb} = installWebviewApi();
         loadCalendarJsFresh();
+        sendPluginMessage(getOnMessageCb, {name: 'uiSettings', weekStart: 'sunday'});
+
 
         const sel = findSelectedCell()!;
         const dayTs = Number(sel.dataset.utc);
@@ -264,6 +279,8 @@ describe('src/ui/calendar.js', () => {
     test('clicking day event list item posts openNote with event id', () => {
         const {getOnMessageCb, postMessage} = installWebviewApi();
         loadCalendarJsFresh();
+        sendPluginMessage(getOnMessageCb, {name: 'uiSettings', weekStart: 'sunday'});
+
 
         const sel = findSelectedCell()!;
         const dayTs = Number(sel.dataset.utc);
@@ -291,6 +308,8 @@ describe('src/ui/calendar.js', () => {
     test('mcRegisterOnMessage: multiple handlers are supported; handler errors are caught', () => {
         const {getOnMessageCb} = installWebviewApi();
         loadCalendarJsFresh();
+        sendPluginMessage(getOnMessageCb, {name: 'uiSettings', weekStart: 'sunday'});
+
 
         // add another handler manually through the global array
         (window as any).__mcMsgHandlers.push(() => {

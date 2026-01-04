@@ -22,6 +22,7 @@ jest.mock('../../src/main/utils/toast', () => ({
 import {ensureAllEventsCache, invalidateAllEventsCache} from '../../src/main/services/eventsCache';
 import {importIcsIntoNotes} from '../../src/main/services/icsImportService';
 import {showToast} from '../../src/main/utils/toast';
+import {SETTING_DEBUG, SETTING_WEEK_START} from "../../src/main/settings/settings";
 
 type AnyFn = (...args: any[]) => any;
 
@@ -32,6 +33,17 @@ function makeJoplinMock() {
     const execute = jest.fn();
 
     const joplin = {
+        settings: {
+            value: jest.fn().mockImplementation(key => {
+                if (key === SETTING_WEEK_START) {
+                    return Promise.resolve('sunday');
+                }
+                if (key === SETTING_DEBUG) {
+                    return Promise.resolve(false);
+                }
+                return Promise.resolve(null);
+            }),
+        },
         views: {
             panels: {
                 onMessage,
@@ -78,13 +90,18 @@ beforeEach(() => {
 });
 
 describe('panelController', () => {
-    test('uiReady -> posts uiAck', async () => {
+    test('uiReady -> posts uiSettings and redrawMonth', async () => {
         const {handler, postMessage} = await setup();
 
         await handler({name: 'uiReady'});
 
-        expect(postMessage).toHaveBeenCalledTimes(1);
-        expect(postMessage).toHaveBeenCalledWith('panel-1', {name: 'uiAck'});
+        expect(postMessage).toHaveBeenCalledTimes(2);
+        expect(postMessage).toHaveBeenCalledWith('panel-1', {
+            name: 'uiSettings',
+            weekStart: 'sunday',
+            debug: false,
+        });
+        expect(postMessage).toHaveBeenCalledWith('panel-1', {name: 'redrawMonth'});
     });
 
     test('requestRangeEvents -> ensures cache, expands range, posts rangeEvents', async () => {
