@@ -63,7 +63,7 @@ function flattenFolderTree(rows: FolderRow[]): FolderOption[] {
 
 async function pushUiSettings(joplin: any, panel: string) {
     const weekStart = await getWeekStart(joplin);
-    console.log('[MyCalendar][DBG][weekStart] weekStart 1::', weekStart);
+    // console.log('[MyCalendar][DBG][weekStart] weekStart 1::', weekStart);
     const debug = await getDebugEnabled(joplin);
 
     // Main-side logger should follow the same setting
@@ -71,7 +71,7 @@ async function pushUiSettings(joplin: any, panel: string) {
 
     const pm = joplin?.views?.panels?.postMessage;
     if (typeof pm !== 'function') return;
-    console.log('[MyCalendar][DBG][weekStart] weekStart 1::', weekStart);
+    // console.log('[MyCalendar][DBG][weekStart] weekStart 1::', weekStart);
     await pm(panel, {name: 'uiSettings', weekStart, debug: !!debug});
 }
 

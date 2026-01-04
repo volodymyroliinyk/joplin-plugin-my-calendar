@@ -6,8 +6,7 @@
     const uiSettings = window.__mcUiSettings;
     let __mcHasUiSettings = false;
 
-    // TODO:[1]: remove debug string like this, everywhere.
-    console.log('[MyCalendar][DBG][weekStart] uiSettings 3::', uiSettings);
+    // console.log('[MyCalendar][DBG][weekStart] uiSettings 3::', uiSettings);
 
 
     function log(...args) {
@@ -75,7 +74,7 @@
             function startOfCalendarGridLocal(current) {
                 const first = new Date(current.getFullYear(), current.getMonth(), 1);
 
-                console.log('[MyCalendar][DBG][weekStart] uiSettings.weekStart 4::', uiSettings.weekStart);
+                // console.log('[MyCalendar][DBG][weekStart] uiSettings.weekStart 4::', uiSettings.weekStart);
 
                 const firstDayJs = (uiSettings.weekStart === 'sunday') ? 0 : 1; // Sun=0, Mon=1
                 const jsDow = first.getDay(); // Sun=0..Sat=6
@@ -236,14 +235,14 @@
                 if (msg.name === 'uiSettings') {
                     const prevWeekStart = uiSettings.weekStart;
 
-                    console.log('[MyCalendar][DBG][weekStart] msg.name 5::', msg.name);
-                    console.log('[MyCalendar][DBG][weekStart] msg.weekStart 6::', msg.weekStart);
+                    // console.log('[MyCalendar][DBG][weekStart] msg.name 5::', msg.name);
+                    // console.log('[MyCalendar][DBG][weekStart] msg.weekStart 6::', msg.weekStart);
 
                     if (msg.weekStart === 'monday' || msg.weekStart === 'sunday') {
                         uiSettings.weekStart = msg.weekStart;
                     }
 
-                    console.log('[MyCalendar][DBG][weekStart] uiSettings.weekStart 6::', uiSettings.weekStart);
+                    // console.log('[MyCalendar][DBG][weekStart] uiSettings.weekStart 6::', uiSettings.weekStart);
 
                     if (typeof msg.debug === 'boolean') {
                         uiSettings.debug = msg.debug;
@@ -258,7 +257,7 @@
                         drawMonth();
                     }
 
-                    console.log('[MyCalendar][DBG][weekStart] uiSettings.weekStart 7::', uiSettings.weekStart);
+                    // console.log('[MyCalendar][DBG][weekStart] uiSettings.weekStart 7::', uiSettings.weekStart);
 
                     return;
                 }

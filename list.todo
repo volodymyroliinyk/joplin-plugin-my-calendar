@@ -1,9 +1,4 @@
 TODO:[1]:
-    - Bug:
-        - settings:
-            - weekStart unstable;
-            - debug unstable;
-            - need create by maximum jest cases;
     - readme.md:
         - screenshot for readme.md;
         - more details;
