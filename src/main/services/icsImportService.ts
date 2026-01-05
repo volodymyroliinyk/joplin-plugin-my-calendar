@@ -301,10 +301,6 @@ function buildMyCalBlock(ev: IcsEvent): string {
     return lines.join('\n');
 }
 
-function escapeReg(s: string) {
-    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 function makeEventKey(uid: string, recurrenceId?: string): string {
     return `${(uid || '').trim()}|${(recurrenceId || '').trim()}`;
 }

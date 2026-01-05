@@ -314,10 +314,7 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
     color: var(--joplin-color);
     font-family: var(--joplin-font-family);
     background-color: var(--joplin-background-color);
-    padding-left: 6px;
-    padding-right: 6px;
-    padding-top: 4px;
-    padding-bottom: 4px;
+    padding: 4px 6px;
     border-radius: 3px;
     border-color: var(--joplin-border-color4);
 }
@@ -327,8 +324,6 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
     background-color: var(--joplin-background-color);
     align-items: center;
     border-radius: 3px;
-    border-style: solid;
-    border-width: 1px;
     border: 1px solid var(--joplin-border-color4);
     box-sizing: border-box;
     display: flex;

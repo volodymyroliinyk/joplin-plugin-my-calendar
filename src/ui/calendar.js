@@ -571,7 +571,7 @@
                 const ul = $elist();
                 if (!ul) return;
                 ul.innerHTML = '';
-                const dayEndUtc = dayStartUtc + 24 * 3600 * 1000 - 1;
+                // const dayEndUtc = dayStartUtc + 24 * 3600 * 1000 - 1;
 
                 if (!Array.isArray(gridEvents) || gridEvents.length === 0) {
                     log('source EMPTY - gridEvents not ready yet');
