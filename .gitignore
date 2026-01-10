@@ -3,8 +3,6 @@ node_modules/
 
 # Build artifacts (do not commit)
 /dist
-publish/
-*.jpl
 
 # Logs / caches
 npm-debug.log*

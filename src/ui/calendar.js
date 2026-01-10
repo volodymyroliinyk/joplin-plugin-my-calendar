@@ -504,7 +504,7 @@
                 if (!body) return;
 
                 // Clean the previous indicators
-                body.querySelectorAll('.mc-bars').forEach(b => b.innerHTML = '');
+                // body.querySelectorAll('.mc-bars').forEach(b => b.innerHTML = '');
                 // body.querySelectorAll('.mc-count').forEach(c => {
                 //     c.textContent = '';
                 //     c.style.display = 'none';
@@ -525,20 +525,21 @@
 
                 // Auxiliary: Get/create subsidiaries in a cell
                 function ensureParts(cell) {
-                    let bars = cell.querySelector(':scope > .mc-bars');
-                    // let badge = cell.querySelector(':scope > .mc-count');
-                    if (!bars) {
-                        bars = document.createElement('div');
-                        bars.className = 'mc-bars';
-                        cell.appendChild(bars);
-                    }
-                    // if (!badge) {
-                    //     badge = document.createElement('div');
-                    //     badge.className = 'mc-count';
-                    //     cell.appendChild(badge);
+                    // let bars = cell.querySelector(':scope > .mc-bars');
+                    let badge = cell.querySelector(':scope > .mc-count');
+                    // if (!bars) {
+                    //     bars = document.createElement('div');
+                    //     bars.className = 'mc-bars';
+                    //     cell.appendChild(bars);
                     // }
+                    if (!badge) {
+                        badge = document.createElement('div');
+                        badge.className = 'mc-count';
+                        cell.appendChild(badge);
+                    }
                     // return {bars, badge};
-                    return {bars};
+                    return {badge};
+                    // return {bars};
                 }
 
                 // To paint
@@ -547,21 +548,22 @@
                     if (!cell) return;
 
                     // const {bars,badge} = ensureParts(cell);
-                    const {bars} = ensureParts(cell);
+                    const {badge} = ensureParts(cell);
+                    // const {bars} = ensureParts(cell);
 
                     // Color Event indicators in the calendar grid
-                    const top = events.slice().sort((a, b) => a.slice.startUtc - b.slice.startUtc);
-                    for (const item of top) {
-                        const ev = item.ev;
-                        const bar = document.createElement('div');
-                        bar.className = 'mc-bar';
-                        if (ev.color) bar.style.background = ev.color;
-                        bars.appendChild(bar);
-                    }
+                    // const top = events.slice().sort((a, b) => a.slice.startUtc - b.slice.startUtc);
+                    // for (const item of top) {
+                    //     const ev = item.ev;
+                    //     const bar = document.createElement('div');
+                    //     bar.className = 'mc-bar';
+                    //     if (ev.color) bar.style.background = ev.color;
+                    //     bars.appendChild(bar);
+                    // }
 
                     // Counter in the upper right corner
-                    // badge.textContent = String(events.length);
-                    // badge.style.display = 'block';
+                    badge.textContent = String(events.length);
+                    badge.style.display = 'block';
                 });
             }
 

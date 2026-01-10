@@ -1,4 +1,6 @@
 joplin-plugin-my-calendar/
+├── publish/
+│   └── com.volodymyroliinyk.joplin.plugin.my-calendar.jpl
 ├── src/
 │   ├── main/
 │   │   ├── parsers/
@@ -10,7 +12,8 @@ joplin-plugin-my-calendar/
 │   │   │   └── settings.ts
 │   │   ├── uiBridge/
 │   │   │   ├── panelController.ts
-│   │   │   └── panelMessages.ts
+│   │   │   ├── panelMessages.ts
+│   │   │   └── uiSettings.ts
 │   │   ├── utils/
 │   │   │   ├── logger.ts
 │   │   │   └── toast.ts
@@ -49,9 +52,11 @@ joplin-plugin-my-calendar/
 ├── LICENSE
 ├── README.md
 ├── directory-tree.txt
+├── eslint.config.js
 ├── jest.config.js
 ├── list.todo
 ├── package-lock.json
 ├── package.json
+├── report.txt
 ├── tsconfig.json
 └── webpack.config.js
