@@ -33,14 +33,14 @@ describe('logger', () => {
 
     test('dbg does nothing when debug disabled', () => {
         dbg('a', 1);
-        expect(debugSpy).not.toHaveBeenCalled();
+        expect(logSpy).not.toHaveBeenCalled();
     });
 
     test('dbg logs when debug enabled', () => {
         setDebugEnabled(true);
         dbg('a', 1);
-        expect(debugSpy).toHaveBeenCalledTimes(1);
-        expect(debugSpy).toHaveBeenCalledWith('[MyCalendar] a', 1);
+        expect(logSpy).toHaveBeenCalledTimes(1);
+        expect(logSpy).toHaveBeenCalledWith('[MyCalendar] a', 1);
     });
 
     test('info always logs with prefix', () => {
@@ -65,7 +65,7 @@ describe('logger', () => {
         setDebugEnabled(false);
         dbg('no2');
 
-        expect(debugSpy).toHaveBeenCalledTimes(1);
-        expect(debugSpy).toHaveBeenCalledWith('[MyCalendar] yes');
+        expect(logSpy).toHaveBeenCalledTimes(1);
+        expect(logSpy).toHaveBeenCalledWith('[MyCalendar] yes');
     });
 });

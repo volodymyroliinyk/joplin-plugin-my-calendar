@@ -1,7 +1,7 @@
 TODO:[1]:
     - refactoring:
         - logger:
-            - фікснути лише один момент : все працює, тести працюють але логів досі немає в консолі!
+           - final refactoring
     - readme.md:
         - screenshot for readme.md;
         - more details;
