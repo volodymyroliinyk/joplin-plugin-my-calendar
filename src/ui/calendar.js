@@ -6,18 +6,101 @@
     const uiSettings = window.__mcUiSettings;
     let __mcHasUiSettings = false;
 
+
+    function createUiLogger(prefix, outputBoxId) {
+        let outputBox = null;
+
+        function appendToBox(args) {
+            if (!outputBoxId) return;
+            const box = document.getElementById(outputBoxId);
+            if (!box) return;
+            try {
+                const div = document.createElement('div');
+                div.textContent = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
+                box.appendChild(div);
+                box.scrollTop = box.scrollHeight;
+            } catch (e) {
+                // ignore
+            }
+        }
+
+        function setOutputBox(el) {
+            outputBox = el || null;
+        }
+
+        function forwardToMain(level, args) {
+            try {
+                // Tolerance: forward only in debug mode
+                if (uiSettings.debug !== true) return;
+
+                const pm = window.webviewApi?.postMessage;
+                if (typeof pm !== 'function') return;
+
+                const safeArgs = (args || []).map(a => {
+                    if (a && typeof a === 'object' && a.message && a.stack) {
+                        return {__error: true, message: a.message, stack: a.stack};
+                    }
+                    if (typeof a === 'string') return a;
+                    try {
+                        return JSON.stringify(a);
+                    } catch {
+                        return String(a);
+                    }
+                });
+
+                pm({name: 'uiLog', source: 'calendar', level, args: safeArgs});
+            } catch {
+                // ignore
+            }
+        }
+
+
+        function write(consoleFn, args) {
+            if (args.length > 0 && typeof args[0] === 'string') {
+                const [msg, ...rest] = args;
+                consoleFn(`${prefix} ${msg}`, ...rest);
+                // the level is determined by consoleFn or by the method (see below)
+            } else {
+                consoleFn(prefix, ...args);
+                // the level is determined by consoleFn or by the method (see below)
+            }
+            appendToBox(args);
+        }
+
+        return {
+            setOutputBox,
+            log: (...args) => {
+                write(console.log, args);
+                forwardToMain('log', args);
+            },
+            info: (...args) => {
+                write(console.info, args);
+                forwardToMain('info', args);
+            },
+            debug: (...args) => {
+                write(console.log, args);
+                forwardToMain('debug', args);
+            },
+            warn: (...args) => {
+                write(console.warn, args);
+                forwardToMain('warn', args);
+            },
+            error: (...args) => {
+                write(console.error, args);
+                forwardToMain('error', args);
+            }
+        };
+    }
+
+// Expose for unit tests; keep singleton across reloads
+    const uiLogger = window.__mcUiLogger || (window.__mcUiLogger = createUiLogger('[MyCalendar]', 'mc-log'));
+
     // console.log('[MyCalendar][DBG][weekStart] uiSettings 3::', uiSettings);
 
 
     function log(...args) {
         if (uiSettings.debug !== true) return;
-        console.log('[MyCalendar UI]', ...args);
-        const box = document.getElementById('mc-log');
-        if (box) {
-            const line = document.createElement('div');
-            line.textContent = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
-            box.appendChild(line);
-        }
+        uiLogger.log(...args);
     }
 
     function applyDebugUI() {
@@ -40,7 +123,7 @@
                     try {
                         h(msg);
                     } catch (e) {
-                        console.error('[MyCalendar] handler error', e);
+                        uiLogger.error('handler error', e);
                     }
                 }
             });

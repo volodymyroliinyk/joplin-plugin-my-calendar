@@ -5,6 +5,7 @@
 // npx jest tests/main/pluginMain.test.ts --runInBand --no-cache;
 //
 import runPlugin from '../../src/main/pluginMain';
+import * as logger from '../../src/main/utils/logger';
 
 jest.mock('../../src/main/views/calendarView', () => ({
     createCalendarPanel: jest.fn(),
@@ -124,10 +125,10 @@ describe('pluginMain.runPlugin', () => {
     let errorSpy: jest.SpyInstance;
 
     beforeEach(() => {
-        logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
-        infoSpy = jest.spyOn(console, 'info').mockImplementation(() => undefined);
-        warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-        errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+        logSpy = jest.spyOn(logger, 'log').mockImplementation(() => undefined);
+        infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => undefined);
+        warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => undefined);
+        errorSpy = jest.spyOn(logger, 'err').mockImplementation(() => undefined);
     });
 
     afterEach(() => {
@@ -139,8 +140,8 @@ describe('pluginMain.runPlugin', () => {
 
 
     test('happy path: creates panel, registers commands, wires workspace events, registers controller and desktop toggle', async () => {
-        const logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
-        const infoSpy = jest.spyOn(console, 'info').mockImplementation(() => undefined);
+        const logSpy = jest.spyOn(logger, 'log').mockImplementation(() => undefined);
+        const infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => undefined);
 
         (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
         (ensureAllEventsCache as jest.Mock).mockResolvedValue([{id: 'e1'}, {id: 'e2'}]);
@@ -190,7 +191,7 @@ describe('pluginMain.runPlugin', () => {
         expect(panels.focus).toHaveBeenCalledWith('panel-1');
 
         // basic logs
-        expect(logSpy).toHaveBeenCalledWith('[MyCalendar] pluginMain: start');
+        expect(logSpy).toHaveBeenCalledWith('pluginMain: start');
         expect(infoSpy).toHaveBeenCalled(); // capabilities info
 
         logSpy.mockRestore();
@@ -213,7 +214,7 @@ describe('pluginMain.runPlugin', () => {
     });
 
     test('open command execute: does not crash when focus missing/throws, logs message', async () => {
-        const logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+        const logSpy = jest.spyOn(logger, 'log').mockImplementation(() => undefined);
 
         (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
         (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);
@@ -227,13 +228,13 @@ describe('pluginMain.runPlugin', () => {
         await openCmd.execute();
 
         expect(panels.show).toHaveBeenCalledWith('panel-1');
-        expect(logSpy).toHaveBeenCalledWith('[MyCalendar] panels.focus not available on this platform');
+        expect(logSpy).toHaveBeenCalledWith('panels.focus not available on this platform');
 
         logSpy.mockRestore();
     });
 
     test('ensureAllEventsCache error is non-fatal and logs error', async () => {
-        const errSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+        const errSpy = jest.spyOn(logger, 'err').mockImplementation(() => undefined);
 
         (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
         (ensureAllEventsCache as jest.Mock).mockRejectedValue(new Error('cache fail'));
@@ -242,7 +243,7 @@ describe('pluginMain.runPlugin', () => {
 
         await runPlugin(joplin as any);
 
-        expect(errSpy).toHaveBeenCalledWith('[MyCalendar] ensureAllEventsCache error:', expect.any(Error));
+        expect(errSpy).toHaveBeenCalledWith('ensureAllEventsCache error:', expect.any(Error));
 
         errSpy.mockRestore();
     });
@@ -268,7 +269,7 @@ describe('pluginMain.runPlugin', () => {
     });
 
     test('desktop toggle: execute hides then shows (stateful)', async () => {
-        const logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+        const logSpy = jest.spyOn(logger, 'log').mockImplementation(() => undefined);
 
         (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
         (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);
@@ -282,18 +283,18 @@ describe('pluginMain.runPlugin', () => {
         // initial state is visible=true -> first execute hides (if hide exists)
         await toggleCmd.execute();
         expect(panels.hide).toHaveBeenCalledWith('panel-1');
-        expect(logSpy).toHaveBeenCalledWith('[MyCalendar] toggle Hide');
+        expect(logSpy).toHaveBeenCalledWith('toggle Hide');
 
         // second execute shows
         await toggleCmd.execute();
         expect(panels.show).toHaveBeenCalledWith('panel-1');
-        expect(logSpy).toHaveBeenCalledWith('[MyCalendar] toggle Show');
+        expect(logSpy).toHaveBeenCalledWith('toggle Show');
 
         logSpy.mockRestore();
     });
 
     test('desktop toggle is skipped if panels.hide not available', async () => {
-        const infoSpy = jest.spyOn(console, 'info').mockImplementation(() => undefined);
+        const infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => undefined);
 
         (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
         (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);
@@ -313,7 +314,7 @@ describe('pluginMain.runPlugin', () => {
         expect(menuItems.create).not.toHaveBeenCalled();
 
         // info about skipping
-        expect(infoSpy).toHaveBeenCalledWith('[MyCalendar] toggle: panels.show/hide not available - skip');
+        expect(infoSpy).toHaveBeenCalledWith('toggle: panels.show/hide not available - skip');
 
         infoSpy.mockRestore();
     });

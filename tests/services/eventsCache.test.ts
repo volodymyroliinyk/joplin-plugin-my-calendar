@@ -219,9 +219,8 @@ describe('eventsCache.ts', () => {
         const parseEventsFromBody = jest.fn().mockReturnValue([]);
         const mod = await loadModuleWithMockedParser({parseEventsFromBody});
 
-        // important: mock console.error so that the test does not make "noise" and that the fact of logging can be checked
-        const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {
-        });
+        const logger = await import('../../src/main/utils/logger');
+        const errSpy = jest.spyOn(logger, 'err').mockImplementation(() => undefined);
 
         const getMock = jest.fn().mockRejectedValue(new Error('boom'));
         const joplin = mkJoplin(getMock);
@@ -230,10 +229,7 @@ describe('eventsCache.ts', () => {
         await expect(mod.rebuildAllEventsCache(joplin)).resolves.toBeUndefined();
 
         // 3) assert: the error was logged
-        expect(errSpy).toHaveBeenCalledWith(
-            '[MyCalendar] rebuildAllEventsCache: error',
-            expect.any(Error),
-        );
+        expect(errSpy).toHaveBeenCalledWith('rebuildAllEventsCache: error', expect.any(Error));
 
         // 4) act + assert: after an error, the cache does not "break" - ensure returns []
         // (in your code allEventsCache becomes allEventsCache || [] in catch)

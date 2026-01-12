@@ -1,4 +1,7 @@
 TODO:[1]:
+    - refactoring:
+        - logger:
+           - final refactoring
     - readme.md:
         - screenshot for readme.md;
         - more details;

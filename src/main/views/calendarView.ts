@@ -1,5 +1,6 @@
 // src/main/views/calendarView.ts
 
+import {log} from '../utils/logger';
 export async function createCalendarPanel(joplin: any): Promise<string> {
     const panel = await joplin.views.panels.create('mycalendarPanel');
 
@@ -33,7 +34,7 @@ export async function createCalendarPanel(joplin: any): Promise<string> {
     await joplin.views.panels.addScript(panel, './ui/calendar.js');
     await joplin.views.panels.addScript(panel, './ui/icsImport.js');
     await joplin.views.panels.show(panel);
-    console.log('[MyCalendar] calendarView created');
+    log('calendarView created');
 
     return panel;
 }

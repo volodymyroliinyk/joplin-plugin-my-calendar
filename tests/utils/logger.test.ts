@@ -7,12 +7,16 @@ import {setDebugEnabled, dbg, info, warn, err} from '../../src/main/utils/logger
 
 describe('logger', () => {
     let logSpy: jest.SpyInstance;
+    let infoSpy: jest.SpyInstance;
+    let debugSpy: jest.SpyInstance;
     let warnSpy: jest.SpyInstance;
     let errorSpy: jest.SpyInstance;
 
     beforeEach(() => {
         // if jest.config has restoreMocks:true - spy must be set AGAIN before each test
         logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+        infoSpy = jest.spyOn(console, 'info').mockImplementation(() => undefined);
+        debugSpy = jest.spyOn(console, 'debug').mockImplementation(() => undefined);
         warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
         errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
@@ -21,6 +25,8 @@ describe('logger', () => {
 
     afterEach(() => {
         logSpy.mockRestore();
+        infoSpy.mockRestore();
+        debugSpy.mockRestore();
         warnSpy.mockRestore();
         errorSpy.mockRestore();
     });
@@ -34,22 +40,22 @@ describe('logger', () => {
         setDebugEnabled(true);
         dbg('a', 1);
         expect(logSpy).toHaveBeenCalledTimes(1);
-        expect(logSpy).toHaveBeenCalledWith('[MyCalendar]', 'a', 1);
+        expect(logSpy).toHaveBeenCalledWith('[MyCalendar] a', 1);
     });
 
     test('info always logs with prefix', () => {
         info('x');
-        expect(logSpy).toHaveBeenCalledWith('[MyCalendar]', 'x');
+        expect(infoSpy).toHaveBeenCalledWith('[MyCalendar] x');
     });
 
     test('warn logs with prefix', () => {
         warn('w');
-        expect(warnSpy).toHaveBeenCalledWith('[MyCalendar]', 'w');
+        expect(warnSpy).toHaveBeenCalledWith('[MyCalendar] w');
     });
 
     test('err logs with prefix', () => {
         err('e');
-        expect(errorSpy).toHaveBeenCalledWith('[MyCalendar]', 'e');
+        expect(errorSpy).toHaveBeenCalledWith('[MyCalendar] e');
     });
 
     test('setDebugEnabled affects subsequent dbg calls', () => {
@@ -60,6 +66,6 @@ describe('logger', () => {
         dbg('no2');
 
         expect(logSpy).toHaveBeenCalledTimes(1);
-        expect(logSpy).toHaveBeenCalledWith('[MyCalendar]', 'yes');
+        expect(logSpy).toHaveBeenCalledWith('[MyCalendar] yes');
     });
 });

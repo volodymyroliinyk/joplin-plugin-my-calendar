@@ -334,7 +334,7 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
     justify-content: center;
     max-height: 26px;
     min-height: 26px;
-    min-width: 100px;
+    min-width: 76px;
     opacity: 1;
     padding: 0 14px;
     user-select: none;

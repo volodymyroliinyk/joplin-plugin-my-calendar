@@ -5,6 +5,91 @@
     window.__mcUiSettings = window.__mcUiSettings || {weekStart: 'monday', debug: undefined};
     const uiSettings = window.__mcUiSettings;
 
+    function createUiLogger(prefix) {
+        let outputBox = null;
+
+        function setOutputBox(el) {
+            outputBox = el || null;
+        }
+
+        function forwardToMain(level, args) {
+            try {
+                if (uiSettings.debug !== true) return;
+
+                const pm = window.webviewApi?.postMessage;
+                if (typeof pm !== 'function') return;
+
+                const safeArgs = (args || []).map(a => {
+                    if (a && typeof a === 'object' && a.message && a.stack) {
+                        return {__error: true, message: a.message, stack: a.stack};
+                    }
+                    if (typeof a === 'string') return a;
+                    try {
+                        return JSON.stringify(a);
+                    } catch {
+                        return String(a);
+                    }
+                });
+
+                pm({name: 'uiLog', source: 'icsImport', level, args: safeArgs});
+            } catch {
+            }
+        }
+
+
+        function appendToBox(args) {
+            if (!outputBox) return;
+            try {
+                const line = args.map(a => (typeof a === 'string' ? a : String(a))).join(' ');
+                const div = document.createElement('div');
+                div.textContent = line;
+                outputBox.appendChild(div);
+                outputBox.scrollTop = outputBox.scrollHeight;
+            } catch (e) {
+                // ignore
+            }
+        }
+
+        function write(consoleFn, args) {
+            // string-first => one string with prefix; else prefix separate
+            if (args.length > 0 && typeof args[0] === 'string') {
+                const [msg, ...rest] = args;
+                consoleFn(`${prefix} ${msg}`, ...rest);
+            } else {
+                consoleFn(prefix, ...args);
+            }
+            appendToBox(args);
+        }
+
+        return {
+            setOutputBox,
+            log: (...args) => {
+                write(console.log, args);
+                forwardToMain('log', args);
+            },
+            info: (...args) => {
+                write(console.log, args);
+                forwardToMain('info', args);
+            },
+            debug: (...args) => {
+                write(console.log, args);
+                forwardToMain('debug', args);
+            },
+            warn: (...args) => {
+                write(console.warn, args);
+                forwardToMain('warn', args);
+            },
+            error: (...args) => {
+                write(console.error, args);
+                forwardToMain('error', args);
+            },
+        };
+    }
+
+// Expose for unit tests even if #ics-root is missing
+    const uiLogger = window.__mcImportLogger || (window.__mcImportLogger = createUiLogger('[MyCalendar Import]'));
+
+
     function el(tag, attrs = {}, children = []) {
         const n = document.createElement(tag);
         for (const [k, v] of Object.entries(attrs)) {
@@ -36,6 +121,8 @@
                 "margin-top:8px; padding:6px; border:1px dashed var(--joplin-divider-color);" +
                 "max-height:220px; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12px;"
         });
+
+        uiLogger.setOutputBox(logBox);
         const debugHeader = el("div", {style: "font-weight:600;margin-top:10px"}, ["Debug log"]);
 
         function log(...args) {
@@ -44,7 +131,7 @@
             const line = args
                 .map(a => (typeof a === "object" ? JSON.stringify(a) : String(a)))
                 .join(" ");
-            if (uiSettings.debug) console.log("[MyCalendar Import]", ...args);
+            uiLogger.debug(...args);
             const div = document.createElement("div");
             div.textContent = line;
             if (uiSettings.debug) {
@@ -136,7 +223,7 @@
             {
                 style: "padding:6px 10px;", onclick: async () => {
                     const f = fileInput.files && fileInput.files[0];
-                    if (!f) return log("No file selected.");
+                    if (!f) return uiLogger.log("No file selected.");
                     log("Reading file via FileReader…", "name=", f.name, "size=", f.size);
 
                     const reader = new FileReader();
@@ -280,6 +367,21 @@
                 return;
             }
 
+            if (msg.name === "importStatus") {
+                uiLogger.log("[STATUS]", msg.text);
+                return;
+            }
+
+            if (msg.name === "importDone") {
+                uiLogger.log("[DONE]", `added=${msg.added} updated=${msg.updated} skipped=${msg.skipped} errors=${msg.errors}`);
+                return;
+            }
+
+            if (msg.name === "importError") {
+                uiLogger.log("[ERROR]", msg.error || "unknown");
+                return;
+            }
+
 
             if (msg.name === "folders") {
                 populateFolders(msg.folders);
@@ -293,7 +395,7 @@
         window.webviewApi?.postMessage?.({name: "uiReady"});
         window.webviewApi?.postMessage?.({name: "requestFolders"});
 
-        log("initialized");
+        uiLogger.debug("initialized");
     }
 
     function mcRegisterOnMessage(handler) {
@@ -310,7 +412,7 @@
                     try {
                         h(msg);
                     } catch (e) {
-                        console.error('[MyCalendar] handler error', e);
+                        uiLogger.error('handler error', e);
                     }
                 }
             });

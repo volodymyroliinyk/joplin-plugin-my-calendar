@@ -54,6 +54,10 @@ function qs(sel: string) {
 }
 
 describe('src/ui/icsImport.js', () => {
+    let consoleLogSpy: jest.SpyInstance;
+    let consoleWarnSpy: jest.SpyInstance;
+    let consoleErrorSpy: jest.SpyInstance;
+
     let logSpy: jest.SpyInstance;
     let warnSpy: jest.SpyInstance;
     let errorSpy: jest.SpyInstance;
@@ -61,9 +65,10 @@ describe('src/ui/icsImport.js', () => {
     beforeEach(() => {
         localStorage.clear();
 
-        logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
-        warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
-        errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+        // Silence real console output from the UI logger.
+        consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+        consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
         delete (window as any).__mcMsgHandlers;
         delete (window as any).__mcMsgDispatcherInstalled;
@@ -71,17 +76,31 @@ describe('src/ui/icsImport.js', () => {
     });
 
     afterEach(() => {
-        logSpy.mockRestore();
-        warnSpy.mockRestore();
-        errorSpy.mockRestore();
+        if (logSpy) logSpy.mockRestore();
+        if (warnSpy) warnSpy.mockRestore();
+        if (errorSpy) errorSpy.mockRestore();
+
+        consoleLogSpy.mockRestore();
+        consoleWarnSpy.mockRestore();
+        consoleErrorSpy.mockRestore();
         delete (window as any).webviewApi;
     });
+
+    function attachUiLoggerSpies() {
+        const uiLogger = (window as any).__mcImportLogger;
+        if (!uiLogger) throw new Error('Missing window.__mcImportLogger');
+        logSpy = jest.spyOn(uiLogger, 'log');
+        warnSpy = jest.spyOn(uiLogger, 'warn');
+        errorSpy = jest.spyOn(uiLogger, 'error');
+    }
 
     test('no root (#ics-root missing) -> does nothing (no postMessage)', () => {
         setupDom(false);
         const {postMessage} = installWebviewApi();
 
         loadIcsImportFresh();
+        attachUiLoggerSpies();
+        attachUiLoggerSpies();
 
         expect(postMessage).not.toHaveBeenCalled();
     });
@@ -91,6 +110,8 @@ describe('src/ui/icsImport.js', () => {
         const {postMessage} = installWebviewApi();
 
         loadIcsImportFresh();
+        attachUiLoggerSpies();
+        attachUiLoggerSpies();
 
         // basic elements exist
         expect(document.querySelector('#mc-target-folder')).toBeTruthy();
@@ -111,6 +132,8 @@ describe('src/ui/icsImport.js', () => {
         setupDom(true);
         const {postMessage} = installWebviewApi();
         loadIcsImportFresh();
+        attachUiLoggerSpies();
+        attachUiLoggerSpies();
 
         const reloadBtn = Array.from(document.querySelectorAll('button'))
             .find(b => (b.textContent || '').trim() === 'Reload') as HTMLButtonElement;
@@ -131,6 +154,7 @@ describe('src/ui/icsImport.js', () => {
         localStorage.setItem('mycalendar.targetFolderId', 'b');
 
         loadIcsImportFresh();
+        attachUiLoggerSpies();
 
         sendPluginMessage(getOnMessageCb, {
             name: 'folders',
@@ -163,6 +187,7 @@ describe('src/ui/icsImport.js', () => {
         localStorage.setItem('mycalendar.targetFolderId', 'missing');
 
         loadIcsImportFresh();
+        attachUiLoggerSpies();
 
         sendPluginMessage(getOnMessageCb, {
             name: 'folders',
@@ -180,6 +205,7 @@ describe('src/ui/icsImport.js', () => {
         setupDom(true);
         const {getOnMessageCb} = installWebviewApi();
         loadIcsImportFresh();
+        attachUiLoggerSpies();
 
         sendPluginMessage(getOnMessageCb, {
             name: 'folders',
@@ -204,6 +230,7 @@ describe('src/ui/icsImport.js', () => {
         localStorage.setItem('mycalendar_preserve_local_color', '0');
 
         loadIcsImportFresh();
+        attachUiLoggerSpies();
 
         const checkboxes = Array.from(document.querySelectorAll('input[type="checkbox"]')) as HTMLInputElement[];
         const preserve = checkboxes[0]; // first checkbox in Options
@@ -225,6 +252,7 @@ describe('src/ui/icsImport.js', () => {
         localStorage.setItem('mycalendar_import_color_value', '#aabbcc');
 
         loadIcsImportFresh();
+        attachUiLoggerSpies();
 
         const checkboxes = Array.from(document.querySelectorAll('input[type="checkbox"]')) as HTMLInputElement[];
         const enabled = checkboxes[1]; // second checkbox
@@ -250,6 +278,7 @@ describe('src/ui/icsImport.js', () => {
         installWebviewApi();
 
         loadIcsImportFresh();
+        attachUiLoggerSpies();
 
         const picker = qs('input[type="color"]') as HTMLInputElement;
         picker.value = '#112233';
@@ -262,6 +291,7 @@ describe('src/ui/icsImport.js', () => {
         setupDom(true);
         const {postMessage, getOnMessageCb} = installWebviewApi();
         loadIcsImportFresh();
+        attachUiLoggerSpies();
         sendUiSettings(getOnMessageCb, true);
 
         const importBtn = Array.from(document.querySelectorAll('button'))
@@ -274,7 +304,7 @@ describe('src/ui/icsImport.js', () => {
         const importCalls = postMessage.mock.calls.filter(c => c[0]?.name === 'icsImport');
         expect(importCalls.length).toBe(0);
 
-        expect(logSpy).toHaveBeenCalledWith('[MyCalendar Import]', 'No file selected.');
+        expect(logSpy).toHaveBeenCalledWith('No file selected.');
     });
 
     test('Import button: reads file and posts icsImport with correct payload (preserveLocalColor + targetFolderId + default color disabled)', async () => {
@@ -299,6 +329,8 @@ describe('src/ui/icsImport.js', () => {
         };
 
         loadIcsImportFresh();
+        attachUiLoggerSpies();
+        attachUiLoggerSpies();
 
         // populate folders and choose one
         sendPluginMessage(getOnMessageCb, {
@@ -376,25 +408,23 @@ describe('src/ui/icsImport.js', () => {
         setupDom(true);
         const {getOnMessageCb} = installWebviewApi();
         loadIcsImportFresh();
+        attachUiLoggerSpies();
         sendUiSettings(getOnMessageCb, true);
 
         sendPluginMessage(getOnMessageCb, {name: 'importStatus', text: 'Parsing'});
         sendPluginMessage(getOnMessageCb, {name: 'importDone', added: 1, updated: 2, skipped: 3, errors: 0});
         sendPluginMessage(getOnMessageCb, {name: 'importError', error: 'boom'});
 
-        expect(logSpy).toHaveBeenCalledWith('[MyCalendar Import]', '[STATUS]', 'Parsing');
-        expect(logSpy).toHaveBeenCalledWith(
-            '[MyCalendar Import]',
-            '[DONE]',
-            'added=1 updated=2 skipped=3 errors=0'
-        );
-        expect(logSpy).toHaveBeenCalledWith('[MyCalendar Import]', '[ERROR]', 'boom');
+        expect(logSpy).toHaveBeenCalledWith('[STATUS]', 'Parsing');
+        expect(logSpy).toHaveBeenCalledWith('[DONE]', 'added=1 updated=2 skipped=3 errors=0');
+        expect(logSpy).toHaveBeenCalledWith('[ERROR]', 'boom');
     });
 
     test('mcRegisterOnMessage: supports multiple handlers; errors in handler are caught', () => {
         setupDom(true);
         const {getOnMessageCb} = installWebviewApi();
         loadIcsImportFresh();
+        attachUiLoggerSpies();
 
         // add handler that throws
         (window as any).__mcMsgHandlers.push(() => {
@@ -403,7 +433,7 @@ describe('src/ui/icsImport.js', () => {
 
         sendPluginMessage(getOnMessageCb, {name: 'folders', folders: []});
 
-        expect(errorSpy).toHaveBeenCalledWith('[MyCalendar] handler error', expect.any(Error));
+        expect(errorSpy).toHaveBeenCalledWith('handler error', expect.any(Error));
     });
 
     test('mcRegisterOnMessage: dispatcher installed only once even if script re-registers handlers', () => {

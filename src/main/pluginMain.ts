@@ -8,6 +8,8 @@ import {registerCalendarPanelController} from './uiBridge/panelController';
 import {registerSettings} from './settings/settings';
 import {pushUiSettings} from "./uiBridge/uiSettings";
 
+import {dbg, err, info, log, warn} from './utils/logger';
+
 let allEventsCache: EventInput[] | null = null;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -77,7 +79,7 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
     const tz = ev.tz || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
     if (ev.repeat !== 'none' && !ev.tz) {
-        console.warn('[MyCalendar] recurring event has no tz; using device tz:', tz, ev.title, ev.id);
+        warn('recurring event has no tz; using device tz:', tz, ev.title, ev.id);
     }
 
     const dur = (ev.endUtc ?? ev.startUtc) - ev.startUtc;
@@ -272,6 +274,40 @@ async function registerUiMessageHandlers(joplin: any, panelId: string) {
         }
         if (!msg || !msg.name) return;
 
+        if (msg.name === 'uiLog') {
+            const source = msg.source ? `[UI:${msg.source}]` : '[UI]';
+            const level = msg.level || 'log';
+            const args = Array.isArray(msg.args) ? msg.args : [];
+
+            const restored = args.map((a: any) => {
+                if (a && typeof a === 'object' && a.__error) {
+                    const e = new Error(a.message || 'UI error');
+                    (e as any).stack = a.stack;
+                    return e;
+                }
+                return a;
+            });
+
+            switch (level) {
+                case 'debug':
+                    dbg(source, ...restored);
+                    break;
+                case 'info':
+                    info(source, ...restored);
+                    break;
+                case 'warn':
+                    warn(source, ...restored);
+                    break;
+                case 'error':
+                    err(source, ...restored);
+                    break;
+                default:
+                    log(source, ...restored);
+                    break;
+            }
+            return;
+        }
+
         if (msg.name === 'uiReady') {
             await pushUiSettings(joplin, panelId);
             // Force a redraw so weekStart takes effect immediately.
@@ -287,12 +323,12 @@ async function registerUiMessageHandlers(joplin: any, panelId: string) {
 
 export default async function runPlugin(joplin: any) {
 
-    console.log('[MyCalendar] pluginMain: start');
+    log('pluginMain: start');
 
     await registerSettings(joplin);
 
     const panel = await createCalendarPanel(joplin);
-    console.log('[MyCalendar] panel id:', panel);
+    log('panel id:', panel);
     await registerUiMessageHandlers(joplin, panel);
 
 
@@ -313,18 +349,18 @@ export default async function runPlugin(joplin: any) {
                 if (panelsAny && typeof panelsAny.focus === 'function') {
                     await panelsAny.focus(panel);
                 }
-            } catch (err) {
+            } catch {
                 // The mobile method is missing - it's expected
-                console.log('[MyCalendar] panels.focus not available on this platform');
+                log('panels.focus not available on this platform');
             }
         },
     });
 
     try {
         const all = await ensureAllEventsCache(joplin);
-        console.log('[MyCalendar] events cached:', all.length);
-    } catch (err) {
-        console.error('[MyCalendar] ensureAllEventsCache error:', err);
+        log('events cached:', all.length);
+    } catch (error) {
+        err('ensureAllEventsCache error:', error);
     }
 
     await joplin.workspace.onNoteChange(async ({id}: { id?: string }) => {
@@ -357,9 +393,9 @@ export default async function runPlugin(joplin: any) {
         if (panelsAny && typeof panelsAny.focus === 'function') {
             await panelsAny.focus(panel);
         }
-    } catch (err) {
-        // On the mobil the method is missing - it's expected
-        console.log('[MyCalendar] panels.focus not available on this platform');
+    } catch {
+        // On mobile this method may be missing - it's expected
+        log('panels.focus not available on this platform');
     }
 }
 
@@ -370,10 +406,10 @@ async function registerDesktopToggle(joplin: any, panel: string) {
         const canHide = !!joplin?.views?.panels?.hide;
         const canMenu = !!joplin?.views?.menuItems?.create;
 
-        console.info('[MyCalendar] toggle: capabilities', {canShow, canHide, canMenu, panel});
+        info('toggle: capabilities', {canShow, canHide, canMenu, panel});
 
         if (!canShow || !canHide) {
-            console.info('[MyCalendar] toggle: panels.show/hide not available - skip');
+            info('toggle: panels.show/hide not available - skip');
             return;
         }
 
@@ -393,15 +429,15 @@ async function registerDesktopToggle(joplin: any, panel: string) {
                         }
                         mycalendarVisible = false;
 
-                        console.log('[MyCalendar] toggle Hide');
+                        log('toggle Hide');
                     } else {
                         await joplin.views.panels.show(panel);
                         // We do not call Focus () - on Mobile of this method there is no → were errors in the lounges
                         mycalendarVisible = true;
-                        console.log('[MyCalendar] toggle Show');
+                        log('toggle Show');
                     }
                 } catch (e) {
-                    console.log('[MyCalendar] toggle error', e);
+                    warn('toggle error', e);
                 }
             },
         });
@@ -412,12 +448,12 @@ async function registerDesktopToggle(joplin: any, panel: string) {
                 'mycalendar.togglePanel',
                 'view'
             );
-            console.log('[MyCalendar] toggle menu item registered');
+            log('toggle menu item registered');
         } catch (e) {
-            console.log('[MyCalendar] menu create failed (non-fatal):', e);
+            warn('menu create failed (non-fatal):', e);
         }
 
     } catch (e) {
-        console.warn('[MyCalendar] registerDesktopToggle failed (non-fatal):', e);
+        warn('registerDesktopToggle failed (non-fatal):', e);
     }
 }

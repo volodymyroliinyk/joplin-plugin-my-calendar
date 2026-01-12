@@ -329,44 +329,60 @@ function extractAllEventKeysFromBody(body: string): string[] {
 }
 
 
-function replaceEventBlockByKey(body: string, uid: string, recurrenceId: string | undefined, newBlock: string): string {
+function replaceEventBlockByKey(
+    body: string,
+    uid: string,
+    recurrenceId: string | undefined,
+    newBlock: string,
+): string {
     const targetUid = (uid || '').trim();
     const targetRid = (recurrenceId || '').trim();
 
-    const re = /(^|\r?\n)[ \t]*```mycalendar-event[ \t]*\r?\n([\s\S]*?)\r?\n[ \t]*```(?=\r?\n|$)/g;
+    // Grab the block so that:
+    // - prefix: either the beginning or \n before the block (but do NOT touch the text before it)
+    // - the fenced-block itself
+    // - suffix: everything after it remains as is
+    const re =
+        /(^|\r?\n)([ \t]*```mycalendar-event[ \t]*\r?\n[\s\S]*?\r?\n[ \t]*```)(?=\r?\n|$)/g;
+
     let changed = false;
 
-    const out = body.replace(re, (full, p1, inner) => {
-        const meta = parseUidAndRecurrence(inner);
+    const out = body.replace(re, (fullMatch, prefixNL, wholeBlock) => {
+        // get the "inner" part to determine the uid/recurrence_id of this particular block
+        const innerM = wholeBlock.match(/^[ \t]*```mycalendar-event[ \t]*\r?\n([\s\S]*?)\r?\n[ \t]*```$/);
+        const inner = innerM?.[1] ?? '';
 
+        const meta = parseUidAndRecurrence(inner);
         const u = (meta.uid || '').trim();
         const r = (meta.recurrence_id || '').trim();
 
-        if (u !== targetUid) return full;
+        if (u !== targetUid) return fullMatch;
 
-        // For master events (no RECURRENCE-ID): match blocks that also have no recurrence_id
+        // master event (recurrenceId is missing) - we change only the block without recurrence_id
         if (!targetRid) {
             if (!r) {
                 changed = true;
-                return `${p1}${newBlock}`;
+                return `${prefixNL}${newBlock}`;
             }
-            return full;
+            return fullMatch;
         }
 
-        // For occurrences/exceptions: must match recurrence_id exactly
+        // instance/exception - recurrence_id must match
         if (r === targetRid) {
             changed = true;
-            return `${p1}${newBlock}`;
+            return `${prefixNL}${newBlock}`;
         }
 
-        return full;
+        return fullMatch;
     });
 
     if (changed) return out;
 
-    // Not found: append
-    return (body ? body.replace(/\s+$/, '') + '\n\n' : '') + newBlock + '\n';
+    // If the block is not found, add it without touching the existing text
+    const trimmed = (body || '').replace(/\s+$/, '');
+    return (trimmed ? trimmed + '\n\n' : '') + newBlock + '\n';
 }
+
 
 function parseColor(inner: string): string | undefined {
     const m = inner.match(/^\s*color\s*:\s*(.+?)\s*$/im);
