@@ -78,7 +78,7 @@
                 forwardToMain('info', args);
             },
             debug: (...args) => {
-                write(console.debug, args);
+                write(console.log, args);
                 forwardToMain('debug', args);
             },
             warn: (...args) => {

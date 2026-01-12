@@ -1,8 +1,5 @@
-/**
- * Minimal project logger.
- * Goal: replace direct console.* usage while keeping backwards-compatible output shape
- * for existing tests and diagnostics.
- */
+// src/main/utils/logger.ts
+
 const PREFIX = '[MyCalendar]';
 
 let debugEnabled = false;
@@ -43,5 +40,5 @@ export function err(...a: any[]) {
 
 export function dbg(...a: any[]) {
     if (!debugEnabled) return;
-    write(console.debug, a);
+    write(console.log, a);
 }

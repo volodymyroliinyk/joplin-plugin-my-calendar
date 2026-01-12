@@ -5,7 +5,7 @@ const webpack = require('webpack');
 
 /** @type {import('webpack').Configuration} */
 module.exports = {
-    mode: 'production',
+    mode: 'development',
     target: 'node', // Joplin plugin runtime (desktop); mobile runner
 
     // One entry - canonical for Joplin plugins
@@ -53,5 +53,5 @@ module.exports = {
         }),
     ],
 
-    devtool: false,
+    devtool: 'source-map',
 };
