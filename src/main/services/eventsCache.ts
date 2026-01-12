@@ -1,6 +1,7 @@
 // src/main/services/eventsCache.ts
 
 import {parseEventsFromBody, EventInput} from '../parsers/eventParser';
+import {log, err} from '../utils/logger';
 
 const eventCacheByNote = new Map<string, EventInput[]>();
 let allEventsCache: EventInput[] | null = null;
@@ -21,7 +22,7 @@ export async function rebuildAllEventsCache(joplin: any) {
     rebuilding = true;
 
     try {
-        console.log('[MyCalendar] rebuildAllEventsCache: start');
+        log('rebuildAllEventsCache: start');
         const fields = ['id', 'title', 'body'];
         const items: any[] = [];
         let page = 1;
@@ -61,9 +62,9 @@ export async function rebuildAllEventsCache(joplin: any) {
         }
 
         allEventsCache = all;
-        console.log('[MyCalendar] rebuildAllEventsCache: done events=', allEventsCache.length);
-    } catch (err) {
-        console.error('[MyCalendar] rebuildAllEventsCache: error', err);
+        log('rebuildAllEventsCache: done events=', allEventsCache.length);
+    } catch (error) {
+        err('rebuildAllEventsCache: error', error);
         // So it doesn't get stuck in rebuilding=true
         allEventsCache = allEventsCache || [];
     } finally {

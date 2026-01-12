@@ -4,6 +4,7 @@ import {ensureAllEventsCache, invalidateAllEventsCache} from '../services/events
 import {importIcsIntoNotes} from '../services/icsImportService';
 import {showToast} from '../utils/toast';
 import {pushUiSettings} from "./uiSettings";
+import {err} from '../utils/logger';
 
 type FolderRow = { id: string; title: string; parent_id?: string | null };
 type FolderOption = { id: string; title: string; parent_id?: string | null; depth: number };
@@ -202,7 +203,7 @@ export async function registerCalendarPanelController(
 
             // unknown msg - no-op
         } catch (e) {
-            console.error('[MyCalendar] onMessage error:', e);
+            err('onMessage error:', e);
         }
     });
 }
