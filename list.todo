@@ -21,7 +21,7 @@ TODO:[1]:
 TODO:[regular]:
     - manual tests check;
     - regular jest cases check;
-    - just english comments and annotetions, use IDE translator;
+    - just english comments and annotations, use IDE translator;
 TODO:[2]:
     - eslint;
     - prettier;
