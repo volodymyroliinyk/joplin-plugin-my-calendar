@@ -2,8 +2,20 @@
 
 (function () {
     // Ensure a single shared settings object across all UI scripts.
-    window.__mcUiSettings = window.__mcUiSettings || {weekStart: 'monday', debug: undefined};
+    window.__mcUiSettings = window.__mcUiSettings || {weekStart: 'monday', debug: undefined, icsExportUrl: ''};
     const uiSettings = window.__mcUiSettings;
+
+    function sanitizeExternalUrl(input) {
+        const s = String(input ?? '').trim();
+        if (!s) return '';
+        try {
+            const u = new URL(s);
+            if (u.protocol !== 'https:' && u.protocol !== 'http:') return '';
+            return u.toString();
+        } catch {
+            return '';
+        }
+    }
 
     function createUiLogger(prefix) {
         let outputBox = null;
@@ -125,6 +137,24 @@
         uiLogger.setOutputBox(logBox);
         const debugHeader = el("div", {style: "font-weight:600;margin-top:10px"}, ["Debug log"]);
 
+        const exportLinkBox = el("div", {id: "mc-ics-export-link", style: "margin-top:10px"});
+
+        function renderExportLink() {
+            // Clear
+            exportLinkBox.textContent = "";
+
+            const safe = sanitizeExternalUrl(uiSettings.icsExportUrl);
+            if (!safe) return;
+
+            const label = el("div", {style: "font-weight:600;margin-bottom:4px"}, ["ICS export link"]);
+            const a = el("a", {href: safe, target: "_blank", rel: "noopener noreferrer"}, [safe]);
+            // Use text node (no HTML) to avoid XSS
+            a.textContent = safe;
+
+            exportLinkBox.appendChild(label);
+            exportLinkBox.appendChild(a);
+        }
+
         function log(...args) {
             if (uiSettings.debug !== true) return;
 
@@ -141,6 +171,11 @@
         }
 
         function applyDebugUI() {
+            // Ensure export link box is always near the bottom (above Debug log when enabled)
+            if (exportLinkBox.parentNode) root.removeChild(exportLinkBox);
+            renderExportLink();
+            if (exportLinkBox.childNodes.length) root.appendChild(exportLinkBox);
+
             if (debugHeader.parentNode) root.removeChild(debugHeader);
             if (logBox.parentNode) root.removeChild(logBox);
 
@@ -362,8 +397,11 @@
             if (msg.name === "uiSettings") {
                 if (typeof msg.debug === "boolean") {
                     uiSettings.debug = msg.debug;
-                    applyDebugUI();
                 }
+                if (typeof msg.icsExportUrl === "string") {
+                    uiSettings.icsExportUrl = msg.icsExportUrl;
+                }
+                applyDebugUI();
                 return;
             }
 
@@ -385,9 +423,6 @@
 
             if (msg.name === "folders") {
                 populateFolders(msg.folders);
-                // If you have log() - you can log
-                // log("[FOLDERS]", `loaded=${(msg.folders || []).length}`);
-                return;
             }
         });
 

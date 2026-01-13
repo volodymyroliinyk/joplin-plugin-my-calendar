@@ -1,17 +1,29 @@
 TODO:[1]:
+    - features:
+        - import links multiple, like dynamic option;
+        - developer:
+            - bash builder script for automated version increasing;
     - refactoring:
         - logger:
-           - final refactoring
+           - final refactoring;
+        - Move all *.style attributes from js/ts to .css;
+        - full code review and refactoring;
     - readme.md:
         - screenshot for readme.md;
+        - new settings;
+        - new features;
         - more details;
     - testing:
         - Jest, review existing tests and need to find more not covered Jest cases;
-    - full code review and refactoring;
+    - release:
+        - npm  portal;
+        - joplin portal;
+TODO:[regular]:
+    - manual tests check;
+    - regular jest cases check;
+    - just english comments and annotations, use IDE translator;
+TODO:[2]:
     - eslint;
     - prettier;
-    - regular manual tests check;
-    - regular jest check;
-TODO:[2]:
     - multilingual support;
 
