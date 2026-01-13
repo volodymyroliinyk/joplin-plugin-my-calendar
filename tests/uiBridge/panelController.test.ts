@@ -100,6 +100,7 @@ describe('panelController', () => {
             name: 'uiSettings',
             weekStart: 'sunday',
             debug: false,
+            icsExportUrl: '',
         });
         expect(postMessage).toHaveBeenCalledWith('panel-1', {name: 'redrawMonth'});
     });
