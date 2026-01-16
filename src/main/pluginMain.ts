@@ -262,9 +262,29 @@ function buildICS(events: Occurrence[], prodId = '-//MyCalendar//Joplin//EN') {
     return lines.join('\r\n');
 }
 
+function getPanelsAny(joplin: any) {
+    return (joplin as any)?.views?.panels;
+}
+
+async function safePostMessage(joplin: any, panelId: string, message: unknown): Promise<void> {
+    const pm = joplin?.views?.panels?.postMessage;
+    if (typeof pm === 'function') await pm(panelId, message);
+}
+
+async function safeFocus(joplin: any, panelId: string): Promise<void> {
+    try {
+        const panelsAny = getPanelsAny(joplin);
+        if (panelsAny && typeof panelsAny.focus === 'function') {
+            await panelsAny.focus(panelId);
+        }
+    } catch {
+        log('panels.focus not available on this platform');
+    }
+}
+
 // Ensure UI always receives current settings when the webview (re)initializes.
 async function registerUiMessageHandlers(joplin: any, panelId: string) {
-    const onMessage = (joplin as any)?.views?.panels?.onMessage;
+    const onMessage = getPanelsAny(joplin)?.onMessage;
     if (typeof onMessage !== 'function') return;
 
     await onMessage(panelId, async (msg: any) => {
@@ -311,10 +331,11 @@ async function registerUiMessageHandlers(joplin: any, panelId: string) {
         if (msg.name === 'uiReady') {
             await pushUiSettings(joplin, panelId);
             // Force a redraw so weekStart takes effect immediately.
-            const pm = joplin?.views?.panels?.postMessage;
-            if (typeof pm === 'function') {
-                await pm(panelId, {name: 'redrawMonth'});
-            }
+            // const pm = joplin?.views?.panels?.postMessage;
+            // if (typeof pm === 'function') {
+            //     await pm(panelId, {name: 'redrawMonth'});
+            // }
+            safePostMessage(joplin, panelId, {name: 'redrawMonth'})
             return;
         }
     });
@@ -340,8 +361,9 @@ export default async function runPlugin(joplin: any) {
             // Ensure the UI gets the latest weekStart when the panel becomes visible.
             await pushUiSettings(joplin, panel);
             try {
-                const pm = joplin?.views?.panels?.postMessage;
-                if (typeof pm === 'function') await pm(panel, {name: 'redrawMonth'});
+                // const pm = joplin?.views?.panels?.postMessage;
+                // if (typeof pm === 'function') await pm(panel, {name: 'redrawMonth'});
+                safePostMessage(joplin, panel, {name: 'redrawMonth'})
             } catch {
             }
             try {
@@ -365,10 +387,12 @@ export default async function runPlugin(joplin: any) {
 
     await joplin.workspace.onNoteChange(async ({id}: { id?: string }) => {
         if (id) invalidateNote(id);
-        invalidateAllEventsCache();
+        // invalidateAllEventsCache();
     });
     await joplin.workspace.onSyncComplete(async () => {
         allEventsCache = null;
+        allEventsCache = null;
+        invalidateAllEventsCache();
     });
 
     await registerCalendarPanelController(joplin, panel, {

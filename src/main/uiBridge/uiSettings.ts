@@ -1,23 +1,35 @@
 // src/main/uiBridge/uiSettings.ts
 
-import * as settings from "../settings/settings";
-import {setDebugEnabled} from "../utils/logger";
+import * as settings from '../settings/settings';
+import {setDebugEnabled} from '../utils/logger';
 
-export async function pushUiSettings(joplin: any, panel: string) {
-    const weekStart = await settings.getWeekStart(joplin);
-    const debug = await settings.getDebugEnabled(joplin);
+type JoplinLike = {
+    views?: {
+        panels?: {
+            postMessage?: (panel: string, message: unknown) => Promise<void>;
+        };
+    };
+};
 
-    // Backward-compatible for older/mocked settings modules in tests.
-    const icsExportUrl =
-        typeof (settings as any).getIcsExportUrl === 'function'
-            ? await (settings as any).getIcsExportUrl(joplin)
-            : '';
+type SettingsWithOptionalIcs = typeof settings & {
+    getIcsExportUrl?: (joplin: unknown) => Promise<string>;
+};
+
+async function getIcsExportUrlCompat(joplin: unknown): Promise<string> {
+    const s = settings as SettingsWithOptionalIcs;
+    return typeof s.getIcsExportUrl === 'function' ? await s.getIcsExportUrl(joplin) : '';
+}
+
+export async function pushUiSettings(joplin: JoplinLike, panel: string): Promise<void> {
+    const weekStart = await settings.getWeekStart(joplin as any);
+    const debugEnabled = Boolean(await settings.getDebugEnabled(joplin as any));
+    const icsExportUrl = await getIcsExportUrlCompat(joplin);
 
     // Main-side logger should follow the same setting
-    setDebugEnabled(!!debug);
+    setDebugEnabled(debugEnabled);
 
     const pm = joplin?.views?.panels?.postMessage;
     if (typeof pm !== 'function') return;
 
-    await pm(panel, {name: 'uiSettings', weekStart, debug: !!debug, icsExportUrl});
+    await pm(panel, {name: 'uiSettings', weekStart, debug: debugEnabled, icsExportUrl});
 }

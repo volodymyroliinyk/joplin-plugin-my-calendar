@@ -7,6 +7,7 @@ import {pushUiSettings} from "./uiSettings";
 import {err} from '../utils/logger';
 
 type FolderRow = { id: string; title: string; parent_id?: string | null };
+type FolderNode = FolderRow & { children: FolderNode[] };
 type FolderOption = { id: string; title: string; parent_id?: string | null; depth: number };
 
 async function getAllFolders(joplin: any): Promise<FolderRow[]> {
@@ -29,28 +30,31 @@ async function getAllFolders(joplin: any): Promise<FolderRow[]> {
 }
 
 function flattenFolderTree(rows: FolderRow[]): FolderOption[] {
-    const byId = new Map<string, FolderRow & { children: FolderRow[] }>();
+    const byId = new Map<string, FolderNode>();
 
-    for (const r of rows) byId.set(r.id, {...r, children: []});
+    for (const r of rows) {
+        byId.set(r.id, {...r, parent_id: r.parent_id ?? null, children: []});
+    }
 
-    const roots: (FolderRow & { children: FolderRow[] })[] = [];
+    const roots: FolderNode[] = [];
 
-    for (const r of byId.values()) {
-        const pid = r.parent_id || '';
-        const parent = pid ? byId.get(pid) : undefined;
-
-        if (parent) parent.children.push(r);
-        else roots.push(r);
+    for (const node of byId.values()) {
+        const parentId = node.parent_id ?? null;
+        if (parentId && byId.has(parentId)) {
+            byId.get(parentId)!.children.push(node);
+        } else {
+            roots.push(node);
+        }
     }
 
     const sortFn = (a: FolderRow, b: FolderRow) =>
         a.title.localeCompare(b.title, undefined, {sensitivity: 'base'});
 
-    const walk = (node: FolderRow & { children: FolderRow[] }, depth: number, acc: FolderOption[]) => {
+    const walk = (node: FolderNode, depth: number, acc: FolderOption[]) => {
         acc.push({id: node.id, title: node.title, parent_id: node.parent_id ?? null, depth});
 
         node.children.sort(sortFn);
-        for (const ch of node.children) walk(ch as any, depth + 1, acc);
+        for (const ch of node.children) walk(ch, depth + 1, acc);
     };
 
     roots.sort(sortFn);
@@ -59,6 +63,14 @@ function flattenFolderTree(rows: FolderRow[]): FolderOption[] {
     for (const r of roots) walk(r, 0, acc);
 
     return acc;
+}
+
+function isoDate(utc: number): string {
+    return new Date(utc).toISOString().slice(0, 10);
+}
+
+function buildRangeIcsFilename(fromUtc: number, toUtc: number): string {
+    return `mycalendar_${isoDate(fromUtc)}_${isoDate(toUtc)}.ics`;
 }
 
 /**
@@ -131,9 +143,7 @@ export async function registerCalendarPanelController(
                 await joplin.views.panels.postMessage(panel, {
                     name: 'rangeIcs',
                     ics,
-                    filename: `mycalendar_${new Date(msg.fromUtc).toISOString().slice(0, 10)}_${new Date(
-                        msg.toUtc
-                    ).toISOString().slice(0, 10)}.ics`,
+                    filename: buildRangeIcsFilename(msg.fromUtc, msg.toUtc),
                 });
                 return;
             }

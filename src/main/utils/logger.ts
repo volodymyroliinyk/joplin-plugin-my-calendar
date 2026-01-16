@@ -1,44 +1,58 @@
 // src/main/utils/logger.ts
+/**
+ * Minimal console logger with a fixed prefix.
+ *
+ * Design goals:
+ * - Keep current runtime behavior (string-first vs non-string-first arguments).
+ * - Keep public API stable for existing imports/tests.
+ * - Avoid `any` in public surface; prefer `unknown`.
+ */
 
 const PREFIX = '[MyCalendar]';
 
 let debugEnabled = false;
 
-export function setDebugEnabled(v: boolean) {
-    debugEnabled = v === true;
+export function setDebugEnabled(v: boolean): void {
+    debugEnabled = Boolean(v);
 }
 
-function write(
-    consoleFn: (...args: any[]) => void,
-    args: any[],
-) {
+type ConsoleFn = (...args: unknown[]) => void;
+
+function buildArgs(args: readonly unknown[]): unknown[] {
     if (args.length > 0 && typeof args[0] === 'string') {
-        const [msg, ...rest] = args;
-        // Keep single-string prefix for string-first logs (many tests assert this).
-        consoleFn(`${PREFIX} ${msg}`, ...rest);
-        return;
+        const [msg, ...rest] = args as readonly [string, ...unknown[]];
+        // Keep single-string prefix for string-first logs (tests assert this shape).
+        return [`${PREFIX} ${msg}`, ...rest];
     }
-    // Non-string first arg: keep prefix as separate argument.
-    consoleFn(PREFIX, ...args);
+
+    // Non-string first arg: keep prefix as a separate argument.
+    return [PREFIX, ...args];
 }
 
-export function log(...a: any[]) {
-    write(console.log, a);
+function write(consoleFn: ConsoleFn, args: readonly unknown[]): void {
+    consoleFn(...buildArgs(args));
 }
 
-export function info(...a: any[]) {
-    write(console.info, a);
+export function log(...args: unknown[]): void {
+    write(console.log, args);
 }
 
-export function warn(...a: any[]) {
-    write(console.warn, a);
+export function info(...args: unknown[]): void {
+    write(console.info, args);
 }
 
-export function err(...a: any[]) {
-    write(console.error, a);
+export function warn(...args: unknown[]): void {
+    write(console.warn, args);
 }
 
-export function dbg(...a: any[]) {
+/** Prefer `err` for backward-compatibility with existing code. */
+export function err(...args: unknown[]): void {
+    write(console.error, args);
+}
+
+/** Debug log (enabled via `setDebugEnabled(true)`). */
+export function dbg(...args: unknown[]): void {
     if (!debugEnabled) return;
-    write(console.log, a);
+    // Keep console.log to preserve existing behavior/tests.
+    write(console.log, args);
 }

@@ -5,6 +5,18 @@
     window.__mcUiSettings = window.__mcUiSettings || {weekStart: undefined, debug: undefined};
     const uiSettings = window.__mcUiSettings;
     let __mcHasUiSettings = false;
+    const MSG = Object.freeze({
+        UI_READY: 'uiReady',
+        UI_ACK: 'uiAck',
+        UI_SETTINGS: 'uiSettings',
+        REDRAW_MONTH: 'redrawMonth',
+        IMPORT_DONE: 'importDone',
+        IMPORT_ERROR: 'importError',
+        RANGE_EVENTS: 'rangeEvents',
+        SHOW_EVENTS: 'showEvents',
+        RANGE_ICS: 'rangeIcs',
+    });
+
 
 
     function createUiLogger(prefix, outputBoxId) {
@@ -39,6 +51,7 @@
                 const safeArgs = (args || []).map(a => {
                     if (a && typeof a === 'object' && a.message && a.stack) {
                         return {__error: true, message: a.message, stack: a.stack};
+
                     }
                     if (typeof a === 'string') return a;
                     try {
@@ -297,88 +310,85 @@
                 }, 100);
             }
 
+            function unwrapPluginMessage(msg) {
+                // Joplin sometimes wraps as { message: <payload> }
+                if (msg && typeof msg === 'object' && msg.message) return msg.message;
+
+                // Defensive: sometimes events can arrive without a name
+                if (msg && typeof msg === 'object' && !msg.name && Array.isArray(msg.events)) {
+                    return {name: MSG.RANGE_EVENTS, events: msg.events};
+                }
+
+                return msg;
+            }
+
             function onPluginMessage(msg) {
-                // Joplin Sometimes a sealing { message: <payload> }
-                if (msg && typeof msg === 'object' && 'message' in msg && msg.message) {
-                    msg = msg.message;
-                }
-                // If suddenly array of events without Name (should not, but just in case)
-                if (!msg.name && Array.isArray(msg.events)) {
-                    msg = {name: 'rangeEvents', events: msg.events};
-                }
+                msg = unwrapPluginMessage(msg);
 
                 log('onMessage:', msg && msg.name ? msg.name : msg);
                 if (!msg || !msg.name) return;
 
-                if (msg.name === 'uiAck') {
-                    log('uiAck received');
-                    return;
-                }
+                const handlers = {
+                    [MSG.UI_ACK]: () => {
+                        log('uiAck received');
+                    },
 
-                if (msg.name === 'uiSettings') {
-                    const prevWeekStart = uiSettings.weekStart;
+                    [MSG.UI_SETTINGS]: () => {
+                        const prevWeekStart = uiSettings.weekStart;
 
-                    // console.log('[MyCalendar][DBG][weekStart] msg.name 5::', msg.name);
-                    // console.log('[MyCalendar][DBG][weekStart] msg.weekStart 6::', msg.weekStart);
+                        if (msg.weekStart === 'monday' || msg.weekStart === 'sunday') {
+                            uiSettings.weekStart = msg.weekStart;
+                        }
 
-                    if (msg.weekStart === 'monday' || msg.weekStart === 'sunday') {
-                        uiSettings.weekStart = msg.weekStart;
-                    }
+                        if (typeof msg.debug === 'boolean') {
+                            uiSettings.debug = msg.debug;
+                            applyDebugUI();
+                        }
 
-                    // console.log('[MyCalendar][DBG][weekStart] uiSettings.weekStart 6::', uiSettings.weekStart);
+                        const weekStartChanged = prevWeekStart !== uiSettings.weekStart;
+                        const firstSettingsArrived = !__mcHasUiSettings;
+                        __mcHasUiSettings = true;
 
-                    if (typeof msg.debug === 'boolean') {
-                        uiSettings.debug = msg.debug;
-                        applyDebugUI();
-                    }
+                        if (firstSettingsArrived || weekStartChanged) {
+                            drawMonth();
+                        }
+                    },
 
-                    const weekStartChanged = prevWeekStart !== uiSettings.weekStart;
-                    const firstSettingsArrived = !__mcHasUiSettings;
-                    __mcHasUiSettings = true;
-
-                    if (firstSettingsArrived || weekStartChanged) {
+                    [MSG.REDRAW_MONTH]: () => {
                         drawMonth();
-                    }
+                    },
 
-                    // console.log('[MyCalendar][DBG][weekStart] uiSettings.weekStart 7::', uiSettings.weekStart);
+                    // --- ICS import complete (success or error) -> restart grid ---
+                    [MSG.IMPORT_DONE]: () => {
+                        log('import finished -> refreshing calendar grid');
+                        gridEvents = [];
+                        drawMonth();
+                    },
+                    [MSG.IMPORT_ERROR]: () => {
+                        log('import finished -> refreshing calendar grid');
+                        gridEvents = [];
+                        drawMonth();
+                    },
 
-                    return;
-                }
+                    [MSG.RANGE_EVENTS]: () => {
+                        log('got rangeEvents:', (msg.events || []).length);
+                        gridEvents = msg.events || [];
+                        paintGrid();
+                        renderDayEvents(selectedDayUtc);
+                    },
 
-                if (msg.name === 'redrawMonth') {
-                    drawMonth();
-                    return;
-                }
+                    [MSG.SHOW_EVENTS]: () => {
+                        log('got showEvents:', (msg.events || []).length);
+                        renderDayEvents(msg.dateUtc);
+                    },
 
+                    [MSG.RANGE_ICS]: () => {
+                        log('got ICS bytes:', (msg.ics || '').length);
+                    },
+                };
 
-                // --- ICS import complete (success or error) -> restart grid ---
-                if (msg.name === 'importDone' || msg.name === 'importError') {
-                    log('import finished -> refreshing calendar grid');
-                    // reset so that the retry logic does not think that the data already exists
-                    gridEvents = [];
-                    // redraw the current month and request the range again
-                    drawMonth();
-                    return;
-                }
-
-                if (msg.name === 'rangeEvents') {
-                    log('got rangeEvents:', (msg.events || []).length);
-                    gridEvents = msg.events || [];
-                    paintGrid();
-                    renderDayEvents(selectedDayUtc);
-                    return;
-                }
-
-                if (msg.name === 'showEvents') {
-                    log('got showEvents:', (msg.events || []).length);
-                    renderDayEvents(msg.dateUtc);
-                    return;
-                }
-
-                if (msg.name === 'rangeIcs') {
-                    log('got ICS bytes:', (msg.ics || '').length);
-                    return;
-                }
+                const handler = handlers[msg.name];
+                if (handler) handler();
             }
 
             if (window.webviewApi?.onMessage) {
@@ -609,7 +619,7 @@
                 // Auxiliary: Get/create subsidiaries in a cell
                 function ensureParts(cell) {
                     // let bars = cell.querySelector(':scope > .mc-bars');
-                    let badge = cell.querySelector(':scope > .mc-count');
+                    let badge = cell.querySelector('.mc-count');
                     // if (!bars) {
                     //     bars = document.createElement('div');
                     //     bars.className = 'mc-bars';

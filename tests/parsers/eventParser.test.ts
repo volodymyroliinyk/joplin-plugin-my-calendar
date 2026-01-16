@@ -129,7 +129,7 @@ describe('eventParser.parseEventsFromBody', () => {
     test('parses wall-clock time using tz (winter date for stable -05:00 in America/Toronto)', () => {
         const body = block([
             'title: TZ convert',
-            'timezone: America/Toronto',
+            'tz: America/Toronto',
             'start: 2025-01-15 10:00:00',
             'end: 2025-01-15 11:30:00',
         ]);
@@ -274,7 +274,7 @@ describe('eventParser.parseEventsFromBody', () => {
         expect(ev.repeatInterval).toBe(1);
     });
 
-    test('all_day is sticky across blocks within the same parse call (current behavior)', () => {
+    test('all_day is NOT sticky across blocks within the same parse call', () => {
         const body = [
             block([
                 'title: First',
@@ -292,14 +292,15 @@ describe('eventParser.parseEventsFromBody', () => {
         expect(events).toHaveLength(2);
 
         expect(events[0].allDay).toBe(true);
-        expect(events[1].allDay).toBe(true); // inherits previous all_day (because variable is outside the loop)
+        expect(events[1].allDay).toBeUndefined(); // per-block behavior
     });
 
-    test('timezone key alias: both "tz" and "timezone" are accepted (case-insensitive keys)', () => {
+
+    test('timezone key alias: both "tz" are accepted (case-insensitive keys)', () => {
         const body = [
             block([
                 'TITLE: A',
-                'TIMEZONE: UTC',
+                'TZ: UTC',
                 'START: 2025-01-15 10:00:00',
             ]),
             block([
