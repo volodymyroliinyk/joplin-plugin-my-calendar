@@ -2,21 +2,39 @@
 
 export type ToastType = 'success' | 'warning' | 'error' | 'info';
 
+export const DEFAULT_TOAST_DURATION_MS = 3000;
+
+type ToastPayload = {
+    type: ToastType;
+    message: string;
+    duration: number;
+    timestamp: number;
+};
+
+type DialogsLike = {
+    showToast(payload: ToastPayload): Promise<void>;
+};
+
+function getDialogs(): DialogsLike {
+    // Joplin typings can lag, so we're doing a narrow cast here, in one place.
+    return (joplin.views.dialogs as unknown) as DialogsLike;
+}
+
 export async function showToast(
     type: ToastType,
     message: string,
-    duration = 3000
-) {
-    // showToast is in joplin.views.dialogs, but TypeScript typings sometimes lag,
-    // so we use "as any".
-    const dialogs = joplin.views.dialogs as any;
+    duration: number = DEFAULT_TOAST_DURATION_MS
+): Promise<void> {
+    const dialogs = getDialogs();
+
+    // Easy normalization (does not change test logic and current behavior).
+    const safeDuration = Number.isFinite(duration) ? Math.trunc(duration) : DEFAULT_TOAST_DURATION_MS;
 
     await dialogs.showToast({
         type,
         message,
-        duration,
-        // timestamp helps if identical toasts are not shown repeatedly
-        // (Joplin can ignore a repeat with the same message/duration/type).
+        duration: safeDuration,
+        // timestamp helps if Joplin doesn't show a duplicate of the same toast.
         timestamp: Date.now(),
     });
 }

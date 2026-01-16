@@ -178,7 +178,7 @@ function parseMyCalKeyValueText(text: string): IcsEvent[] {
 
         else if (k === 'start') cur.start = v;
         else if (k === 'end') cur.end = v;
-        else if (k === 'tz' || k === 'timezone') cur.tz = v;
+        else if (k === 'tz') cur.tz = v;
 
         else if (k === 'repeat') cur.repeat = normalizeRepeatFreq(v) || 'none';
         else if (k === 'repeat_interval') {
