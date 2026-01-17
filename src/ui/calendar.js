@@ -633,6 +633,8 @@
             }
 
             function renderGridSkeleton() {
+                const start = startOfCalendarGridLocal(current);
+                const todayTs = localMidnightTs(new Date());
                 const grid = $grid();
                 if (!grid) return;
                 grid.innerHTML = '';
@@ -659,8 +661,6 @@
                 const body = document.createElement('div');
                 body.className = 'mc-grid-body';
 
-                const start = startOfCalendarGridLocal(current);
-                const todayTs = localMidnightTs(new Date());
 
                 for (let i = 0; i < 42; i++) {
                     const cellDate = new Date(start);
@@ -674,6 +674,10 @@
                     const inThisMonth = cellDate.getMonth() === current.getMonth();
                     if (!inThisMonth) cell.classList.add('mc-out');
 
+                    // Visually mute all days before today (including leading/trailing days
+                    // from adjacent months shown in the 6-week grid).
+                    if (cellTs < todayTs) cell.classList.add('mc-past');
+                                       
                     if (selectedDayUtc === cellTs) cell.classList.add('mc-selected');
                     if (todayTs === cellTs) cell.classList.add('mc-today');
 

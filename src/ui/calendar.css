@@ -37,6 +37,7 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
     --scrollbar-thumb-color: var(--joplin-scrollbar-thumb-color);
     --scrollbar-thumb-color-hover: var(--joplin-scrollbar-thumb-color-hover);
     --mc-default-event-color: #1470d9;
+    --mc-past-opacity: 0.45;
 }
 
 /*#joplin-plugin-content-root {*/
@@ -203,6 +204,16 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
 
 .mc-selected {
     box-shadow: inset 0 0 0 2px var(--joplin-color);
+}
+
+/* Past days in the month grid */
+.mc-cell.mc-past {
+    opacity: var(--mc-past-opacity);
+}
+
+/* Keep selection slightly more readable even if the day is in the past */
+.mc-cell.mc-past.mc-selected {
+    opacity: 0.7;
 }
 
 .mc-events-header {
@@ -391,7 +402,7 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
 
 /* Past/ended events in the day list */
 .mc-event.mc-event-past {
-    opacity: 0.45;
+    opacity: var(--mc-past-opacity);
 }
 
 /* thin 24h timeline under the event */
