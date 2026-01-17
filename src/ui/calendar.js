@@ -2,9 +2,16 @@
 
 (function () {
     // Ensure a single shared settings object across all UI scripts.
-    window.__mcUiSettings = window.__mcUiSettings || {weekStart: undefined, debug: undefined};
+    window.__mcUiSettings = window.__mcUiSettings || {
+        weekStart: undefined,
+        debug: undefined,
+        dayEventsRefreshMinutes: undefined,
+    };
+
     const uiSettings = window.__mcUiSettings;
+
     let __mcHasUiSettings = false;
+
     const MSG = Object.freeze({
         UI_READY: 'uiReady',
         UI_ACK: 'uiAck',
@@ -218,6 +225,56 @@
                 return d.toLocaleString(undefined, {month: 'long', year: 'numeric'});
             }
 
+            let dayEventsRefreshTimer = null;
+
+            function clearDayEventsRefreshTimer() {
+                if (dayEventsRefreshTimer) {
+                    clearTimeout(dayEventsRefreshTimer);
+                    dayEventsRefreshTimer = null;
+                }
+            }
+
+            function markPastDayEvents() {
+                const ul = document.getElementById('mc-events-list');
+                if (!ul) return;
+                const now = Date.now();
+
+                ul.querySelectorAll('.mc-event').forEach((li) => {
+                    const end = Number(li.dataset.endUtc || li.dataset.startUtc || '');
+                    const isPast = Number.isFinite(end) && end < now;
+                    li.classList.toggle('mc-event-past', isPast);
+                });
+            }
+
+            function scheduleDayEventsRefresh() {
+                clearDayEventsRefreshTimer();
+                if (document.hidden) return;
+
+                const ul = document.getElementById('mc-events-list');
+                if (!ul) return;
+
+                const now = Date.now();
+                let nextChange = Number.POSITIVE_INFINITY;
+
+                ul.querySelectorAll('.mc-event').forEach((li) => {
+                    const end = Number(li.dataset.endUtc || li.dataset.startUtc || '');
+                    if (!Number.isFinite(end)) return;
+                    if (end >= now && end < nextChange) nextChange = end;
+                });
+
+                if (!Number.isFinite(nextChange)) return;
+
+                const refreshMin = Number(uiSettings.dayEventsRefreshMinutes);
+                const fallbackMs = (Number.isFinite(refreshMin) && refreshMin > 0 ? refreshMin : 1) * 60 * 1000;
+
+                const delay = Math.max(1000, Math.min((nextChange - now) + 1000, fallbackMs));
+
+                dayEventsRefreshTimer = setTimeout(() => {
+                    markPastDayEvents();
+                    scheduleDayEventsRefresh();
+                }, delay);
+            }
+
 
             if (window.webviewApi?.onMessage) {
                 mcRegisterOnMessage(onPluginMessage);
@@ -247,6 +304,13 @@
 
                 document.addEventListener('visibilitychange', () => {
                     if (!document.hidden) sendUiReadyAgain();
+
+                    if (document.hidden) {
+                        clearDayEventsRefreshTimer();
+                        return;
+                    }
+                    markPastDayEvents();
+                    scheduleDayEventsRefresh();
                 });
                 window.addEventListener('focus', () => sendUiReadyAgain());
 
@@ -344,6 +408,15 @@
                             uiSettings.debug = msg.debug;
                             applyDebugUI();
                         }
+
+                        // ✅ ОЦЕ і є крок 2.2 — вставляється тут
+                        if (typeof msg.dayEventsRefreshMinutes === 'number' && isFinite(msg.dayEventsRefreshMinutes)) {
+                            uiSettings.dayEventsRefreshMinutes = msg.dayEventsRefreshMinutes;
+                        }
+
+                        // (опційно, але логічно) одразу застосувати до вже показаного списку
+                        markPastDayEvents();
+                        scheduleDayEventsRefresh();
 
                         const weekStartChanged = prevWeekStart !== uiSettings.weekStart;
                         const firstSettingsArrived = !__mcHasUiSettings;
@@ -661,6 +734,7 @@
             }
 
             function renderDayEvents(dayStartUtc) {
+                clearDayEventsRefreshTimer();
                 updateDayEventsHeader(dayStartUtc);
 
                 const ul = $elist();
@@ -720,10 +794,18 @@
                     li.addEventListener('click', () => {
                         window.webviewApi?.postMessage?.({name: 'openNote', id: ev.id});
                     });
+
+                    li.dataset.startUtc = String(slice.startUtc);
+                    li.dataset.endUtc = String(slice.endUtc ?? slice.startUtc);
+
+
                     ul.appendChild(li);
 
                     // log('DAY ev.title=', ev.title, 'ev.tz=', ev.tz, 'startUtc=', ev.startUtc);
                 }
+
+                markPastDayEvents();
+                scheduleDayEventsRefresh();
             }
 
             // Launch

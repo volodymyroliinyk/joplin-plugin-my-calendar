@@ -341,6 +341,16 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
     width: auto;
 }
 
+.mc-event {
+    /* ... */
+    transition: opacity 150ms ease-in-out;
+}
+
+/* Past/ended events in the day list */
+.mc-event.mc-event-past {
+    opacity: 0.45;
+}
+
 @media (pointer: coarse) and (hover: none) {
     #mc-import {
         display: none !important;
