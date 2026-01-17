@@ -6,6 +6,7 @@ import {setDebugEnabled} from '../utils/logger';
 export const SETTING_DEBUG = 'mycalendar.debug';
 export const SETTING_WEEK_START = 'mycalendar.weekStart';
 export const SETTING_ICS_EXPORT_URL = 'mycalendar.icsExportUrl';
+export const SETTING_DAY_EVENTS_REFRESH_MINUTES = 'mycalendar.dayEventsRefreshMinutes';
 export type WeekStart = 'monday' | 'sunday';
 
 function sanitizeExternalUrl(input: unknown): string {
@@ -58,6 +59,14 @@ export async function registerSettings(joplin: any) {
             label: 'ICS export page URL',
             description: 'Optional link to your calendar provider export page (http/https only).',
         },
+        [SETTING_DAY_EVENTS_REFRESH_MINUTES]: {
+            value: 5,
+            type: 1, // int
+            section: 'mycalendar',
+            public: true,
+            label: 'Day events auto-refresh (minutes)',
+            description: 'How often the day events list updates its UI (e.g. dimming events that have ended).',
+        },
     });
 
     // Keep stored URL safe (e.g. block `javascript:`) even if user pastes it.
@@ -93,4 +102,11 @@ export async function getDebugEnabled(joplin: any): Promise<boolean> {
 export async function getIcsExportUrl(joplin: any): Promise<string> {
     const raw = await joplin.settings.value(SETTING_ICS_EXPORT_URL);
     return sanitizeExternalUrl(raw);
+}
+
+export async function getDayEventsRefreshMinutes(joplin: any): Promise<number> {
+    const raw = await joplin.settings.value(SETTING_DAY_EVENTS_REFRESH_MINUTES);
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return 1;
+    return Math.min(60, Math.max(1, Math.round(n)));
 }

@@ -25,6 +25,7 @@ jest.mock('../../src/main/settings/settings', () => ({
     registerSettings: jest.fn().mockResolvedValue(undefined),
     getWeekStart: jest.fn(),
     getDebugEnabled: jest.fn().mockResolvedValue(false),
+    getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(1),
 }));
 
 import {createCalendarPanel} from '../../src/main/views/calendarView';
@@ -93,7 +94,7 @@ describe('weekStart flow (backend)', () => {
 
         expect(postMessage).toHaveBeenCalledWith(
             'panel-1',
-            expect.objectContaining({name: 'uiSettings', weekStart: 'monday'})
+            expect.objectContaining({name: 'uiSettings', weekStart: 'monday', dayEventsRefreshMinutes: 1,})
         );
     });
 

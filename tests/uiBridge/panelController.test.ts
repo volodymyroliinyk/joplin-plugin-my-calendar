@@ -101,6 +101,7 @@ describe('panelController', () => {
             weekStart: 'sunday',
             debug: false,
             icsExportUrl: '',
+            dayEventsRefreshMinutes: 1,
         });
         expect(postMessage).toHaveBeenCalledWith('panel-1', {name: 'redrawMonth'});
     });

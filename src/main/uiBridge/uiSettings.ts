@@ -24,6 +24,7 @@ export async function pushUiSettings(joplin: JoplinLike, panel: string): Promise
     const weekStart = await settings.getWeekStart(joplin as any);
     const debugEnabled = Boolean(await settings.getDebugEnabled(joplin as any));
     const icsExportUrl = await getIcsExportUrlCompat(joplin);
+    const dayEventsRefreshMinutes = await settings.getDayEventsRefreshMinutes(joplin as any);
 
     // Main-side logger should follow the same setting
     setDebugEnabled(debugEnabled);
@@ -31,5 +32,11 @@ export async function pushUiSettings(joplin: JoplinLike, panel: string): Promise
     const pm = joplin?.views?.panels?.postMessage;
     if (typeof pm !== 'function') return;
 
-    await pm(panel, {name: 'uiSettings', weekStart, debug: debugEnabled, icsExportUrl});
+    await pm(panel, {
+        name: 'uiSettings',
+        weekStart,
+        debug: debugEnabled,
+        icsExportUrl,
+        dayEventsRefreshMinutes,
+    });
 }
