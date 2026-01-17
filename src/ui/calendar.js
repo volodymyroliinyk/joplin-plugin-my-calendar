@@ -415,12 +415,10 @@
                             applyDebugUI();
                         }
 
-                        // ✅ ОЦЕ і є крок 2.2 — вставляється тут
                         if (typeof msg.dayEventsRefreshMinutes === 'number' && isFinite(msg.dayEventsRefreshMinutes)) {
                             uiSettings.dayEventsRefreshMinutes = msg.dayEventsRefreshMinutes;
                         }
 
-                        // (опційно, але логічно) одразу застосувати до вже показаного списку
                         markPastDayEvents();
                         scheduleDayEventsRefresh();
 
