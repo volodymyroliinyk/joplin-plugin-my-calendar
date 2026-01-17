@@ -281,6 +281,60 @@
                 }, delay);
             }
 
+            // Updates "current time" dot inside per-event 24h timelines (day list)
+            let dayNowTimelineTimer = null;
+
+            function clearDayNowTimelineTimer() {
+                if (dayNowTimelineTimer) {
+                    clearTimeout(dayNowTimelineTimer);
+                    dayNowTimelineTimer = null;
+                }
+            }
+
+            function getDayEventsRefreshMs() {
+                const refreshMin = Number(uiSettings.dayEventsRefreshMinutes);
+                const minutes = (Number.isFinite(refreshMin) && refreshMin > 0) ? refreshMin : 1;
+                return minutes * 60 * 1000;
+            }
+
+            function clampPct(p) {
+                if (!Number.isFinite(p)) return 0;
+                return Math.max(0, Math.min(100, p));
+            }
+
+            function updateDayNowTimelineDot() {
+                const ul = document.getElementById('mc-events-list');
+                if (!ul) return;
+
+                const dayStartUtc = Number(ul.dataset.dayStartUtc || '');
+                if (!Number.isFinite(dayStartUtc)) return;
+
+                const now = Date.now();
+                const inDay = now >= dayStartUtc && now < (dayStartUtc + DAY);
+                const pct = Math.max(0, Math.min(100, ((now - dayStartUtc) / DAY) * 100));
+
+                ul.querySelectorAll('.mc-event-timeline-now').forEach((dot) => {
+                    const el = /** @type {HTMLElement} */ (dot);
+                    if (!inDay) {
+                        el.style.display = 'none';
+                        return;
+                    }
+                    el.style.display = '';
+                    el.style.left = pct + '%';
+                });
+            }
+
+            function scheduleDayNowTimelineTick() {
+                clearDayNowTimelineTimer();
+                if (document.hidden) return;
+
+                const delay = Math.max(1000, getDayEventsRefreshMs());
+
+                dayNowTimelineTimer = setTimeout(() => {
+                    updateDayNowTimelineDot();
+                    scheduleDayNowTimelineTick();
+                }, delay);
+            }
 
             if (window.webviewApi?.onMessage) {
                 mcRegisterOnMessage(onPluginMessage);
@@ -313,10 +367,13 @@
 
                     if (document.hidden) {
                         clearDayEventsRefreshTimer();
+                        clearDayNowTimelineTimer();
                         return;
                     }
                     markPastDayEvents();
                     scheduleDayEventsRefresh();
+                    updateDayNowTimelineDot();
+                    scheduleDayNowTimelineTick();
                 });
                 window.addEventListener('focus', () => sendUiReadyAgain());
 
@@ -754,11 +811,13 @@
 
             function renderDayEvents(dayStartUtc) {
                 clearDayEventsRefreshTimer();
+                clearDayNowTimelineTimer();
                 updateDayEventsHeader(dayStartUtc);
 
                 const ul = $elist();
                 if (!ul) return;
                 ul.innerHTML = '';
+                ul.dataset.dayStartUtc = String(dayStartUtc);
                 // const dayEndUtc = dayStartUtc + 24 * 3600 * 1000 - 1;
 
                 if (!Array.isArray(gridEvents) || gridEvents.length === 0) {
@@ -810,6 +869,30 @@
                     li.appendChild(color);
                     li.appendChild(title);
                     li.appendChild(t);
+
+                    // 24h timeline under the event (segment = event slice, dot = current time in day)
+                    const timeline = document.createElement('div');
+                    timeline.className = 'mc-event-timeline';
+
+                    const seg = document.createElement('div');
+                    seg.className = 'mc-event-timeline-seg';
+                    seg.style.background = ev.color || 'var(--mc-default-event-color)';
+
+                    const startPct = clampPct(((slice.startUtc - dayStartUtc) / DAY) * 100);
+                    const endPct = clampPct(((slice.endUtc - dayStartUtc) / DAY) * 100);
+                    const left = Math.min(startPct, endPct);
+                    const right = Math.max(startPct, endPct);
+
+                    seg.style.left = left + '%';
+                    seg.style.width = Math.max(0, (right - left)) + '%';
+
+                    const nowDot = document.createElement('div');
+                    nowDot.className = 'mc-event-timeline-now';
+
+                    timeline.appendChild(seg);
+                    timeline.appendChild(nowDot);
+                    li.appendChild(timeline);
+
                     li.addEventListener('click', () => {
                         window.webviewApi?.postMessage?.({name: 'openNote', id: ev.id});
                     });
@@ -822,6 +905,9 @@
 
                     // log('DAY ev.title=', ev.title, 'ev.tz=', ev.tz, 'startUtc=', ev.startUtc);
                 }
+
+                updateDayNowTimelineDot();
+                scheduleDayNowTimelineTick();
 
                 markPastDayEvents();
                 scheduleDayEventsRefresh();
