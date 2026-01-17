@@ -60,7 +60,7 @@ export async function registerSettings(joplin: any) {
             description: 'Optional link to your calendar provider export page (http/https only).',
         },
         [SETTING_DAY_EVENTS_REFRESH_MINUTES]: {
-            value: 5,
+            value: 1,
             type: 1, // int
             section: 'mycalendar',
             public: true,

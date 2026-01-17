@@ -15,6 +15,8 @@ type LoggerMock = {
     setDebugEnabled: jest.Mock<any, any>;
 };
 
+const getDayEventsRefreshMinutes_DEFAULT: number = 1;
+
 const loadModuleWithMocks = async (settingsMock: SettingsMock, loggerMock: LoggerMock) => {
     jest.resetModules();
 
@@ -42,7 +44,7 @@ describe('uiSettings.pushUiSettings', () => {
         const settingsMock: SettingsMock = {
             getWeekStart: jest.fn().mockResolvedValue('monday'),
             getDebugEnabled: jest.fn().mockResolvedValue(true),
-            getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(5),
+            getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(getDayEventsRefreshMinutes_DEFAULT),
         };
         const loggerMock: LoggerMock = {
             setDebugEnabled: jest.fn(),
@@ -66,7 +68,7 @@ describe('uiSettings.pushUiSettings', () => {
             weekStart: 'monday',
             debug: true,
             icsExportUrl: '',
-            dayEventsRefreshMinutes: 5,
+            dayEventsRefreshMinutes: getDayEventsRefreshMinutes_DEFAULT,
         });
     });
 
@@ -75,7 +77,7 @@ describe('uiSettings.pushUiSettings', () => {
             getWeekStart: jest.fn().mockResolvedValue('sunday'),
             getDebugEnabled: jest.fn().mockResolvedValue(false),
             getIcsExportUrl: jest.fn().mockResolvedValue('https://example.test/export.ics'),
-            getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(5),
+            getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(getDayEventsRefreshMinutes_DEFAULT),
         };
         const loggerMock: LoggerMock = {
             setDebugEnabled: jest.fn(),
@@ -95,7 +97,7 @@ describe('uiSettings.pushUiSettings', () => {
             weekStart: 'sunday',
             debug: false,
             icsExportUrl: 'https://example.test/export.ics',
-            dayEventsRefreshMinutes: 5,
+            dayEventsRefreshMinutes: getDayEventsRefreshMinutes_DEFAULT,
         });
     });
 
@@ -103,7 +105,7 @@ describe('uiSettings.pushUiSettings', () => {
         const settingsMock: SettingsMock = {
             getWeekStart: jest.fn().mockResolvedValue('monday'),
             getDebugEnabled: jest.fn().mockResolvedValue(true),
-            getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(5),
+            getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(getDayEventsRefreshMinutes_DEFAULT),
         };
         const loggerMock: LoggerMock = {
             setDebugEnabled: jest.fn(),
