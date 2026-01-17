@@ -199,6 +199,12 @@
             const $elist = () => document.getElementById('mc-events-list');
             const $dayLabel = () => document.getElementById('mc-events-day-label');
 
+            function setGridLoading(isLoading) {
+                const grid = $grid();
+                if (!grid) return;
+                grid.classList.toggle('mc-loading', !!isLoading);
+            }
+
             function updateDayEventsHeader(dayStartTs) {
                 const el = $dayLabel();
                 if (!el) return;
@@ -435,17 +441,22 @@
                     [MSG.IMPORT_DONE]: () => {
                         log('import finished -> refreshing calendar grid');
                         gridEvents = [];
+                        setGridLoading(true);
                         drawMonth();
                     },
                     [MSG.IMPORT_ERROR]: () => {
                         log('import finished -> refreshing calendar grid');
                         gridEvents = [];
+                        setGridLoading(true);
                         drawMonth();
                     },
 
                     [MSG.RANGE_EVENTS]: () => {
                         log('got rangeEvents:', (msg.events || []).length);
                         gridEvents = msg.events || [];
+
+                        setGridLoading(false);
+
                         paintGrid();
                         renderDayEvents(selectedDayUtc);
                     },
@@ -523,6 +534,8 @@
                 renderToolbar();
                 renderGridSkeleton();
 
+                setGridLoading(true);
+
                 const from = startOfCalendarGridLocal(current);
                 const to = endOfCalendarGridLocal(current);
 
@@ -569,6 +582,14 @@
                 if (!grid) return;
                 grid.innerHTML = '';
 
+                // Loader overlay (accessibility-friendly)
+                const loader = document.createElement('div');
+                loader.className = 'mc-grid-loader';
+                loader.setAttribute('role', 'status');
+                loader.setAttribute('aria-live', 'polite');
+                loader.setAttribute('aria-label', 'Loading calendar');
+                loader.innerHTML = '<div class="mc-grid-spinner"></div>';
+                grid.appendChild(loader);
 
                 const head = document.createElement('div');
                 head.className = 'mc-grid-head';

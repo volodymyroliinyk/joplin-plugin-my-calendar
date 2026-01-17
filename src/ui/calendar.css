@@ -93,6 +93,48 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
     border: 1px solid var(--joplin-divider-color);
     border-radius: 8px;
     overflow: hidden;
+    position: relative;
+}
+
+/* Full-cover overlay */
+#mc-grid .mc-grid-loader {
+    position: absolute;
+    inset: 0;
+    display: none; /* shown via .mc-loading */
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--joplin-background-color) 70%, transparent);
+    backdrop-filter: blur(1px);
+    z-index: 10;
+}
+
+/* Show loader when grid is loading */
+#mc-grid.mc-loading .mc-grid-loader {
+    display: flex;
+}
+
+/* Rotating spinner (Joplin-themed) */
+#mc-grid .mc-grid-spinner {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 3px solid color-mix(in srgb, var(--joplin-color) 20%, transparent);
+    border-top-color: var(--joplin-color);
+    animation: mc-spin 900ms linear infinite;
+}
+
+@keyframes mc-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (pointer: coarse) and (hover: none) {
+    #mc-grid .mc-grid-spinner {
+        width: 34px;
+        height: 34px;
+        border-width: 4px;
+    }
 }
 
 .mc-grid-head, .mc-grid-body {
