@@ -121,6 +121,24 @@ describe('src/ui/calendar.js', () => {
         expect(headCells.length).toBe(7);
     });
 
+    test('grid: marks past days with mc-past (but not today)', () => {
+        const {getOnMessageCb} = installWebviewApi();
+        loadCalendarJsFresh();
+        sendPluginMessage(getOnMessageCb, {name: 'uiSettings', weekStart: 'sunday'});
+
+        const selected = findSelectedCell();
+        expect(selected).toBeTruthy();
+
+        const todayTs = Number(selected!.dataset.utc);
+        const cells = findGridCells();
+        const past = cells.find(c => Number(c.dataset.utc) < todayTs);
+
+        expect(past).toBeTruthy();
+        expect(past!.classList.contains('mc-past')).toBe(true);
+        expect(selected!.classList.contains('mc-past')).toBe(false);
+    });
+
+
     test('init: first drawMonth triggers requestRangeEvents (postMessage)', () => {
         const {postMessage, getOnMessageCb} = installWebviewApi();
         loadCalendarJsFresh();
