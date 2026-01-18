@@ -23,6 +23,15 @@ function sanitizeExternalUrl(input: unknown): string {
     }
 }
 
+async function isMobile(joplin: any): Promise<boolean> {
+    try {
+        const v = await joplin.versionInfo();
+        return (v as any)?.platform === 'mobile';
+    } catch {
+        return false; // якщо API старе/нема - вважаємо desktop
+    }
+}
+
 export async function registerSettings(joplin: any) {
     if (!joplin?.settings?.registerSection || !joplin?.settings?.registerSettings) return;
 
@@ -31,6 +40,8 @@ export async function registerSettings(joplin: any) {
         label: 'My Calendar',
         iconName: 'fas fa-calendar',
     });
+
+    const mobile = await isMobile(joplin);
 
     await joplin.settings.registerSettings({
         // 1) Calendar
@@ -66,7 +77,7 @@ export async function registerSettings(joplin: any) {
             value: '',
             type: 2, // string
             section: 'mycalendar',
-            public: true,
+            public: !mobile,
             label: 'ICS export page URL',
             description: 'ICS import section: Optional link to your one calendar provider export page (http/https only).',
         },
