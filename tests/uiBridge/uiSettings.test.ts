@@ -8,7 +8,7 @@ type SettingsMock = {
     getWeekStart: jest.Mock<any, any>;
     getDebugEnabled: jest.Mock<any, any>;
     getDayEventsRefreshMinutes: jest.Mock<any, any>;
-    getIcsExportUrl?: jest.Mock<any, any>;
+    getIcsExportLinks?: jest.Mock<any, any>;
 };
 
 type LoggerMock = {
@@ -24,7 +24,7 @@ const loadModuleWithMocks = async (settingsMock: SettingsMock, loggerMock: Logge
         getWeekStart: settingsMock.getWeekStart,
         getDebugEnabled: settingsMock.getDebugEnabled,
         getDayEventsRefreshMinutes: settingsMock.getDayEventsRefreshMinutes,
-        ...(settingsMock.getIcsExportUrl ? {getIcsExportUrl: settingsMock.getIcsExportUrl} : {}),
+        ...(settingsMock.getIcsExportLinks ? {getIcsExportLinks: settingsMock.getIcsExportLinks} : {}),
     }));
 
     jest.doMock('../../src/main/utils/logger', () => ({
@@ -40,7 +40,7 @@ describe('uiSettings.pushUiSettings', () => {
         jest.clearAllMocks();
     });
 
-    test('posts uiSettings to panel and syncs debug into logger (no getIcsExportUrl => empty string)', async () => {
+    test('posts uiSettings to panel and syncs debug into logger (no getIcsExportLinks => array fo empty strings)', async () => {
         const settingsMock: SettingsMock = {
             getWeekStart: jest.fn().mockResolvedValue('monday'),
             getDebugEnabled: jest.fn().mockResolvedValue(true),
@@ -67,16 +67,18 @@ describe('uiSettings.pushUiSettings', () => {
             name: 'uiSettings',
             weekStart: 'monday',
             debug: true,
-            icsExportUrl: '',
+            icsExportLinks: [],
             dayEventsRefreshMinutes: getDayEventsRefreshMinutes_DEFAULT,
         });
     });
 
-    test('includes icsExportUrl when settings.getIcsExportUrl exists', async () => {
+    test('includes icsExportLinks when settings provides them', async () => {
         const settingsMock: SettingsMock = {
             getWeekStart: jest.fn().mockResolvedValue('sunday'),
             getDebugEnabled: jest.fn().mockResolvedValue(false),
-            getIcsExportUrl: jest.fn().mockResolvedValue('https://example.test/export.ics'),
+            getIcsExportLinks: jest
+                .fn()
+                .mockResolvedValue([{title: 'Work', url: 'https://example.test/work.ics'}]),
             getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(getDayEventsRefreshMinutes_DEFAULT),
         };
         const loggerMock: LoggerMock = {
@@ -96,7 +98,7 @@ describe('uiSettings.pushUiSettings', () => {
             name: 'uiSettings',
             weekStart: 'sunday',
             debug: false,
-            icsExportUrl: 'https://example.test/export.ics',
+            icsExportLinks: [{title: 'Work', url: 'https://example.test/work.ics'}],
             dayEventsRefreshMinutes: getDayEventsRefreshMinutes_DEFAULT,
         });
     });

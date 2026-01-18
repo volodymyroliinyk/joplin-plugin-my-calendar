@@ -117,27 +117,34 @@ describe('src/ui/icsImport.js', () => {
         expect(postMessage).toHaveBeenCalledWith({name: 'requestFolders'});
     });
 
-    test('renders safe ICS export link above Debug log and blocks javascript: URLs', () => {
+    test('renders safe ICS export link buttons above Debug log and blocks javascript: URLs', () => {
         setupDom(true);
         const {getOnMessageCb} = installWebviewApi();
 
         loadIcsImportFresh();
 
-        // Send a safe URL
+        // Send safe links
         sendPluginMessage(getOnMessageCb, {
             name: 'uiSettings',
             debug: true,
-            icsExportUrl: 'https://calendar.google.com/calendar/u/1/r/settings/export',
+            icsExportLinks: [
+                {title: 'Google Calendar', url: 'https://calendar.google.com/calendar/u/1/r/settings/export'},
+                {title: 'Work', url: 'https://example.test/work/export'},
+            ],
         });
 
         const linkBox = document.querySelector('#mc-ics-export-link') as HTMLElement;
         expect(linkBox).toBeTruthy();
 
-        const a = linkBox.querySelector('a') as HTMLAnchorElement;
-        expect(a).toBeTruthy();
-        expect(a.href).toBe('https://calendar.google.com/calendar/u/1/r/settings/export');
-        expect(a.textContent).toBe('https://calendar.google.com/calendar/u/1/r/settings/export');
-        expect(a.rel).toContain('noopener');
+        const btns = Array.from(linkBox.querySelectorAll('a')) as HTMLAnchorElement[];
+        expect(btns.length).toBe(2);
+
+        expect(btns[0].href).toBe('https://calendar.google.com/calendar/u/1/r/settings/export');
+        expect(btns[0].textContent).toBe('Google Calendar');
+        expect(btns[0].rel).toContain('noopener');
+
+        expect(btns[1].href).toBe('https://example.test/work/export');
+        expect(btns[1].textContent).toBe('Work');
 
         // Link box should be before Debug log header
         const debugHeader = Array.from(document.querySelectorAll('div')).find(
@@ -147,7 +154,11 @@ describe('src/ui/icsImport.js', () => {
         expect(linkBox.compareDocumentPosition(debugHeader) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 
         // Now send an unsafe URL - it should not render
-        sendPluginMessage(getOnMessageCb, {name: 'uiSettings', debug: true, icsExportUrl: 'javascript:alert(1)'});
+        sendPluginMessage(getOnMessageCb, {
+            name: 'uiSettings',
+            debug: true,
+            icsExportLinks: [{title: 'Bad', url: 'javascript:alert(1)'}],
+        });
 
         const linkBox2 = document.querySelector('#mc-ics-export-link') as HTMLElement;
         const a2 = linkBox2 ? (linkBox2.querySelector('a') as HTMLAnchorElement) : null;

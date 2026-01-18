@@ -4,10 +4,24 @@ import {setDebugEnabled} from '../utils/logger';
 
 export const SETTING_DEBUG = 'mycalendar.debug';
 export const SETTING_WEEK_START = 'mycalendar.weekStart';
-export const SETTING_ICS_EXPORT_URL = 'mycalendar.icsExportUrl';
+
+// New multi-link settings (up to 4). Titles are optional.
+export const SETTING_ICS_EXPORT_LINK1_TITLE = 'mycalendar.icsExportLink1Title';
+export const SETTING_ICS_EXPORT_LINK1_URL = 'mycalendar.icsExportLink1Url';
+export const SETTING_ICS_EXPORT_LINK2_TITLE = 'mycalendar.icsExportLink2Title';
+export const SETTING_ICS_EXPORT_LINK2_URL = 'mycalendar.icsExportLink2Url';
+export const SETTING_ICS_EXPORT_LINK3_TITLE = 'mycalendar.icsExportLink3Title';
+export const SETTING_ICS_EXPORT_LINK3_URL = 'mycalendar.icsExportLink3Url';
+export const SETTING_ICS_EXPORT_LINK4_TITLE = 'mycalendar.icsExportLink4Title';
+export const SETTING_ICS_EXPORT_LINK4_URL = 'mycalendar.icsExportLink4Url';
 export const SETTING_DAY_EVENTS_REFRESH_MINUTES = 'mycalendar.dayEventsRefreshMinutes';
 
 export type WeekStart = 'monday' | 'sunday';
+
+export type IcsExportLink = {
+    title: string;
+    url: string;
+};
 
 function sanitizeExternalUrl(input: unknown): string {
     const s = String(input ?? '').trim();
@@ -21,6 +35,13 @@ function sanitizeExternalUrl(input: unknown): string {
     } catch {
         return '';
     }
+}
+
+function sanitizeTitle(input: unknown): string {
+    const s = String(input ?? '').trim();
+    // Keep it short to avoid breaking the layout.
+    if (!s) return '';
+    return s.length > 60 ? s.slice(0, 60) : s;
 }
 
 async function isMobile(joplin: any): Promise<boolean> {
@@ -72,14 +93,73 @@ export async function registerSettings(joplin: any) {
         },
 
         // 7) ICS Import
-        // 8) ICS export page URL
-        [SETTING_ICS_EXPORT_URL]: {
+        // 8) ICS export links (up to 4)
+        [SETTING_ICS_EXPORT_LINK1_TITLE]: {
             value: '',
             type: 2, // string
             section: 'mycalendar',
             public: !mobile,
-            label: 'ICS export page URL',
-            description: 'ICS import section: Optional link to your one calendar provider export page (http/https only).',
+            label: 'ICS export link 1 title',
+            description: 'ICS import section: Optional title for export link #1 (shown on button).',
+        },
+        [SETTING_ICS_EXPORT_LINK1_URL]: {
+            value: '',
+            type: 2, // string
+            section: 'mycalendar',
+            public: !mobile,
+            label: 'ICS export link 1 URL',
+            description: 'ICS import section: Optional URL for export link #1 (http/https only).',
+        },
+
+        [SETTING_ICS_EXPORT_LINK2_TITLE]: {
+            value: '',
+            type: 2,
+            section: 'mycalendar',
+            public: !mobile,
+            label: 'ICS export link 2 title',
+            description: 'ICS import section: Optional title for export link #2 (shown on button).',
+        },
+        [SETTING_ICS_EXPORT_LINK2_URL]: {
+            value: '',
+            type: 2,
+            section: 'mycalendar',
+            public: !mobile,
+            label: 'ICS export link 2 URL',
+            description: 'ICS import section: Optional URL for export link #2 (http/https only).',
+        },
+
+        [SETTING_ICS_EXPORT_LINK3_TITLE]: {
+            value: '',
+            type: 2,
+            section: 'mycalendar',
+            public: !mobile,
+            label: 'ICS export link 3 title',
+            description: 'ICS import section: Optional title for export link #3 (shown on button).',
+        },
+        [SETTING_ICS_EXPORT_LINK3_URL]: {
+            value: '',
+            type: 2,
+            section: 'mycalendar',
+            public: !mobile,
+            label: 'ICS export link 3 URL',
+            description: 'ICS import section: Optional URL for export link #3 (http/https only).',
+        },
+
+        [SETTING_ICS_EXPORT_LINK4_TITLE]: {
+            value: '',
+            type: 2,
+            section: 'mycalendar',
+            public: !mobile,
+            label: 'ICS export link 4 title',
+            description: 'ICS import section: Optional title for export link #4 (shown on button).',
+        },
+        [SETTING_ICS_EXPORT_LINK4_URL]: {
+            value: '',
+            type: 2,
+            section: 'mycalendar',
+            public: !mobile,
+            label: 'ICS export link 4 URL',
+            description: 'ICS import section: Optional URL for export link #4 (http/https only).',
         },
 
         // 10) Developer
@@ -95,17 +175,48 @@ export async function registerSettings(joplin: any) {
     });
 
 
-    // Keep stored URL safe even if user pastes `javascript:` etc.
+    // Keep stored URLs safe even if user pastes `javascript:` etc.
     if (typeof joplin?.settings?.onChange === 'function' && typeof joplin?.settings?.setValue === 'function') {
         await joplin.settings.onChange(async (event: any) => {
             try {
                 const keys: string[] = event?.keys || [];
-                if (!keys.includes(SETTING_ICS_EXPORT_URL)) return;
 
-                const raw = await joplin.settings.value(SETTING_ICS_EXPORT_URL);
-                const safe = sanitizeExternalUrl(raw);
-                if (raw !== safe) {
-                    await joplin.settings.setValue(SETTING_ICS_EXPORT_URL, safe);
+                const maybeFixUrl = async (key: string) => {
+                    const raw = await joplin.settings.value(key);
+                    const safe = sanitizeExternalUrl(raw);
+                    if (raw !== safe) await joplin.settings.setValue(key, safe);
+                };
+
+                const maybeFixTitle = async (key: string) => {
+                    const raw = await joplin.settings.value(key);
+                    const safe = sanitizeTitle(raw);
+                    if (raw !== safe) await joplin.settings.setValue(key, safe);
+                };
+
+                const urlKeys = [
+                    SETTING_ICS_EXPORT_LINK1_URL,
+                    SETTING_ICS_EXPORT_LINK2_URL,
+                    SETTING_ICS_EXPORT_LINK3_URL,
+                    SETTING_ICS_EXPORT_LINK4_URL,
+                ];
+
+                const titleKeys = [
+                    SETTING_ICS_EXPORT_LINK1_TITLE,
+                    SETTING_ICS_EXPORT_LINK2_TITLE,
+                    SETTING_ICS_EXPORT_LINK3_TITLE,
+                    SETTING_ICS_EXPORT_LINK4_TITLE,
+                ];
+
+                const touchedUrl = urlKeys.some((k) => keys.includes(k));
+                const touchedTitle = titleKeys.some((k) => keys.includes(k));
+
+                if (!touchedUrl && !touchedTitle) return;
+
+                for (const k of urlKeys) {
+                    if (keys.includes(k)) await maybeFixUrl(k);
+                }
+                for (const k of titleKeys) {
+                    if (keys.includes(k)) await maybeFixTitle(k);
                 }
             } catch {
                 // ignore
@@ -125,9 +236,28 @@ export async function getDebugEnabled(joplin: any): Promise<boolean> {
     return !!(await joplin.settings.value(SETTING_DEBUG));
 }
 
-export async function getIcsExportUrl(joplin: any): Promise<string> {
-    const raw = await joplin.settings.value(SETTING_ICS_EXPORT_URL);
-    return sanitizeExternalUrl(raw);
+export async function getIcsExportLinks(joplin: any): Promise<IcsExportLink[]> {
+    const pairs: Array<{ titleKey: string; urlKey: string }> = [
+        {titleKey: SETTING_ICS_EXPORT_LINK1_TITLE, urlKey: SETTING_ICS_EXPORT_LINK1_URL},
+        {titleKey: SETTING_ICS_EXPORT_LINK2_TITLE, urlKey: SETTING_ICS_EXPORT_LINK2_URL},
+        {titleKey: SETTING_ICS_EXPORT_LINK3_TITLE, urlKey: SETTING_ICS_EXPORT_LINK3_URL},
+        {titleKey: SETTING_ICS_EXPORT_LINK4_TITLE, urlKey: SETTING_ICS_EXPORT_LINK4_URL},
+    ];
+
+    const out: IcsExportLink[] = [];
+
+    for (const p of pairs) {
+        const rawTitle = await joplin.settings.value(p.titleKey);
+        const rawUrl = await joplin.settings.value(p.urlKey);
+
+        const title = sanitizeTitle(rawTitle);
+        const url = sanitizeExternalUrl(rawUrl);
+
+        if (!url) continue;
+        out.push({title, url});
+    }
+
+    return out;
 }
 
 export async function getDayEventsRefreshMinutes(joplin: any): Promise<number> {

@@ -6,7 +6,8 @@
     window.__mcUiSettings = window.__mcUiSettings || {
         weekStart: 'monday',
         debug: undefined,
-        icsExportUrl: '',
+        // new multi-link format
+        icsExportLinks: [],
     };
     const uiSettings = window.__mcUiSettings;
 
@@ -230,25 +231,51 @@
         const debugHeader = el('div', {style: 'font-weight:600;margin-top:10px'}, ['Debug log']);
         const exportLinkBox = el('div', {id: IDS.exportLinkBox, style: 'margin-top:10px'});
 
-        function renderExportLink() {
+        function renderExportLinks() {
             exportLinkBox.textContent = '';
 
-            const safe = sanitizeExternalUrl(uiSettings.icsExportUrl);
-            if (!safe) return;
+            // Normalize incoming settings (support both new and legacy field)
+            const rawLinks = Array.isArray(uiSettings.icsExportLinks) ? uiSettings.icsExportLinks : [];
+            const links = [];
 
-            const label = el('div', {style: 'font-weight:600;margin-bottom:4px'}, ['ICS export link']);
-            const a = el('a', {href: safe, target: '_blank', rel: 'noopener noreferrer'}, []);
-            // Use textContent (no HTML) to avoid XSS
-            a.textContent = safe;
+            for (const it of rawLinks) {
+                if (!it) continue;
+                const url = sanitizeExternalUrl(it.url);
+                if (!url) continue;
+                const title = String(it.title ?? '').trim();
+                links.push({title, url});
+            }
+
+            if (!links.length) return;
+
+            const label = el('div', {style: 'font-weight:600;margin-bottom:6px'}, ['ICS export links']);
+            const btnRow = el('div', {style: 'display:flex; gap:6px; flex-wrap:wrap;'}, []);
+
+            links.forEach((l, idx) => {
+                const text = (l.title || '').trim() || `Link ${idx + 1}`;
+                // Use <a> styled as a button (more reliable inside webviews)
+                const a = el(
+                    'a',
+                    {
+                        href: l.url,
+                        target: '_blank',
+                        rel: 'noopener noreferrer',
+                        class: 'mc-setting-btn',
+                        style: 'text-decoration:none;',
+                    },
+                    [text],
+                );
+                btnRow.appendChild(a);
+            });
 
             exportLinkBox.appendChild(label);
-            exportLinkBox.appendChild(a);
+            exportLinkBox.appendChild(btnRow);
         }
 
         function applyDebugUI() {
             // Keep export link near bottom (above Debug log when enabled)
             if (exportLinkBox.parentNode) root.removeChild(exportLinkBox);
-            renderExportLink();
+            renderExportLinks();
             if (exportLinkBox.childNodes.length) root.appendChild(exportLinkBox);
 
             if (debugHeader.parentNode) root.removeChild(debugHeader);
@@ -421,7 +448,7 @@
             switch (msg.name) {
                 case 'uiSettings': {
                     if (typeof msg.debug === 'boolean') uiSettings.debug = msg.debug;
-                    if (typeof msg.icsExportUrl === 'string') uiSettings.icsExportUrl = msg.icsExportUrl;
+                    if (Array.isArray(msg.icsExportLinks)) uiSettings.icsExportLinks = msg.icsExportLinks;
                     applyDebugUI();
                     return;
                 }
