@@ -121,6 +121,28 @@ describe('src/ui/calendar.js', () => {
         expect(headCells.length).toBe(7);
     });
 
+    test('grid: marks weekend head cells and day cells with mc-weekend', () => {
+        const {getOnMessageCb} = installWebviewApi();
+        loadCalendarJsFresh();
+        sendPluginMessage(getOnMessageCb, {name: 'uiSettings', weekStart: 'sunday'});
+
+        const headCells = Array.from(document.querySelectorAll('#mc-grid .mc-grid-head .mc-grid-head-cell')) as HTMLElement[];
+        const sunHead = headCells.find(c => c.textContent === 'Sun');
+        const satHead = headCells.find(c => c.textContent === 'Sat');
+        expect(sunHead).toBeTruthy();
+        expect(satHead).toBeTruthy();
+        expect(sunHead!.classList.contains('mc-weekend')).toBe(true);
+        expect(satHead!.classList.contains('mc-weekend')).toBe(true);
+
+        const cells = findGridCells();
+        // Check a subset for stability/performance
+        for (const c of cells.slice(0, 14)) {
+            const ts = Number(c.dataset.utc);
+            const dow = new Date(ts).getDay(); // Sun=0..Sat=6
+            expect(c.classList.contains('mc-weekend')).toBe(dow === 0 || dow === 6);
+        }
+    });
+
     test('grid: marks past days with mc-past (but not today)', () => {
         const {getOnMessageCb} = installWebviewApi();
         loadCalendarJsFresh();
