@@ -4,8 +4,7 @@ TODO:[1]:
         - developer:
             - bash builder script for automated version increasing;
     - refactoring:
-        - logger:
-           - final refactoring;
+        - final refactoring;
         - Move all *.style attributes from js/ts to .css;
         - full code review and refactoring;
     - readme.md:

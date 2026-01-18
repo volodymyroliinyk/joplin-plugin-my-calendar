@@ -1,12 +1,12 @@
 // src/main/settings/settings.ts
 
-// import joplin from 'api';
 import {setDebugEnabled} from '../utils/logger';
 
 export const SETTING_DEBUG = 'mycalendar.debug';
 export const SETTING_WEEK_START = 'mycalendar.weekStart';
 export const SETTING_ICS_EXPORT_URL = 'mycalendar.icsExportUrl';
 export const SETTING_DAY_EVENTS_REFRESH_MINUTES = 'mycalendar.dayEventsRefreshMinutes';
+
 export type WeekStart = 'monday' | 'sunday';
 
 function sanitizeExternalUrl(input: unknown): string {
@@ -25,51 +25,66 @@ function sanitizeExternalUrl(input: unknown): string {
 
 export async function registerSettings(joplin: any) {
     if (!joplin?.settings?.registerSection || !joplin?.settings?.registerSettings) return;
+
+    // ---- Calendar ----------------------------------------------------------
     await joplin.settings.registerSection('mycalendar', {
         label: 'My Calendar',
         iconName: 'fas fa-calendar',
     });
 
     await joplin.settings.registerSettings({
-        [SETTING_DEBUG]: {
-            value: false,
-            type: 3, // for debug
-            section: 'mycalendar',
-            public: true,
-            label: 'Enable debug logging',
-        },
+        // 1) Calendar
+        // 2) Week starts on
         [SETTING_WEEK_START]: {
             value: 'monday',
-            type: 2, // for weekStart
+            type: 2, // string
             section: 'mycalendar',
             public: true,
             label: 'Week starts on',
-            description: 'First day of week in calendar grid.',
+            description: 'Calendar section: First day of week in calendar grid. Monday or Sunday. Monday as default.',
             isEnum: true,
             options: {
                 monday: 'Monday',
                 sunday: 'Sunday',
             },
         },
-        [SETTING_ICS_EXPORT_URL]: {
-            value: '',
-            type: 2, // string
-            section: 'mycalendar',
-            public: true,
-            label: 'ICS export page URL',
-            description: 'Optional link to your calendar provider export page (http/https only).',
-        },
+
+        // 4) Day events
+        // 5) Day events auto-refresh (minutes)
         [SETTING_DAY_EVENTS_REFRESH_MINUTES]: {
             value: 1,
             type: 1, // int
             section: 'mycalendar',
             public: true,
             label: 'Day events auto-refresh (minutes)',
-            description: 'How often the day events list updates its UI (e.g. dimming events that have ended).',
+            description: 'Day events section: How often the list refreshes.',
+        },
+
+        // 7) ICS Import
+        // 8) ICS export page URL
+        [SETTING_ICS_EXPORT_URL]: {
+            value: '',
+            type: 2, // string
+            section: 'mycalendar',
+            public: true,
+            label: 'ICS export page URL',
+            description: 'ICS import section: Optional link to your one calendar provider export page (http/https only).',
+        },
+
+        // 10) Developer
+        // 11) Enable debug logging
+        [SETTING_DEBUG]: {
+            value: false,
+            type: 3, // bool
+            section: 'mycalendar',
+            public: true,
+            label: 'Enable debug logging',
+            description: 'Enable visible in the interface extra logging to help debugging.',
         },
     });
 
-    // Keep stored URL safe (e.g. block `javascript:`) even if user pastes it.
+
+    // Keep stored URL safe even if user pastes `javascript:` etc.
     if (typeof joplin?.settings?.onChange === 'function' && typeof joplin?.settings?.setValue === 'function') {
         await joplin.settings.onChange(async (event: any) => {
             try {

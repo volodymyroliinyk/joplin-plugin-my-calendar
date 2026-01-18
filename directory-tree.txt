@@ -39,11 +39,13 @@ joplin-plugin-my-calendar/
 │   │   ├── eventsCache.test.ts
 │   │   └── icsImportService.test.ts
 │   ├── ui/
+│   │   ├── calendar.messages.test.ts
 │   │   ├── calendar.test.ts
 │   │   ├── calendar.weekStart.test.ts
 │   │   └── icsImport.test.ts
 │   ├── uiBridge/
-│   │   └── panelController.test.ts
+│   │   ├── panelController.test.ts
+│   │   └── uiSettings.test.ts
 │   ├── utils/
 │   │   ├── logger.test.ts
 │   │   └── toast.test.ts
