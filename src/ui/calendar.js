@@ -156,6 +156,34 @@
 
             const DAY = 24 * 60 * 60 * 1000;
 
+            function getWeekdayMeta() {
+                // JS Date.getDay(): Sun=0..Sat=6
+                // We keep the UI labels stable (short English) because the grid is compact;
+                // actual date formatting elsewhere is localized via toLocaleDateString.
+                if (uiSettings.weekStart === 'sunday') {
+                    return [
+                        {label: 'Sun', dow: 0},
+                        {label: 'Mon', dow: 1},
+                        {label: 'Tue', dow: 2},
+                        {label: 'Wed', dow: 3},
+                        {label: 'Thu', dow: 4},
+                        {label: 'Fri', dow: 5},
+                        {label: 'Sat', dow: 6},
+                    ];
+                }
+
+                // Default: Monday week start
+                return [
+                    {label: 'Mon', dow: 1},
+                    {label: 'Tue', dow: 2},
+                    {label: 'Wed', dow: 3},
+                    {label: 'Thu', dow: 4},
+                    {label: 'Fri', dow: 5},
+                    {label: 'Sat', dow: 6},
+                    {label: 'Sun', dow: 0},
+                ];
+            }
+
             // Local North (00:00) in MS of the era
             function localMidnightTs(d) {
                 return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
@@ -625,13 +653,6 @@
                 }, 1200);
             }
 
-            function getWeekdayNames() {
-                const base = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-                return uiSettings.weekStart === 'sunday'
-                    ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-                    : base;
-            }
-
             function renderGridSkeleton() {
                 const start = startOfCalendarGridLocal(current);
                 const todayTs = localMidnightTs(new Date());
@@ -650,10 +671,14 @@
 
                 const head = document.createElement('div');
                 head.className = 'mc-grid-head';
-                for (const n of getWeekdayNames()) {
+                for (const {label, dow} of getWeekdayMeta()) {
                     const c = document.createElement('div');
                     c.className = 'mc-grid-head-cell';
-                    c.textContent = n;
+                    c.textContent = label;
+                    c.dataset.dow = String(dow);
+                    // Weekend header cells (Sat/Sun)
+                    if (dow === 0 || dow === 6) c.classList.add('mc-weekend');
+
                     head.appendChild(c);
                 }
                 grid.appendChild(head);
@@ -671,13 +696,16 @@
                     cell.className = 'mc-cell';
                     cell.dataset.utc = String(cellTs);
 
+                    const dow = cellDate.getDay(); // Sun=0..Sat=6
+                    if (dow === 0 || dow === 6) cell.classList.add('mc-weekend');
+
                     const inThisMonth = cellDate.getMonth() === current.getMonth();
                     if (!inThisMonth) cell.classList.add('mc-out');
 
                     // Visually mute all days before today (including leading/trailing days
                     // from adjacent months shown in the 6-week grid).
                     if (cellTs < todayTs) cell.classList.add('mc-past');
-                                       
+
                     if (selectedDayUtc === cellTs) cell.classList.add('mc-selected');
                     if (todayTs === cellTs) cell.classList.add('mc-today');
 

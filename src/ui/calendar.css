@@ -38,6 +38,10 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
     --scrollbar-thumb-color-hover: var(--joplin-scrollbar-thumb-color-hover);
     --mc-default-event-color: #1470d9;
     --mc-past-opacity: 0.45;
+    /* Subtle weekend highlight (theme-aware) */
+    --mc-weekend-head-bg: color-mix(in srgb, var(--joplin-background-color3) 70%, transparent);
+    --mc-weekend-cell-bg: color-mix(in srgb, var(--joplin-background-color3) 45%, transparent);
+
 }
 
 /*#joplin-plugin-content-root {*/
@@ -167,6 +171,11 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
     border-top: 1px solid var(--joplin-divider-color);
     padding: 4px 6px;
     overflow: hidden;
+}
+
+/* Highlight weekends inside the current month only (keep .mc-out styling as-is) */
+.mc-grid-body .mc-cell.mc-weekend:not(.mc-out) {
+    background: var(--mc-weekend-cell-bg);
 }
 
 .mc-grid-body .mc-cell:nth-child(7n) {
@@ -465,6 +474,10 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
         gap: 2px;
     }
 
+    /* Weekend columns (Sat/Sun) */
+    .mc-grid-head-cell.mc-weekend {
+        background: var(--mc-weekend-head-bg);
+    }
     .mc-grid-body {
         gap: 2px;
     }
