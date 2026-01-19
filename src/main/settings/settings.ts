@@ -49,7 +49,7 @@ async function isMobile(joplin: any): Promise<boolean> {
         const v = await joplin.versionInfo();
         return (v as any)?.platform === 'mobile';
     } catch {
-        return false; // якщо API старе/нема - вважаємо desktop
+        return false; // if the API is old/not available - consider desktop
     }
 }
 
