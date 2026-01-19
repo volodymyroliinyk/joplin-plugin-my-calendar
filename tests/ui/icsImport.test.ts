@@ -423,7 +423,7 @@ describe('src/ui/icsImport.js', () => {
 
     test('Import button: when default color enabled -> posts importDefaultColor', async () => {
         setupDom(true);
-        const {postMessage} = installWebviewApi();
+        const {postMessage, getOnMessageCb} = installWebviewApi();
 
         // enable default import color
         localStorage.setItem('mycalendar_import_color_enabled', '1');
@@ -445,6 +445,12 @@ describe('src/ui/icsImport.js', () => {
 
         loadIcsImportFresh();
 
+        // populate folders so targetFolderId is set
+        sendPluginMessage(getOnMessageCb, {
+            name: 'folders',
+            folders: [{id: 'f1', title: 'Folder1', depth: 0}],
+        });
+
         const fileInput = qs('#ics-file') as HTMLInputElement;
         const fileObj: any = {name: 'x.ics', size: 1};
         Object.defineProperty(fileInput, 'files', {value: [fileObj], configurable: true});
@@ -456,6 +462,17 @@ describe('src/ui/icsImport.js', () => {
 
         const call = postMessage.mock.calls.find(c => c[0]?.name === 'icsImport')?.[0];
         expect(call.importDefaultColor).toBe('#abcdef');
+    });
+
+    test('import section is a form and submit is AJAX-only (prevents default)', () => {
+        setupDom(true);
+        installWebviewApi();
+        loadIcsImportFresh();
+
+        const form = qs('#mc-ics-import-form') as HTMLFormElement;
+        const ev = new Event('submit', {cancelable: true});
+        form.dispatchEvent(ev);
+        expect(ev.defaultPrevented).toBe(true);
     });
 
     test('backend messages: importStatus/importDone/importError are logged', () => {

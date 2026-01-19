@@ -294,9 +294,27 @@
             style: 'flex:1;width:100%;',
         });
 
+        // Render
+        root.innerHTML = '';
+
+        // Wrap import controls in a <form> so this section is semantically a form,
+// BUT keep it AJAX-only: never allow a real submit/navigation.
+        const importForm = el('form', {
+            id: 'mc-ics-import-form',
+            style: 'margin:0; padding:0;',
+            onsubmit: (e) => {
+                // Critical for Joplin webviews: prevent full iframe reload
+                e.preventDefault();
+                e.stopPropagation();
+                // void doImportFromPicker();
+            },
+        });
+
+        // Reload button MUST be type="button"
         const btnReloadFolders = el(
             'button',
             {
+                type: 'button',
                 style: 'padding:6px 10px;',
                 class: 'mc-setting-btn',
                 onclick: () => window.webviewApi?.postMessage?.({name: 'requestFolders'}),
@@ -360,37 +378,72 @@
             },
         });
 
+        let importInProgress = false;
+
+        async function doImportFromPicker() {
+            if (importInProgress) return;
+
+            const f = fileInput.files && fileInput.files[0];
+            if (!f) return uiLogger.log('No file selected.');
+
+            const targetFolderId = String(folderSelect.value || '').trim();
+            if (!targetFolderId) return uiLogger.log('Select a target notebook first.');
+
+            importInProgress = true;
+            btnImportFile.disabled = true;
+            fileInput.disabled = true;
+            folderSelect.disabled = true;
+
+            const finish = () => {
+                importInProgress = false;
+                btnImportFile.disabled = false;
+                fileInput.disabled = false;
+                folderSelect.disabled = false;
+            };
+
+            try {
+                const reader = new FileReader();
+
+                reader.onerror = () => {
+                    uiLogger.error('FileReader error:', reader.error?.message || reader.error);
+                    finish();
+                };
+
+                reader.onload = () => {
+                    const text = String(reader.result || '');
+                    window.webviewApi?.postMessage?.({
+                        name: 'icsImport',
+                        mode: 'text',
+                        ics: text,
+                        source: `filepicker:${f.name}`,
+                        targetFolderId,
+                        preserveLocalColor,
+                        importDefaultColor: importColorEnabled ? importColorValue : undefined,
+                    });
+
+                    // Re-enable right after posting (AJAX-only; backend reports progress via messages)
+                    finish();
+                };
+
+                reader.readAsText(f);
+            } catch (e) {
+                uiLogger.error('Import failed:', e);
+                finish();
+            }
+        }
+
+        // Import button MUST be type="button"
         const btnImportFile = el(
             'button',
             {
+                type: 'button',
                 style: 'padding:6px 10px;',
                 class: 'mc-setting-btn',
-                onclick: async () => {
-                    const f = fileInput.files && fileInput.files[0];
-                    if (!f) return uiLogger.log('No file selected.');
-                    uiLogger.debug('Reading file via FileReader…', 'name=', f.name, 'size=', f.size);
-
-                    const reader = new FileReader();
-                    reader.onerror = () => uiLogger.error('FileReader error:', reader.error?.message || reader.error);
-                    reader.onload = () => {
-                        const text = String(reader.result || '');
-                        uiLogger.debug('File read OK. Importing…', 'len=', text.length);
-
-                        window.webviewApi?.postMessage?.({
-                            name: 'icsImport',
-                            mode: 'text',
-                            ics: text,
-                            source: `filepicker:${f.name}`,
-                            targetFolderId: folderSelect.value || undefined,
-                            preserveLocalColor,
-                            importDefaultColor: importColorEnabled ? importColorValue : undefined,
-                        });
-                    };
-                    reader.readAsText(f);
-                },
+                onclick: () => void doImportFromPicker(),
             },
             ['Import'],
         );
+
 
         const rowFile = el('div', {style: 'display:flex; gap:8px; align-items:center; margin:8px 0;'}, [
             el('div', {style: 'font-weight:600;'}, ['.ics file']),
@@ -433,11 +486,11 @@
             ]),
         ]);
 
-        // Render
-        root.innerHTML = '';
-        root.appendChild(folderRow);
-        root.appendChild(rowFile);
-        root.appendChild(optionsRow);
+
+        importForm.appendChild(folderRow);
+        importForm.appendChild(rowFile);
+        importForm.appendChild(optionsRow);
+        root.appendChild(importForm);
 
         applyDebugUI();
 
@@ -462,10 +515,18 @@
                         '[DONE]',
                         `added=${msg.added} updated=${msg.updated} skipped=${msg.skipped} errors=${msg.errors}`,
                     );
+                    importInProgress = false;
+                    btnImportFile.disabled = false;
+                    fileInput.disabled = false;
+                    folderSelect.disabled = false;
                     return;
 
                 case 'importError':
                     uiLogger.log('[ERROR]', msg.error || 'unknown');
+                    importInProgress = false;
+                    btnImportFile.disabled = false;
+                    fileInput.disabled = false;
+                    folderSelect.disabled = false;
                     return;
 
                 case 'folders':
