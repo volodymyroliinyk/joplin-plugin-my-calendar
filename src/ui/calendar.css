@@ -154,7 +154,8 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
 
 /* Week day name */
 .mc-grid-head-cell {
-    font-size: 12px;
+    font-size: 11px;
+    font-weight: bold;
     padding: 6px 8px;
     text-align: center;
     border-right: 1px solid var(--joplin-divider-color);
@@ -163,6 +164,99 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
 .mc-grid-head-cell:last-child {
     border-right: none;
 }
+
+/*****/
+/* --- Responsive grid width fix (320px -> 200px) --- */
+
+/* Make #mc-grid a size container so we can scale based on its own width */
+#mc-grid {
+    container-type: inline-size;
+
+    /* Defaults (>= ~320px) */
+    --mc-grid-gap: 4px;
+    --mc-head-font: 12px;
+    --mc-head-pad-y: 6px;
+    --mc-head-pad-x: 4px;
+
+    --mc-cell-pad-y: 4px;
+    --mc-cell-pad-x: 4px;
+    --mc-daynum-font: 12px;
+    --mc-count-font: 14px;
+
+    --mc-radius: 8px;
+}
+
+/* Critical: allow columns to shrink below min-content (prevents header “forcing” width) */
+.mc-grid-head,
+.mc-grid-body {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: var(--mc-grid-gap);
+}
+
+/* Ensure header cells can shrink and don’t overflow the grid */
+.mc-grid-head-cell {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    font-size: var(--mc-head-font);
+    padding: var(--mc-head-pad-y) var(--mc-head-pad-x);
+}
+
+/* Same shrink behavior for day cells */
+.mc-grid-body .mc-cell {
+    min-width: 0;
+    padding: var(--mc-cell-pad-y) var(--mc-cell-pad-x);
+}
+
+/* Scale typography inside cells */
+.mc-daynum {
+    font-size: var(--mc-daynum-font);
+}
+
+.mc-count {
+    font-size: var(--mc-count-font);
+}
+
+/* Optional: keep borders visually consistent at tiny widths */
+#mc-grid {
+    border-radius: var(--mc-radius);
+}
+
+/* --- Container-based scaling: 320px -> 200px --- */
+@container (max-width: 320px) {
+    #mc-grid {
+        /* cqw = 1% of container width */
+        --mc-grid-gap: clamp(2px, 1cqw, 4px);
+
+        --mc-head-font: clamp(10px, 3.6cqw, 12px);
+        --mc-head-pad-y: clamp(3px, 1.6cqw, 6px);
+        --mc-head-pad-x: clamp(4px, 2.2cqw, 8px);
+
+        --mc-cell-pad-y: clamp(2px, 1.4cqw, 4px);
+        --mc-cell-pad-x: clamp(3px, 2.0cqw, 6px);
+
+        --mc-daynum-font: clamp(10px, 3.6cqw, 12px);
+        --mc-count-font: clamp(11px, 4.2cqw, 14px);
+
+        --mc-radius: clamp(6px, 2.6cqw, 8px);
+    }
+
+    /* Slightly reduce border thickness perception at very tight widths */
+    .mc-grid-head-cell {
+        padding: var(--mc-head-pad-y) var(--mc-head-pad-x);
+    }
+}
+
+/* Extra-tight: below ~240px make weekday labels shorter if you ever localize to longer strings */
+@container (max-width: 240px) {
+    .mc-grid-head-cell {
+        letter-spacing: -0.1px;
+    }
+}
+
+/*****/
 
 .mc-grid-body .mc-cell {
     /*position: relative;*/
@@ -498,6 +592,21 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
     .mc-title {
         font-size: 12px;
         font-weight: normal;
+    }
+
+    /* Weekday header: smaller + bolder + less padding so "Mon/Wed" fits */
+    .mc-grid-head-cell {
+        font-size: 11px;
+        font-weight: Bold;
+        padding: 6px 4px;
+
+        /* Avoid "M..." / "W..." on mobile when it mostly fits */
+        text-overflow: clip;
+    }
+
+    /* Keep weekend header highlight as you already have */
+    .mc-grid-head-cell.mc-weekend {
+        background: var(--mc-weekend-head-bg);
     }
 }
 
