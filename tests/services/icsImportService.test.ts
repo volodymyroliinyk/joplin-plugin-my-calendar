@@ -71,13 +71,18 @@ describe('icsImportService.importIcsIntoNotes', () => {
                 .fn()
                 // page 1
                 .mockResolvedValueOnce({
-                    items: [{id: 'n1', title: 'Old', body: 'no blocks here'}],
+                    items: [{id: 'n1', title: 'Old', body: 'no blocks here', parent_id: '47848cdkjjfdjff'}],
                     has_more: true,
                 })
                 // page 2
                 .mockResolvedValueOnce({
                     items: [
-                        {id: 'n2', title: 'Has block', body: block(`uid: something\nstart: 2025-01-01 00:00:00`)},
+                        {
+                            id: 'n2',
+                            title: 'Has block',
+                            body: block(`uid: something\nstart: 2025-01-01 00:00:00`),
+                            parent_id: '47848cdkjjfdjff'
+                        },
                     ],
                     has_more: false,
                 }),
@@ -92,12 +97,12 @@ describe('icsImportService.importIcsIntoNotes', () => {
         // existing scan paginates
         expect(joplin.data.get).toHaveBeenCalledTimes(2);
         expect(joplin.data.get).toHaveBeenNthCalledWith(1, ['notes'], {
-            fields: ['id', 'title', 'body'],
+            fields: ['id', 'title', 'body', 'parent_id'],
             limit: 100,
             page: 1,
         });
         expect(joplin.data.get).toHaveBeenNthCalledWith(2, ['notes'], {
-            fields: ['id', 'title', 'body'],
+            fields: ['id', 'title', 'body', 'parent_id'],
             limit: 100,
             page: 2,
         });
@@ -623,6 +628,45 @@ describe('icsImportService.importIcsIntoNotes', () => {
         const noteBody = joplin.data.post.mock.calls[0][2];
         expect(noteBody.parent_id).toBe('folder-123');
     });
+
+    +
+        +test('update: if targetFolderId changes => PUT includes parent_id even if body/title unchanged', async () => {
+            const ics = [
+                'BEGIN:VCALENDAR',
+                'BEGIN:VEVENT',
+                'UID:u1',
+                'SUMMARY:Same',
+                'DTSTART:20250115T100000Z',
+                'END:VEVENT',
+                'END:VCALENDAR',
+            ].join('\n');
+
+            const existingNote = {
+                id: 'n1',
+                title: 'Same',
+                parent_id: 'folder-old',
+                body: [
+                    '```mycalendar-event',
+                    'title: Same',
+                    'start: 2025-01-15 10:00:00+00:00',
+                    '',
+                    'uid: u1',
+                    '```',
+                ].join('\n'),
+            };
+
+            const joplin = mkJoplin({
+                get: jest.fn().mockResolvedValue({items: [existingNote], has_more: false}),
+                put: jest.fn().mockResolvedValue({}),
+            });
+
+            const res = await importIcsIntoNotes(joplin as any, ics, undefined, 'folder-new');
+
+            expect(res).toEqual({added: 0, updated: 1, skipped: 0, errors: 0});
+            expect(joplin.data.put).toHaveBeenCalledTimes(1);
+            const patch = joplin.data.put.mock.calls[0][2];
+            expect(patch).toEqual({parent_id: 'folder-new'});
+        });
 
     test('error on update: increments errors and calls onStatus with ERROR update', async () => {
         const ics = [
