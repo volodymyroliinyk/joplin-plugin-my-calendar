@@ -1086,4 +1086,124 @@ describe('icsImportService.importIcsIntoNotes', () => {
         expect(patchBody).toContain('title: Append');
     });
 
+    test('key:value inline comments: strips only when whitespace before #, keeps # inside value', async () => {
+        const importText = [
+            'title: A#B',
+            'description: Hello # this is a comment',
+            'start: 2025-01-01 00:00:00+00:00',
+            'uid: u_hash',
+        ].join('\n');
+
+        const joplin = mkJoplin({
+            get: jest.fn().mockResolvedValue({items: [], has_more: false}),
+            post: jest.fn().mockResolvedValue({id: 'created'}),
+        });
+
+        await importIcsIntoNotes(joplin as any, importText);
+
+        const body = joplin.data.post.mock.calls[0][2].body as string;
+        expect(body).toContain('title: A#B');
+        expect(body).toContain('description: Hello');
+        expect(body).not.toContain('# this is a comment');
+    });
+
+    test('RRULE with unsupported FREQ or invalid INTERVAL/UNTIL does not emit repeat section', async () => {
+        const ics = [
+            'BEGIN:VEVENT',
+            'UID:u_bad_rrule',
+            'SUMMARY:Bad RRule',
+            'DTSTART:20250115T100000Z',
+            'DTEND:20250115T113000Z',
+            'RRULE:FREQ=HOURLY;INTERVAL=0;UNTIL=NOT_A_DATE;BYDAY=MO;BYMONTHDAY=1',
+            'END:VEVENT',
+        ].join('\n');
+
+        const joplin = mkJoplin({
+            get: jest.fn().mockResolvedValue({items: [], has_more: false}),
+            post: jest.fn().mockResolvedValue({id: 'created'}),
+        });
+
+        await importIcsIntoNotes(joplin as any, ics);
+
+        const body = joplin.data.post.mock.calls[0][2].body as string;
+        expect(body).toContain('uid: u_bad_rrule');
+        expect(body).not.toContain('repeat:');
+        expect(body).not.toContain('byweekday:');
+        expect(body).not.toContain('bymonthday:');
+        expect(body).not.toContain('repeat_until:');
+    });
+
+    test('folded lines also work with TAB prefix (ICS line unfolding)', async () => {
+        const ics = [
+            'BEGIN:VEVENT',
+            'UID:u_tab_fold',
+            'SUMMARY:Fold',
+            'DTSTART:20250115T100000Z',
+            'DTEND:20250115T113000Z',
+            'DESCRIPTION:Line1',
+            '\tLine2',
+            'END:VEVENT',
+        ].join('\n');
+
+        const joplin = mkJoplin({
+            get: jest.fn().mockResolvedValue({items: [], has_more: false}),
+            post: jest.fn().mockResolvedValue({id: 'created'}),
+        });
+
+        await importIcsIntoNotes(joplin as any, ics);
+
+        const body = joplin.data.post.mock.calls[0][2].body as string;
+        expect(body).toContain('description: Line1Line2');
+    });
+
+    test('existing scan ignores mycalendar blocks without uid (should create new note)', async () => {
+        const existingNote = {
+            id: 'n1',
+            title: 'No UID',
+            body: block(['title: Local', 'start: 2025-01-01 00:00:00+00:00'].join('\n')),
+        };
+
+        const ics = [
+            'BEGIN:VEVENT',
+            'UID:u_new',
+            'SUMMARY:New',
+            'DTSTART:20250115T100000Z',
+            'DTEND:20250115T113000Z',
+            'END:VEVENT',
+        ].join('\n');
+
+        const joplin = mkJoplin({
+            get: jest.fn().mockResolvedValue({items: [existingNote], has_more: false}),
+            post: jest.fn().mockResolvedValue({id: 'created'}),
+        });
+
+        const res = await importIcsIntoNotes(joplin as any, ics);
+
+        expect(res.added).toBe(1);
+        expect(joplin.data.post).toHaveBeenCalledTimes(1);
+    });
+
+    test('parses ICS input that contains BEGIN:VEVENT without VCALENDAR wrapper', async () => {
+        const ics = [
+            'BEGIN:VEVENT',
+            'UID:u_no_vcal',
+            'SUMMARY:No Calendar Wrapper',
+            'DTSTART:20250115T100000Z',
+            'DTEND:20250115T113000Z',
+            'END:VEVENT',
+        ].join('\n');
+
+        const joplin = mkJoplin({
+            get: jest.fn().mockResolvedValue({items: [], has_more: false}),
+            post: jest.fn().mockResolvedValue({id: 'created'}),
+        });
+
+        const res = await importIcsIntoNotes(joplin as any, ics);
+
+        expect(res.added).toBe(1);
+        const body = joplin.data.post.mock.calls[0][2].body as string;
+        expect(body).toContain('uid: u_no_vcal');
+        expect(body).toContain('title: No Calendar Wrapper');
+    });
+
 });
