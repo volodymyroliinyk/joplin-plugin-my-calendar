@@ -441,6 +441,38 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
 
 /* --- Import block inside day events --- */
 
+/* --- Import form loader overlay (same style as grid loader) --- */
+#mc-ics-import-form {
+    position: relative;
+}
+
+/* Full-cover overlay */
+#mc-ics-import-form .mc-grid-loader {
+    position: absolute;
+    inset: 0;
+    display: none; /* shown via .mc-loading */
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--joplin-background-color) 70%, transparent);
+    backdrop-filter: blur(1px);
+    z-index: 10;
+    border-radius: 8px;
+}
+
+/* Show loader when form is loading */
+#mc-ics-import-form.mc-loading .mc-grid-loader {
+    display: flex;
+}
+
+/* Spinner (reuse same look) */
+#mc-ics-import-form .mc-grid-spinner {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 3px solid color-mix(in srgb, var(--joplin-color) 20%, transparent);
+    border-top-color: var(--joplin-color);
+    animation: mc-spin 900ms linear infinite;
+}
 
 #mc-import > summary {
     cursor: pointer;

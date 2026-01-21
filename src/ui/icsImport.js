@@ -310,6 +310,12 @@
             },
         });
 
+        // Full-cover overlay loader (same look as the calendar grid loader)
+        const importLoader = el('div', {class: 'mc-grid-loader', 'aria-hidden': 'true'}, [
+            el('div', {class: 'mc-grid-spinner'}),
+        ]);
+        importForm.appendChild(importLoader);
+
         // Reload button MUST be type="button"
         const btnReloadFolders = el(
             'button',
@@ -380,6 +386,11 @@
 
         let importInProgress = false;
 
+        function setImportLoading(isLoading) {
+            importForm.classList.toggle('mc-loading', !!isLoading);
+            importForm.setAttribute('aria-busy', isLoading ? 'true' : 'false');
+        }
+
         async function doImportFromPicker() {
             if (importInProgress) return;
 
@@ -393,12 +404,20 @@
             btnImportFile.disabled = true;
             fileInput.disabled = true;
             folderSelect.disabled = true;
+            setImportLoading(true);
 
             const finish = () => {
                 importInProgress = false;
                 btnImportFile.disabled = false;
                 fileInput.disabled = false;
                 folderSelect.disabled = false;
+            };
+            const resetUi = () => {
+                importInProgress = false;
+                btnImportFile.disabled = false;
+                fileInput.disabled = false;
+                folderSelect.disabled = false;
+                setImportLoading(false);
             };
 
             try {
@@ -407,6 +426,7 @@
                 reader.onerror = () => {
                     uiLogger.error('FileReader error:', reader.error?.message || reader.error);
                     finish();
+                    resetUi();
                 };
 
                 reader.onload = () => {
@@ -423,12 +443,17 @@
 
                     // Re-enable right after posting (AJAX-only; backend reports progress via messages)
                     finish();
+                    // IMPORTANT:
+                    // Do NOT reset UI here. Backend import can take tens of seconds.
+                    // We keep the overlay loader until importDone/importError arrives.
+
                 };
 
                 reader.readAsText(f);
             } catch (e) {
                 uiLogger.error('Import failed:', e);
                 finish();
+                resetUi();
             }
         }
 
@@ -519,6 +544,7 @@
                     btnImportFile.disabled = false;
                     fileInput.disabled = false;
                     folderSelect.disabled = false;
+                    setImportLoading(false);
                     return;
 
                 case 'importError':
@@ -527,6 +553,7 @@
                     btnImportFile.disabled = false;
                     fileInput.disabled = false;
                     folderSelect.disabled = false;
+                    setImportLoading(false);
                     return;
 
                 case 'folders':
