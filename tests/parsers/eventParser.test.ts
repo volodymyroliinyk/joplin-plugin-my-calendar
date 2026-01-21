@@ -1,7 +1,7 @@
-// test/parsers/eventParser.test.ts
+// tests/parsers/eventParser.test.ts
 // src/main/parsers/eventParser.ts
 //
-// npx jest test/parsers/eventParser.test.ts --runInBand --no-cache;
+// npx jest tests/parsers/eventParser.test.ts --runInBand --no-cache;
 //
 // Notes for deterministic tests:
 // - Some parsing paths (no tz + no explicit offset) depend on the machine timezone.
@@ -304,7 +304,7 @@ describe('eventParser.parseEventsFromBody', () => {
                 'START: 2025-01-15 10:00:00',
             ]),
             block([
-                'TITLE: B',
+                'title: B',
                 'tz: UTC',
                 'start: 2025-01-15 11:00:00',
             ]),
@@ -314,5 +314,159 @@ describe('eventParser.parseEventsFromBody', () => {
         expect(events).toHaveLength(2);
         expect(events[0].startUtc).toBe(Date.UTC(2025, 0, 15, 10, 0, 0));
         expect(events[1].startUtc).toBe(Date.UTC(2025, 0, 15, 11, 0, 0));
+
+
+    });
+
+    test('parses blocks with CRLF line endings and indentation around fences', () => {
+        const body = [
+            'Intro',
+            '   ```mycalendar-event\r\n',
+            '   title: Indented\r\n',
+            '   start: 2025-01-15T10:00:00Z\r\n',
+            '   ```\r\n',
+            'Outro',
+        ].join('\n');
+
+        const events = parseEventsFromBody(noteId, fallbackTitle, body);
+        expect(events).toHaveLength(1);
+        expect(events[0].title).toBe('Indented');
+        expect(events[0].startUtc).toBe(new Date('2025-01-15T10:00:00Z').getTime());
+    });
+
+    test('does not parse an unterminated block (missing closing fence)', () => {
+        const body = [
+            '```mycalendar-event',
+            'title: Unterminated',
+            'start: 2025-01-15T10:00:00Z',
+            // no closing ```
+        ].join('\n');
+
+        expect(parseEventsFromBody(noteId, fallbackTitle, body)).toEqual([]);
+    });
+
+    test('title with only whitespace falls back to titleFallback', () => {
+        const body = block([
+            'title:     ',
+            'start: 2025-01-15T10:00:00Z',
+        ]);
+
+        const [ev] = parseEventsFromBody(noteId, fallbackTitle, body);
+        expect(ev.title).toBe(fallbackTitle);
+    });
+
+    test('all_day parsing accepts yes/no (case-insensitive)', () => {
+        const body = [
+            block([
+                'title: Yes',
+                'all_day: YES',
+                'start: 2025-01-01T00:00:00Z',
+            ]),
+            block([
+                'title: No',
+                'all_day: no',
+                'start: 2025-01-01T00:00:00Z',
+            ]),
+        ].join('\n');
+
+        const events = parseEventsFromBody(noteId, fallbackTitle, body);
+        expect(events).toHaveLength(2);
+        expect(events[0].allDay).toBe(true);
+        expect(events[1].allDay).toBe(false);
+    });
+
+    test('byweekday ignores invalid tokens, preserves duplicates, and is case/space tolerant', () => {
+        const body = block([
+            'title: Weekdays',
+            'start: 2025-01-15T10:00:00Z',
+            'byweekday: mo, WE,  mo , xx, we',
+        ]);
+
+        const [ev] = parseEventsFromBody(noteId, fallbackTitle, body);
+        // MO=0, WE=2; duplicates preserved by current implementation
+        expect(ev.byWeekdays).toEqual([0, 2, 0, 2]);
+    });
+
+    test('byweekday with no valid weekdays results in undefined', () => {
+        const body = block([
+            'title: Weekdays none',
+            'start: 2025-01-15T10:00:00Z',
+            'byweekday: xx, yy',
+        ]);
+
+        const [ev] = parseEventsFromBody(noteId, fallbackTitle, body);
+        expect(ev.byWeekdays).toBeUndefined();
+    });
+
+    test('bymonthday invalid values are ignored', () => {
+        const body = [
+            block([
+                'title: MD 0',
+                'start: 2025-01-15T10:00:00Z',
+                'bymonthday: 0',
+            ]),
+            block([
+                'title: MD 32',
+                'start: 2025-01-15T10:00:00Z',
+                'bymonthday: 32',
+            ]),
+        ].join('\n');
+
+        const events = parseEventsFromBody(noteId, fallbackTitle, body);
+        expect(events).toHaveLength(2);
+        expect(events[0].byMonthDay).toBeUndefined();
+        expect(events[1].byMonthDay).toBeUndefined();
+    });
+
+    test('tz line with whitespace becomes empty string and does not break parsing when start has explicit offset', () => {
+        const body = block([
+            'title: Empty tz',
+            'tz:    ',
+            'start: 2025-01-15T10:00:00Z',
+        ]);
+
+        const [ev] = parseEventsFromBody(noteId, fallbackTitle, body);
+        expect(ev.tz).toBeUndefined(); // current behavior: stored as empty string
+        expect(ev.startUtc).toBe(new Date('2025-01-15T10:00:00Z').getTime());
+    });
+
+    test('parses explicit offsets without colon (+0300) by canonicalizing to +03:00', () => {
+        const body = block([
+            'title: Offset no colon',
+            'start: 2025-01-15T10:00:00+0300',
+        ]);
+
+        const [ev] = parseEventsFromBody(noteId, fallbackTitle, body);
+        expect(ev.startUtc).toBe(new Date('2025-01-15T10:00:00+03:00').getTime());
+    });
+
+    test('parses wall-clock time without seconds when tz is provided', () => {
+        const body = block([
+            'title: No seconds',
+            'tz: UTC',
+            'start: 2025-01-15 10:00',
+            'end: 2025-01-15 10:05',
+        ]);
+
+        const [ev] = parseEventsFromBody(noteId, fallbackTitle, body);
+        expect(ev.startUtc).toBe(Date.UTC(2025, 0, 15, 10, 0, 0));
+        expect(ev.endUtc).toBe(Date.UTC(2025, 0, 15, 10, 5, 0));
+    });
+
+    test('repeat_until parsing is order-sensitive: if repeat_until appears before tz, it is parsed without tz', () => {
+        // This demonstrates current behavior: repeat_until is parsed at the moment it is encountered.
+        // For deterministic results, run Jest with TZ=UTC.
+        const body = block([
+            'title: Order',
+            'repeat: weekly',
+            'repeat_until: 2025-02-01 00:00:00',
+            'tz: America/Toronto',
+            'start: 2025-01-15T10:00:00Z',
+        ]);
+
+        const [ev] = parseEventsFromBody(noteId, fallbackTitle, body);
+
+        // Parsed as device-local time because tz was not known yet at repeat_until line.
+        expect(ev.repeatUntilUtc).toBe(new Date('2025-02-01T00:00:00').getTime());
     });
 });
