@@ -436,12 +436,13 @@ export async function importIcsIntoNotes(
     const events = parseImportText(ics);
     await say(`Parsed ${events.length} VEVENT(s)`);
 
-    // existing map uid -> {id, body}
-    const existing: Record<string, { id: string; title: string; body: string }> = {};
+    // existing map uid -> {id, body, parent_id}
+    const existing: Record<string, { id: string; title: string; body: string; parent_id?: string }> = {};
+
     let page = 1;
 
     while (true) {
-        const res = await joplin.data.get(['notes'], {fields: ['id', 'title', 'body'], limit: 100, page});
+        const res = await joplin.data.get(['notes'], {fields: ['id', 'title', 'body', 'parent_id'], limit: 100, page});
 
         for (const n of res.items || []) {
             if (!n.body || typeof n.body !== 'string') continue;
@@ -449,7 +450,7 @@ export async function importIcsIntoNotes(
 
             const keys = extractAllEventKeysFromBody(n.body);
             for (const k of keys) {
-                existing[k] = {id: n.id, title: n.title || '', body: n.body};
+                existing[k] = {id: n.id, title: n.title || '', body: n.body, parent_id: n.parent_id};
             }
         }
 
@@ -484,13 +485,16 @@ export async function importIcsIntoNotes(
 
         if (existing[key]) {
             try {
-                const {id, body, title} = existing[key];
+                const {id, body, title, parent_id} = existing[key];
 
                 const newBody = replaceEventBlockByKey(body, uid, rid, block);
 
                 const patch: any = {};
                 if (newBody !== body) patch.body = newBody;
                 if (desiredTitle !== title) patch.title = desiredTitle;
+
+                // If user selected another notebook for this import, move existing note as well.
+                if (targetFolderId && parent_id !== targetFolderId) patch.parent_id = targetFolderId;
 
                 if (Object.keys(patch).length > 0) {
                     await joplin.data.put(['notes', id], null, patch);
