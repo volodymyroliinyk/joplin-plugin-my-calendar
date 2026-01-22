@@ -532,8 +532,7 @@ describe('src/ui/icsImport.js', () => {
         expect(reqCalls.length).toBeGreaterThanOrEqual(2);
     });
 
-    +
-        +test('uiSettings: debug toggle mounts/unmounts Debug log and forwards logs to main only when debug=true', () => {
+    test('uiSettings: debug toggle mounts/unmounts Debug log and forwards logs to main only when debug=true', () => {
             setupDom(true);
             const {getOnMessageCb, postMessage} = installWebviewApi();
             loadIcsImportFresh();
@@ -564,8 +563,8 @@ describe('src/ui/icsImport.js', () => {
             const after = postMessage.mock.calls.filter(c => c[0]?.name === 'uiLog').length;
             expect(after).toBe(before);
         });
-    +
-        +test('renderExportLinks: supports http(s), trims title, and auto-names blank titles as \"Link N\"', () => {
+
+    test('renderExportLinks: supports http(s), trims title, and auto-names blank titles as \"Link N\"', () => {
             setupDom(true);
             const {getOnMessageCb} = installWebviewApi();
             loadIcsImportFresh();
@@ -587,8 +586,8 @@ describe('src/ui/icsImport.js', () => {
             expect(btns[0].href).toBe('https://example.test/a');
             expect(btns[1].href).toBe('http://example.test/b');
         });
-    +
-        +test('Import button: file selected but no target folder selected -> logs message and does not post icsImport', () => {
+
+    test('Import button: file selected but no target folder selected -> logs message and does not post icsImport', () => {
             setupDom(true);
             const {postMessage} = installWebviewApi();
 
@@ -619,8 +618,8 @@ describe('src/ui/icsImport.js', () => {
             expect(fr.readAsText).not.toHaveBeenCalled();
             expectConsoleLogContains(logSpy, 'Select a target notebook first.');
         });
-    +
-        +test('Import button: ignores second click while import is in progress (importInProgress gate)', () => {
+
+    test('Import button: ignores second click while import is in progress (importInProgress gate)', () => {
             setupDom(true);
             const {postMessage, getOnMessageCb} = installWebviewApi();
 
@@ -659,8 +658,8 @@ describe('src/ui/icsImport.js', () => {
             if (typeof fr.onload === 'function') fr.onload();
             expect(postMessage.mock.calls.filter(c => c[0]?.name === 'icsImport').length).toBe(1);
         });
-    +
-        +test('FileReader error path: logs error, re-enables UI, and clears loading state (no icsImport message)', () => {
+
+    test('FileReader error path: logs error, re-enables UI, and clears loading state (no icsImport message)', () => {
             setupDom(true);
             const {postMessage, getOnMessageCb} = installWebviewApi();
 
@@ -707,8 +706,8 @@ describe('src/ui/icsImport.js', () => {
             expect(fileInput.disabled).toBe(false);
             expect(importBtn.disabled).toBe(false);
         });
-    +
-        +test('importDone/importError clear loading overlay and re-enable controls after a started import', () => {
+
+    test('importDone/importError clear loading overlay and re-enable controls after a started import', () => {
             setupDom(true);
             const {getOnMessageCb} = installWebviewApi();
 
@@ -758,8 +757,8 @@ describe('src/ui/icsImport.js', () => {
             expect(form.classList.contains('mc-loading')).toBe(false);
             expect(form.getAttribute('aria-busy')).toBe('false');
         });
-    +
-        +test('invalid import default color in localStorage falls back to #1470d9', () => {
+
+    test('invalid import default color in localStorage falls back to #1470d9', () => {
             setupDom(true);
             installWebviewApi();
 
@@ -771,8 +770,8 @@ describe('src/ui/icsImport.js', () => {
             const picker = qs('input[type=\"color\"]') as HTMLInputElement;
             expect(picker.value.toLowerCase()).toBe('#1470d9');
         });
-    +
-        +test('safeGetLS/safeSetLS: localStorage exceptions do not crash UI', () => {
+
+    test('safeGetLS/safeSetLS: localStorage exceptions do not crash UI', () => {
             setupDom(true);
             installWebviewApi();
 

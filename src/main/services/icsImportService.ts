@@ -1,5 +1,15 @@
 // src/main/services/icsImportService.ts
 
+type IcsValarm = {
+    trigger: string;              // e.g. -PT1H, -P1D, -P1W, or an absolute date-time
+    related?: 'START' | 'END';     // TRIGGER;RELATED=START|END
+    action?: string;              // DISPLAY / AUDIO / EMAIL / ...
+    description?: string;
+    summary?: string;
+    repeat?: number;
+    duration?: string;             // e.g. PT15M
+};
+
 type IcsEvent = {
     uid?: string;
     recurrence_id?: string;
@@ -21,6 +31,7 @@ type IcsEvent = {
     bymonthday?: string;  // "12"
 
     all_day?: boolean;
+    valarms?: IcsValarm[];
 };
 
 
@@ -145,7 +156,7 @@ function parseMyCalKeyValueText(text: string): IcsEvent[] {
     const flush = () => {
         const hasAny =
             !!cur.uid || !!cur.title || !!cur.start || !!cur.end || !!cur.description || !!cur.location || !!cur.color ||
-            !!cur.repeat || !!cur.byweekday || !!cur.bymonthday || !!cur.repeat_until;
+            !!cur.repeat || !!cur.byweekday || !!cur.bymonthday || !!cur.repeat_until || !!(cur.valarms && cur.valarms.length);
         if (hasAny) {
             events.push(cur);
             cur = {};
@@ -180,6 +191,18 @@ function parseMyCalKeyValueText(text: string): IcsEvent[] {
         else if (k === 'end') cur.end = v;
         else if (k === 'tz') cur.tz = v;
 
+        else if (k === 'valarm') {
+            // repeated lines: valarm: {json}
+            try {
+                const obj = JSON.parse(v);
+                if (obj && typeof obj === 'object' && typeof (obj as any).trigger === 'string') {
+                    (cur.valarms ??= []).push(obj as IcsValarm);
+                }
+            } catch {
+                // ignore invalid JSON
+            }
+        }
+
         else if (k === 'repeat') cur.repeat = normalizeRepeatFreq(v) || 'none';
         else if (k === 'repeat_interval') {
             const n = parseInt(v, 10);
@@ -197,6 +220,7 @@ function parseIcs(ics: string): IcsEvent[] {
     const lines = unfoldIcsLines(ics);
     const events: IcsEvent[] = [];
     let cur: IcsEvent | null = null;
+    let curAlarm: IcsValarm | null = null;
 
     for (const line of lines) {
         const L = line.trim();
@@ -204,18 +228,54 @@ function parseIcs(ics: string): IcsEvent[] {
 
         if (L === 'BEGIN:VEVENT') {
             cur = {};
+            curAlarm = null;
             continue;
         }
         if (L === 'END:VEVENT') {
+            // If VALARM was not properly closed, drop it.
+            curAlarm = null;
             if (cur) events.push(cur);
             cur = null;
             continue;
         }
         if (!cur) continue;
 
+        if (L === 'BEGIN:VALARM') {
+            curAlarm = {trigger: ''};
+            continue;
+        }
+        if (L === 'END:VALARM') {
+            if (curAlarm && curAlarm.trigger) {
+                (cur.valarms ??= []).push(curAlarm);
+            }
+            curAlarm = null;
+            continue;
+        }
+
         const parsed = parseLineValue(L);
         if (!parsed) continue;
         const {key, value, params} = parsed;
+
+        if (curAlarm) {
+            if (key === 'TRIGGER') {
+                curAlarm.trigger = value.trim();
+                const rel = (params['RELATED'] || '').toUpperCase();
+                if (rel === 'START' || rel === 'END') curAlarm.related = rel as any;
+            } else if (key === 'ACTION') {
+                curAlarm.action = value.trim();
+            } else if (key === 'DESCRIPTION') {
+                curAlarm.description = unescapeIcsText(value);
+            } else if (key === 'SUMMARY') {
+                curAlarm.summary = unescapeIcsText(value);
+            } else if (key === 'REPEAT') {
+                const n = parseInt(value.trim(), 10);
+                if (Number.isFinite(n)) curAlarm.repeat = n;
+            } else if (key === 'DURATION') {
+                curAlarm.duration = value.trim();
+            }
+            continue;
+        }
+
         const isDateOnly = (value: string, params: Record<string, string>) =>
             (params['VALUE'] || '').toUpperCase() === 'DATE' || /^\d{8}$/.test(value.trim());
 
@@ -263,6 +323,18 @@ function parseImportText(text: string): IcsEvent[] {
     return parseMyCalKeyValueText(text);
 }
 
+function valarmToJsonLine(a: IcsValarm): string {
+    const o: any = {};
+    // stable order for tests + diffs
+    o.trigger = a.trigger;
+    if (a.related) o.related = a.related;
+    if (a.action) o.action = a.action;
+    if (a.description) o.description = a.description;
+    if (a.summary) o.summary = a.summary;
+    if (typeof a.repeat === 'number') o.repeat = a.repeat;
+    if (a.duration) o.duration = a.duration;
+    return JSON.stringify(o);
+}
 
 // Form the block ```mycalendar-event ... ``` as you have already done
 function buildMyCalBlock(ev: IcsEvent): string {
@@ -277,6 +349,14 @@ function buildMyCalBlock(ev: IcsEvent): string {
     if (ev.location) lines.push(`location: ${ev.location}`);
     if (ev.description) lines.push(`description: ${ev.description}`);
 
+    if (ev.valarms && ev.valarms.length) {
+        lines.push('');
+        for (const a of ev.valarms) {
+            // repeated key allows multiple alarms
+            lines.push(`valarm: ${valarmToJsonLine(a)}`);
+        }
+    }
+    
     const repeat = ev.repeat && ev.repeat !== 'none' ? ev.repeat : undefined;
     if (repeat) {
         lines.push('');

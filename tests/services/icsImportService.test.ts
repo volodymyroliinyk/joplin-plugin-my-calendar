@@ -122,6 +122,53 @@ describe('icsImportService.importIcsIntoNotes', () => {
         expect(res).toEqual({added: 1, updated: 0, skipped: 0, errors: 0});
     });
 
+    test('imports VALARM as valarm: {json} lines inside mycalendar-event block (supports multiple VALARM)', async () => {
+        const ics = [
+            'BEGIN:VCALENDAR',
+            'BEGIN:VEVENT',
+            'UID:u-valarm',
+            'SUMMARY:With alarm',
+            'DTSTART:20250115T100000Z',
+            'DTEND:20250115T113000Z',
+            'BEGIN:VALARM',
+            'ACTION:DISPLAY',
+            'DESCRIPTION:Reminder 1',
+            'TRIGGER;RELATED=START:-PT1H',
+            'END:VALARM',
+            'BEGIN:VALARM',
+            'TRIGGER:-P1D',
+            'ACTION:DISPLAY',
+            'END:VALARM',
+            'END:VEVENT',
+            'END:VCALENDAR',
+        ].join('\n');
+
+        const onStatus = jest.fn();
+
+        const joplin = mkJoplin({
+            get: jest.fn().mockResolvedValueOnce({items: [], has_more: false}),
+            post: jest.fn().mockResolvedValue({id: 'new-id'}),
+            put: jest.fn(),
+        });
+
+        const res = await importIcsIntoNotes(joplin as any, ics, onStatus);
+
+        expect(onStatus).toHaveBeenCalledWith('Parsed 1 VEVENT(s)');
+        expect(joplin.data.post).toHaveBeenCalledTimes(1);
+
+        const [, , noteBody] = (joplin.data.post as any).mock.calls[0];
+        expect(noteBody.title).toBe('With alarm');
+
+        // two alarms => two "valarm:" lines
+        const matches = String(noteBody.body).match(/^valarm:\s*\{.*\}$/gm) || [];
+        expect(matches.length).toBe(2);
+
+        expect(noteBody.body).toContain('valarm: {"trigger":"-PT1H","related":"START","action":"DISPLAY","description":"Reminder 1"}');
+        expect(noteBody.body).toContain('valarm: {"trigger":"-P1D","action":"DISPLAY"}');
+
+        expect(res).toEqual({added: 1, updated: 0, skipped: 0, errors: 0});
+    });
+
     test('supports folded lines + unescape in DESCRIPTION/LOCATION', async () => {
         const ics = [
             'BEGIN:VCALENDAR',
@@ -629,8 +676,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
         expect(noteBody.parent_id).toBe('folder-123');
     });
 
-    +
-        +test('update: if targetFolderId changes => PUT includes parent_id even if body/title unchanged', async () => {
+    test('update: if targetFolderId changes => PUT includes parent_id even if body/title unchanged', async () => {
             const ics = [
                 'BEGIN:VCALENDAR',
                 'BEGIN:VEVENT',
