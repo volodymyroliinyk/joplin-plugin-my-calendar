@@ -335,7 +335,7 @@ async function registerUiMessageHandlers(joplin: any, panelId: string) {
             // if (typeof pm === 'function') {
             //     await pm(panelId, {name: 'redrawMonth'});
             // }
-            safePostMessage(joplin, panelId, {name: 'redrawMonth'})
+            await safePostMessage(joplin, panelId, {name: 'redrawMonth'})
             return;
         }
     });
@@ -352,6 +352,10 @@ export default async function runPlugin(joplin: any) {
     log('panel id:', panel);
     await registerUiMessageHandlers(joplin, panel);
 
+    await registerCalendarPanelController(joplin, panel, {
+        expandAllInRange,
+        buildICS,
+    });
 
     await joplin.commands.register({
         name: 'mycalendar.open',
@@ -363,7 +367,7 @@ export default async function runPlugin(joplin: any) {
             try {
                 // const pm = joplin?.views?.panels?.postMessage;
                 // if (typeof pm === 'function') await pm(panel, {name: 'redrawMonth'});
-                safePostMessage(joplin, panel, {name: 'redrawMonth'})
+                await safePostMessage(joplin, panel, {name: 'redrawMonth'})
             } catch {
             }
             try {
@@ -378,27 +382,25 @@ export default async function runPlugin(joplin: any) {
         },
     });
 
-    try {
-        const all = await ensureAllEventsCache(joplin);
-        log('events cached:', all.length);
-    } catch (error) {
-        err('ensureAllEventsCache error:', error);
-    }
 
     await joplin.workspace.onNoteChange(async ({id}: { id?: string }) => {
         if (id) invalidateNote(id);
         // invalidateAllEventsCache();
     });
+
     await joplin.workspace.onSyncComplete(async () => {
-        allEventsCache = null;
-        allEventsCache = null;
         invalidateAllEventsCache();
     });
 
-    await registerCalendarPanelController(joplin, panel, {
-        expandAllInRange,
-        buildICS,
-    });
+    // прогріваємо кеш після того, як UI вже має хендлери
+    void (async () => {
+        try {
+            const all = await ensureAllEventsCache(joplin);
+            log('events cached:', all.length);
+        } catch (error) {
+            err('ensureAllEventsCache error:', error);
+        }
+    })();
 
     await pushUiSettings(joplin, panel);
 
