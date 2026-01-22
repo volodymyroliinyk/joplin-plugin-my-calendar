@@ -6,6 +6,12 @@
 
 import {registerCalendarPanelController} from '../../src/main/uiBridge/panelController';
 
+
+jest.mock('../../src/main/uiBridge/uiSettings', () => ({
+    pushUiSettings: jest.fn(),
+}));
+
+
 jest.mock('../../src/main/services/eventsCache', () => ({
     ensureAllEventsCache: jest.fn(),
     invalidateAllEventsCache: jest.fn(),
@@ -19,9 +25,15 @@ jest.mock('../../src/main/utils/toast', () => ({
     showToast: jest.fn(),
 }));
 
+jest.mock('../../src/main/utils/logger', () => ({
+    err: jest.fn(),
+}));
+
 import {ensureAllEventsCache, invalidateAllEventsCache} from '../../src/main/services/eventsCache';
 import {importIcsIntoNotes} from '../../src/main/services/icsImportService';
 import {showToast} from '../../src/main/utils/toast';
+import {pushUiSettings} from '../../src/main/uiBridge/uiSettings';
+import {err} from '../../src/main/utils/logger';
 import {SETTING_DEBUG, SETTING_WEEK_START} from "../../src/main/settings/settings";
 
 type AnyFn = (...args: any[]) => any;
@@ -91,19 +103,16 @@ beforeEach(() => {
 
 describe('panelController', () => {
     test('uiReady -> posts uiSettings and redrawMonth', async () => {
-        const {handler, postMessage} = await setup();
-
+        const {handler, postMessage, joplin} = await setup();
+        (pushUiSettings as jest.Mock).mockResolvedValue(undefined);
         await handler({name: 'uiReady'});
 
-        expect(postMessage).toHaveBeenCalledTimes(2);
-        expect(postMessage).toHaveBeenCalledWith('panel-1', {
-            name: 'uiSettings',
-            weekStart: 'sunday',
-            debug: false,
-            icsExportLinks: [],
-            dayEventsRefreshMinutes: 1,
-        });
+        expect(pushUiSettings).toHaveBeenCalledTimes(1);
+        expect(pushUiSettings).toHaveBeenCalledWith(joplin, 'panel-1');
+
+        expect(postMessage).toHaveBeenCalledTimes(1);
         expect(postMessage).toHaveBeenCalledWith('panel-1', {name: 'redrawMonth'});
+
     });
 
     test('requestRangeEvents -> ensures cache, expands range, posts rangeEvents', async () => {
@@ -120,6 +129,21 @@ describe('panelController', () => {
         expect(postMessage).toHaveBeenCalledWith('panel-1', {
             name: 'rangeEvents',
             events: [{id: 2}],
+        });
+    });
+
+    test('requestRangeEvents -> forwards missing from/to as-is (undefined) to helpers', async () => {
+        const {handler, postMessage, helpers} = await setup();
+
+        (ensureAllEventsCache as jest.Mock).mockResolvedValue([{id: 1}]);
+        helpers.expandAllInRange.mockReturnValue([{id: 1}]);
+
+        await handler({name: 'requestRangeEvents'});
+
+        expect(helpers.expandAllInRange).toHaveBeenCalledWith([{id: 1}], undefined, undefined);
+        expect(postMessage).toHaveBeenCalledWith('panel-1', {
+            name: 'rangeEvents',
+            events: [{id: 1}],
         });
     });
 
@@ -159,6 +183,15 @@ describe('panelController', () => {
 
         expect(execute).toHaveBeenCalledTimes(1);
         expect(execute).toHaveBeenCalledWith('openNote', 'note-123');
+    });
+
+    test('openNote -> ignores when id is missing', async () => {
+        const {handler, execute, postMessage} = await setup();
+
+        await handler({name: 'openNote'});
+
+        expect(execute).not.toHaveBeenCalled();
+        expect(postMessage).not.toHaveBeenCalled();
     });
 
     test('exportRangeIcs -> ignores when from/to are not numbers', async () => {
@@ -251,6 +284,36 @@ describe('panelController', () => {
         expect(call[5]).toBe('#aabbcc'); // importDefaultColor is valid
     });
 
+    test('icsImport success -> errors>0 triggers warning toast', async () => {
+        const {handler} = await setup();
+
+        (importIcsIntoNotes as jest.Mock).mockResolvedValue({added: 0, updated: 0, skipped: 0, errors: 2});
+
+        await handler({name: 'icsImport', ics: 'X'});
+
+        expect(showToast).toHaveBeenCalledWith(
+            'warning',
+            'ICS import finished: added=0, updated=0, skipped=0, errors=2',
+            4000
+        );
+    });
+
+    test('icsImport -> passes targetFolderId only when it is a string; otherwise undefined', async () => {
+        const {handler} = await setup();
+
+        (importIcsIntoNotes as jest.Mock).mockResolvedValue({added: 0, updated: 0, skipped: 0, errors: 0});
+
+        await handler({name: 'icsImport', ics: 'X', targetFolderId: 'folder-123'});
+        let call = (importIcsIntoNotes as jest.Mock).mock.calls[0];
+        expect(call[3]).toBe('folder-123');
+
+        (importIcsIntoNotes as jest.Mock).mockClear();
+
+        await handler({name: 'icsImport', ics: 'X', targetFolderId: 123});
+        call = (importIcsIntoNotes as jest.Mock).mock.calls[0];
+        expect(call[3]).toBeUndefined();
+    });
+
     test('icsImport -> preserveLocalColor=false is passed through', async () => {
         const {handler} = await setup();
 
@@ -291,6 +354,17 @@ describe('panelController', () => {
         expect(postMessage).toHaveBeenCalledWith('panel-1', {name: 'importError', error: 'boom'});
         expect(showToast).toHaveBeenCalledWith('error', 'ICS import failed: boom', 5000);
         expect(invalidateAllEventsCache).not.toHaveBeenCalled();
+    });
+
+    test('icsImport failure -> supports non-Error throws (string)', async () => {
+        const {handler, postMessage} = await setup();
+
+        (importIcsIntoNotes as jest.Mock).mockRejectedValue('nope');
+
+        await handler({name: 'icsImport', ics: 'X'});
+
+        expect(postMessage).toHaveBeenCalledWith('panel-1', {name: 'importError', error: 'nope'});
+        expect(showToast).toHaveBeenCalledWith('error', 'ICS import failed: nope', 5000);
     });
 
     test('requestFolders -> paginates folders, flattens tree, sorts, and posts folders options', async () => {
@@ -345,6 +419,41 @@ describe('panelController', () => {
         });
     });
 
+    test('requestFolders -> orphan / missing parent is treated as root; parent_id undefined is normalized to null', async () => {
+        const {handler, dataGet, postMessage} = await setup();
+
+        dataGet.mockResolvedValueOnce({
+            items: [
+                {id: 'ch', title: 'Child', parent_id: 'missing-parent'},
+                {id: 'r2', title: 'B', parent_id: undefined},
+                {id: 'r1', title: 'a', parent_id: null},
+            ],
+            has_more: false,
+        });
+
+        await handler({name: 'requestFolders'});
+
+        // roots sorted case-insensitive: 'a', 'B', 'Child'
+        expect(postMessage).toHaveBeenCalledWith('panel-1', {
+            name: 'folders',
+            folders: [
+                {id: 'r1', title: 'a', parent_id: null, depth: 0},
+                {id: 'r2', title: 'B', parent_id: null, depth: 0},
+                {id: 'ch', title: 'Child', parent_id: 'missing-parent', depth: 0},
+            ],
+        });
+    });
+
+    test('requestFolders -> handles empty/undefined items (returns empty folders list)', async () => {
+        const {handler, dataGet, postMessage} = await setup();
+
+        dataGet.mockResolvedValueOnce({items: undefined, has_more: false});
+
+        await handler({name: 'requestFolders'});
+
+        expect(postMessage).toHaveBeenCalledWith('panel-1', {name: 'folders', folders: []});
+    });
+
     test('unknown msg -> no-op (no postMessage / no commands)', async () => {
         const {handler, postMessage, execute} = await setup();
 
@@ -357,16 +466,14 @@ describe('panelController', () => {
     test('outer try/catch -> logs error if handler body throws (e.g., ensureAllEventsCache rejects)', async () => {
         const {handler, postMessage} = await setup();
 
-        const spy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
         (ensureAllEventsCache as jest.Mock).mockRejectedValue(new Error('cache fail'));
 
         await handler({name: 'requestRangeEvents', fromUtc: 1, toUtc: 2});
 
         // should not throw further, only log
-        expect(spy).toHaveBeenCalled();
+        expect(err).toHaveBeenCalledWith('onMessage error:', expect.any(Error));
         expect(postMessage).not.toHaveBeenCalled();
 
-        spy.mockRestore();
     });
 });

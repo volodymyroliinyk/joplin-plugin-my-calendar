@@ -36,12 +36,24 @@ function installWebviewApi() {
 function loadCalendarInstrumentedFresh() {
     jest.resetModules();
     require('../../src/ui/calendar.js');
+    // If calendar.js attached init to DOMContentLoaded (readyState === 'loading'), trigger it.
+    document.dispatchEvent(new Event('DOMContentLoaded'));
 }
 
 describe('calendar UI wiring diagnostics', () => {
     beforeEach(() => {
         jest.resetModules();
         setupDom();
+
+        // Reset sticky globals used across reloads (calendar.js keeps them on window)
+        delete (window as any).__mcUiSettings;
+        delete (window as any).__mcUiReadySent;
+        delete (window as any).__mcOnMessageRegistered;
+        delete (window as any).__mcBackendReady;
+
+        // Critical for this file: message dispatcher is one-time and will otherwise "stick"
+        delete (window as any).__mcMsgDispatcherInstalled;
+        delete (window as any).__mcMsgHandlers;
     });
 
     test('webviewApi path updates window.__mcUiSettings.weekStart (event-object shape)', () => {
@@ -59,4 +71,21 @@ describe('calendar UI wiring diagnostics', () => {
 
         expect((window as any).__mcUiSettings.weekStart).toBe('sunday');
     });
+
+    test('webviewApi path updates window.__mcUiSettings.weekStart (direct message shape)', () => {
+        const api = installWebviewApi();
+        delete (window as any).__mcUiSettings;
+        delete (window as any).__mcUiReadySent;
+        delete (window as any).__mcOnMessageRegistered;
+        delete (window as any).__mcBackendReady;
+
+        loadCalendarInstrumentedFresh();
+        document.dispatchEvent(new Event('DOMContentLoaded'));
+
+        expect((window as any).__mcUiSettings.weekStart).toBeUndefined();
+
+        api.emitDirectMessage({name: 'uiSettings', weekStart: 'monday'});
+        expect((window as any).__mcUiSettings.weekStart).toBe('monday');
+    });
+
 });

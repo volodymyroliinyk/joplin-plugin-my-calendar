@@ -355,6 +355,173 @@ describe('src/ui/calendar.js', () => {
         expect(calls[calls.length - 1][0]).toEqual({name: 'openNote', id: 'note-123'});
     });
 
+
+    test('uiSettings: debug toggles mc-log visibility; log() writes only when debug=true', () => {
+        const {getOnMessageCb} = installWebviewApi();
+        loadCalendarJsFresh();
+
+        const logBox = document.getElementById('mc-log') as HTMLElement;
+        expect(logBox).toBeTruthy();
+
+        // default: hidden because debug undefined
+        expect(logBox.style.display).toBe('none');
+
+        // debug=false keeps hidden
+        sendPluginMessage(getOnMessageCb, {name: 'uiSettings', weekStart: 'sunday', debug: false});
+        expect(logBox.style.display).toBe('none');
+
+        // debug=true shows
+        sendPluginMessage(getOnMessageCb, {name: 'uiSettings', weekStart: 'sunday', debug: true});
+        expect(logBox.style.display).toBe('');
+
+        // Sending any message triggers internal log('onMessage: ...') when debug=true,
+        // which should append into mc-log.
+        sendPluginMessage(getOnMessageCb, {name: 'uiAck'});
+
+        expect(logBox.textContent || '').toContain('onMessage:');
+    });
+
+    test('unwrapPluginMessage: message without name but with events[] is treated as rangeEvents', () => {
+        const {getOnMessageCb} = installWebviewApi();
+        loadCalendarJsFresh();
+        sendPluginMessage(getOnMessageCb, {name: 'uiSettings', weekStart: 'sunday'});
+
+        const sel = findSelectedCell()!;
+        const dayTs = Number(sel.dataset.utc);
+
+        // note: no "name" field, only "events"
+        sendPluginMessage(getOnMessageCb, {
+            events: [{
+                id: 'n1',
+                title: 'Implicit rangeEvents',
+                startUtc: dayTs + 1_000,
+                endUtc: dayTs + 2_000,
+                tz: 'UTC',
+            }],
+        });
+
+        const items = document.querySelectorAll('#mc-events-list .mc-event');
+        expect(items.length).toBe(1);
+        expect(items[0].textContent).toContain('Implicit rangeEvents');
+    });
+
+    test('weekStart=monday: grid head starts with Mon and ends with Sun; weekend head cells are Sat+Sun', () => {
+        const {getOnMessageCb} = installWebviewApi();
+        loadCalendarJsFresh();
+        sendPluginMessage(getOnMessageCb, {name: 'uiSettings', weekStart: 'monday'});
+
+        const headCells = Array.from(document.querySelectorAll('#mc-grid .mc-grid-head .mc-grid-head-cell')) as HTMLElement[];
+        const labels = headCells.map(c => (c.textContent || '').trim());
+        expect(labels.length).toBe(7);
+        expect(labels[0]).toBe('Mon');
+        expect(labels[6]).toBe('Sun');
+
+        const sat = headCells.find(c => c.textContent === 'Sat')!;
+        const sun = headCells.find(c => c.textContent === 'Sun')!;
+        expect(sat.classList.contains('mc-weekend')).toBe(true);
+        expect(sun.classList.contains('mc-weekend')).toBe(true);
+    });
+
+    test('day list: event ending soon becomes mc-event-past after scheduled refresh', () => {
+        const {getOnMessageCb} = installWebviewApi();
+        loadCalendarJsFresh();
+        sendPluginMessage(getOnMessageCb, {name: 'uiSettings', weekStart: 'sunday', dayEventsRefreshMinutes: 10}); // large fallback
+
+        const sel = findSelectedCell()!;
+        const dayTs = Number(sel.dataset.utc);
+
+        const now = Date.now();
+        const endSoon = now + 5_000; // 5s from now
+
+        sendPluginMessage(getOnMessageCb, {
+            name: 'rangeEvents',
+            events: [{
+                id: 'n1',
+                title: 'Soon past',
+                startUtc: now - 10_000,
+                endUtc: endSoon,
+                tz: 'UTC',
+            }],
+        });
+
+        let li = document.querySelector('#mc-events-list .mc-event') as HTMLElement;
+        expect(li).toBeTruthy();
+        expect(li.classList.contains('mc-event-past')).toBe(false);
+
+        // scheduleDayEventsRefresh delay should be about (endSoon-now)+1000 => 6000ms (min 1000)
+        jest.advanceTimersByTime(6_000);
+
+        li = document.querySelector('#mc-events-list .mc-event') as HTMLElement;
+        expect(li.classList.contains('mc-event-past')).toBe(true);
+    });
+
+    test('visibilitychange: when document becomes hidden -> clears day refresh + timeline timers; when visible -> posts uiReady again (debounced)', () => {
+        const {getOnMessageCb, postMessage} = installWebviewApi();
+        loadCalendarJsFresh();
+        sendPluginMessage(getOnMessageCb, {name: 'uiSettings', weekStart: 'sunday'});
+
+        const sel = findSelectedCell()!;
+        const dayTs = Number(sel.dataset.utc);
+
+        // create one event so day list schedules timers
+        sendPluginMessage(getOnMessageCb, {
+            name: 'rangeEvents',
+            events: [{
+                id: 'n1',
+                title: 'Timers',
+                startUtc: dayTs + 1_000,
+                endUtc: dayTs + 2_000,
+                tz: 'UTC',
+            }],
+        });
+
+        const clearSpy = jest.spyOn(global, 'clearTimeout');
+
+        // make document hidden
+        Object.defineProperty(document, 'hidden', {value: true, configurable: true});
+        document.dispatchEvent(new Event('visibilitychange'));
+
+        expect(clearSpy).toHaveBeenCalled();
+
+        // visible again should send uiReady (debounced 50ms)
+        Object.defineProperty(document, 'hidden', {value: false, configurable: true});
+        document.dispatchEvent(new Event('visibilitychange'));
+
+        jest.advanceTimersByTime(60);
+
+        const uiReadyCalls = postMessage.mock.calls.filter(c => c[0]?.name === 'uiReady');
+        expect(uiReadyCalls.length).toBeGreaterThanOrEqual(2); // initial + re-announce
+
+        clearSpy.mockRestore();
+    });
+
+    test('ensureBackendReady: if webviewApi is injected later, uiReady is sent after polling', () => {
+        // load without webviewApi
+        jest.resetModules();
+        setupDom();
+        delete (window as any).webviewApi;
+
+        // reset sticky globals used for cross-reload behavior
+        delete (window as any).__mcBackendReady;
+        delete (window as any).__mcUiReadySent;
+        delete (window as any).__mcOnMessageRegistered;
+        delete (window as any).__mcMsgDispatcherInstalled;
+        delete (window as any).__mcMsgHandlers;
+
+        require('../../src/ui/calendar.js');
+
+        // inject after some time
+        const postMessage = jest.fn();
+        const onMessage = jest.fn();
+        (window as any).webviewApi = {postMessage, onMessage};
+
+        // poll interval is 100ms; allow a couple of ticks
+        jest.advanceTimersByTime(250);
+
+        expect(onMessage).toHaveBeenCalledTimes(1);
+        expect(postMessage).toHaveBeenCalledWith({name: 'uiReady'});
+    });
+
     test('mcRegisterOnMessage: multiple handlers are supported; handler errors are caught', () => {
         const {getOnMessageCb} = installWebviewApi();
         loadCalendarJsFresh();

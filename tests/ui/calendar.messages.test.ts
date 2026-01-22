@@ -62,6 +62,41 @@ describe('calendar.js message unwrapping', () => {
         expect((window as any).__mcUiSettings.weekStart).toBe('monday');
     });
 
+
+    test('accepts direct payload messages (not wrapped in {message: ...})', () => {
+        const api = installWebviewApi();
+        requireCalendarUi();
+
+        api.emit({name: 'uiSettings', weekStart: 'sunday'});
+        expect((window as any).__mcUiSettings.weekStart).toBe('sunday');
+    });
+
+    test('unwraps implicit rangeEvents when payload has events[] but no name', () => {
+        const api = installWebviewApi();
+        requireCalendarUi();
+
+        // required for draw
+        api.emit({message: {name: 'uiSettings', weekStart: 'sunday'}});
+        const sel = document.querySelector('#mc-grid .mc-cell.mc-selected') as HTMLElement;
+        const dayTs = Number(sel.dataset.utc);
+
+        api.emit({
+            message: {
+                events: [{
+                    id: 'n1',
+                    title: 'Implicit',
+                    startUtc: dayTs + 1_000,
+                    endUtc: dayTs + 2_000,
+                    tz: 'UTC',
+                }]
+            }
+        });
+
+        const items = document.querySelectorAll('#mc-events-list .mc-event');
+        expect(items.length).toBe(1);
+        expect(items[0].textContent).toContain('Implicit');
+    });
+
     test('renders rangeEvents message with events array', () => {
         const api = installWebviewApi();
         requireCalendarUi();
