@@ -213,6 +213,13 @@ describe('icsImportService.importIcsIntoNotes', () => {
         expect(alarmNote.parent_id).toBe('nb1');
         expect(alarmNote.is_todo).toBe(1);
         expect(alarmNote.alarm_time).toBe(new Date('2025-01-15T09:00:00.000Z').getTime());
+        expect(alarmNote.todo_due).toBe(new Date('2025-01-15T09:00:00.000Z').getTime());
+
+        // ensure alarm fields are persisted reliably via PUT after POST
+        expect((joplin.data.put as any)).toHaveBeenCalledWith(['notes', 'alarm-note-id'], null, {
+            alarm_time: new Date('2025-01-15T09:00:00.000Z').getTime(),
+            todo_due: new Date('2025-01-15T09:00:00.000Z').getTime(),
+        });
         expect(String(alarmNote.body)).toContain('```mycalendar-alarm');
         expect(String(alarmNote.body)).toContain('uid: u-valarm2');
         expect(String(alarmNote.body)).toContain('[With alarm](:/event-note-id)');
@@ -284,6 +291,15 @@ describe('icsImportService.importIcsIntoNotes', () => {
 
         expect((joplin.data.delete as any)).toHaveBeenCalledWith(['notes', 'old-alarm-id']);
         expect((joplin.data.post as any)).toHaveBeenCalledTimes(1);
+        const [, , createdAlarmNote] = (joplin.data.post as any).mock.calls[0];
+        expect(createdAlarmNote.is_todo).toBe(1);
+        expect(createdAlarmNote.todo_due).toBe(new Date('2025-01-15T09:00:00.000Z').getTime());
+        expect(createdAlarmNote.alarm_time).toBe(new Date('2025-01-15T09:00:00.000Z').getTime());
+        // ensure alarm fields are persisted reliably via PUT after POST
+        expect((joplin.data.put as any)).toHaveBeenCalledWith(['notes', 'new-alarm-id'], null, {
+            alarm_time: new Date('2025-01-15T09:00:00.000Z').getTime(),
+            todo_due: new Date('2025-01-15T09:00:00.000Z').getTime(),
+        });
         expect(res.alarmsDeleted).toBe(1);
         expect(res.alarmsCreated).toBe(1); // 1 valid alarm in next 60 days
         expect(res.errors).toBe(0);
