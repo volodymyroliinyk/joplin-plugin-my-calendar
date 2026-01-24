@@ -183,10 +183,12 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
         for (; ;) {
             if (cursor > until) break;
             const cd = new Date(cursor);
-            const daysInMonth = new Date(Date.UTC(cd.getUTCFullYear(), cd.getUTCMonth() + 1, 0)).getUTCDate();
-            if (dom <= daysInMonth) {
+            // Ensure month is what we expect (no overflow like Jan 31 -> Feb 3)
+            const expectedM = (m % 12 + 12) % 12;
+            if (cd.getUTCMonth() === expectedM) {
                 if (!push(cursor, out)) break;
             }
+
             m += step;
             cursor = Date.UTC(y + Math.floor(m / 12), (m % 12 + 12) % 12, dom, baseH, baseMin, baseS);
             if (cursor > toUtc && cursor > until) break;
@@ -208,8 +210,8 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
         for (; ;) {
             if (cursor > until) break;
             const dt = new Date(cursor);
-            const daysInMonth = new Date(Date.UTC(dt.getUTCFullYear(), dt.getUTCMonth() + 1, 0)).getUTCDate();
-            if (baseD <= daysInMonth) {
+            // Ensure month is still February (or whatever baseM was) - handles Leap Year Feb 29
+            if (dt.getUTCMonth() === baseM) {
                 if (!push(cursor, out)) break;
             }
             y += (step || 1);

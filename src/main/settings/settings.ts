@@ -24,7 +24,7 @@ export type IcsExportLink = {
     url: string;
 };
 
-function sanitizeExternalUrl(input: unknown): string {
+export function sanitizeExternalUrl(input: unknown): string {
     const s = String(input ?? '').trim();
     if (!s) return '';
 
@@ -38,7 +38,7 @@ function sanitizeExternalUrl(input: unknown): string {
     }
 }
 
-function sanitizeTitle(input: unknown): string {
+export function sanitizeTitle(input: unknown): string {
     const s = String(input ?? '').trim();
     // Keep it short to avoid breaking the layout.
     if (!s) return '';
@@ -279,10 +279,14 @@ export async function getDayEventsRefreshMinutes(joplin: any): Promise<number> {
 
 export async function getIcsImportAlarmRangeDays(joplin: any): Promise<number> {
     const raw = await joplin.settings.value(SETTING_ICS_IMPORT_ALARM_RANGE_DAYS);
+    if (raw === null || raw === undefined) {
+        return 30;
+    }
     const n = Number(raw);
     if (!Number.isFinite(n)) {
         return 30;
     }
     // Guardrails: keep the import range reasonable.
+    // If user entered 0, we clamp to 1.
     return Math.min(365, Math.max(1, Math.round(n)));
 }

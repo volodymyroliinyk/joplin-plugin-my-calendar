@@ -461,4 +461,168 @@ describe('pluginMain.runPlugin', () => {
         // Feb occurrences should be skipped because day 31 doesn't exist
         expect(out).toEqual([]);
     });
+
+    test('helpers: yearly recurrence works properly', async () => {
+        (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
+        (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);
+        const {joplin} = makeJoplinMock();
+        await runPlugin(joplin as any);
+        const [, , helpers] = (registerCalendarPanelController as jest.Mock).mock.calls[0];
+
+        const from = Date.UTC(2023, 0, 1);
+        const to = Date.UTC(2026, 0, 1);
+
+        const ev = {
+            id: 'y1',
+            title: 'Yearly',
+            startUtc: Date.UTC(2023, 5, 15, 10, 0, 0), // June 15
+            repeat: 'yearly',
+            repeatInterval: 1,
+        };
+
+        const out = helpers.expandAllInRange([ev], from, to);
+        // Expect: June 15 2023, June 15 2024, June 15 2025
+        expect(out.length).toBe(3);
+        expect(new Date(out[0].startUtc).toISOString()).toContain('2023-06-15');
+        expect(new Date(out[1].startUtc).toISOString()).toContain('2024-06-15');
+        expect(new Date(out[2].startUtc).toISOString()).toContain('2025-06-15');
+    });
+
+    test('helpers: yearly on leap day (Feb 29) behavior', async () => {
+        (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
+        (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);
+        const {joplin} = makeJoplinMock();
+        await runPlugin(joplin as any);
+        const [, , helpers] = (registerCalendarPanelController as jest.Mock).mock.calls[0];
+
+        // 2024 is leap, 2025 is not
+        const from = Date.UTC(2024, 0, 1);
+        const to = Date.UTC(2026, 0, 1);
+
+        const ev = {
+            id: 'leap',
+            title: 'Leap',
+            startUtc: Date.UTC(2024, 1, 29, 10, 0, 0), // Feb 29 2024
+            repeat: 'yearly',
+            repeatInterval: 1,
+        };
+
+        const out = helpers.expandAllInRange([ev], from, to);
+        // Should include 2024.
+        // For 2025 (non-leap), Feb 29 doesn't exist.
+        // The implementation logic for yearly checks `if (baseD <= daysInMonth)`.
+        // baseD is 29. Feb 2025 has 28 days. 29 <= 28 is false -> Skipped.
+        // So we expect ONLY 2024.
+        expect(out.length).toBe(1);
+        expect(new Date(out[0].startUtc).toISOString()).toContain('2024-02-29');
+    });
+
+    test('helpers: weekly recurrence preserves local time across DST boundary', async () => {
+        (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
+        (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);
+        const {joplin} = makeJoplinMock();
+        await runPlugin(joplin as any);
+        const [, , helpers] = (registerCalendarPanelController as jest.Mock).mock.calls[0];
+
+        // America/New_York
+        // DST starts roughly March 10 2024 (clocks fwd 1 hour)
+        // Standard UTC offset -5, DST -4.
+        // Event at 10:00 AM local.
+        // Before DST (Mar 3): 10:00 EST -> 15:00 UTC
+        // After DST (Mar 17): 10:00 EDT -> 14:00 UTC
+
+        const ev = {
+            id: 'dst',
+            title: 'DST Test',
+            startUtc: Date.UTC(2024, 2, 3, 15, 0, 0), // Mar 3 2024, 15:00 UTC = 10:00 EST
+            startText: '2024-03-03 10:00:00', // Needed for baseLocal parsing
+            tz: 'America/New_York',
+            repeat: 'weekly',
+            byWeekdays: [0], // Sunday
+            repeatInterval: 1,
+        };
+
+        const from = Date.UTC(2024, 2, 1); // Mar 1
+        const to = Date.UTC(2024, 2, 20); // Mar 20
+
+        const out = helpers.expandAllInRange([ev], from, to);
+
+        // Should have Mar 3, Mar 10 (DST switch day), Mar 17
+        expect(out.length).toBeGreaterThanOrEqual(3);
+
+        const d1 = new Date(out[0].startUtc);
+        const d2 = new Date(out[1].startUtc);
+        const d3 = new Date(out[2].startUtc);
+
+        // Verify UTC times shifts by 1 hour (from 15:00 to 14:00) strictly?
+        // Actually on Mar 10 DST starts at 2am. 10am is already EDT (-4).
+        // So Mar 3 is EST (-5) -> 15:00 UTC.
+        // Mar 10 is EDT (-4) -> 14:00 UTC.
+        // Mar 17 is EDT (-4) -> 14:00 UTC.
+
+        expect(d1.getUTCHours()).toBe(15);
+        expect(d2.getUTCHours()).toBe(14);
+        expect(d3.getUTCHours()).toBe(14);
+    });
+
+    test('helpers: monthly recurrence on 31st skips short months', async () => {
+        (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
+        (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);
+        const {joplin} = makeJoplinMock();
+        await runPlugin(joplin as any);
+        const [, , helpers] = (registerCalendarPanelController as jest.Mock).mock.calls[0];
+
+        // Jan 31 -> expect Jan, Mar (skip Feb)
+        const from = Date.UTC(2024, 0, 1);
+        const to = Date.UTC(2024, 3, 1); // Up to April 1
+
+        const ev = {
+            id: 'm31',
+            title: 'Monthly31',
+            startUtc: Date.UTC(2024, 0, 31, 10, 0, 0),
+            repeat: 'monthly',
+            repeatInterval: 1,
+            byMonthDay: 31,
+        };
+
+        const out = helpers.expandAllInRange([ev], from, to);
+        // Should have Jan 31 and Mar 31. Feb 31 doesn't exist.
+        expect(out.length).toBe(2);
+        expect(new Date(out[0].startUtc).toISOString()).toContain('2024-01-31');
+        expect(new Date(out[1].startUtc).toISOString()).toContain('2024-03-31');
+    });
+
+    test('helpers: expandAllInRange correctly handles event duration spanning days', async () => {
+        (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
+        (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);
+        const {joplin} = makeJoplinMock();
+        await runPlugin(joplin as any);
+        const [, , helpers] = (registerCalendarPanelController as jest.Mock).mock.calls[0];
+
+        // Event from Jan 1 23:00 to Jan 2 01:00
+        const start = Date.UTC(2025, 0, 1, 23, 0, 0);
+        const end = Date.UTC(2025, 0, 2, 1, 0, 0);
+        const dur = end - start;
+
+        const ev = {
+            id: 'dur1',
+            title: 'Overnight',
+            startUtc: start,
+            endUtc: end,
+            repeat: 'daily',
+            repeatInterval: 1,
+        };
+
+        const from = Date.UTC(2025, 0, 1, 0, 0, 0);
+        const to = Date.UTC(2025, 0, 5, 0, 0, 0);
+
+        const out = helpers.expandAllInRange([ev], from, to);
+
+        // Jan 1, 2, 3, 4
+        expect(out.length).toBe(4);
+        expect(out[0].startUtc).toBe(start);
+        expect(out[0].endUtc).toBe(end);
+        expect(out[1].startUtc).toBe(start + 24 * 3600 * 1000);
+        expect(out[1].endUtc).toBe(end + 24 * 3600 * 1000);
+    });
 });
