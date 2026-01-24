@@ -32,13 +32,13 @@ describe('toast', () => {
     });
 
     test('shows toast with provided type and message (default duration=3000)', async () => {
-        await showToast('success', 'Done');
+        await showToast('success', 'Done', 5000);
 
         expect(showToastSpy).toHaveBeenCalledTimes(1);
         expect(showToastSpy).toHaveBeenCalledWith({
             type: 'success',
             message: 'Done',
-            duration: 3000,
+            duration: 5000,
             timestamp: 1700000000000,
         });
     });

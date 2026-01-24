@@ -156,7 +156,7 @@ export async function registerCalendarPanelController(
                         text,
                     });
 
-                    await showToast('info', text, 2000);
+                    await showToast('info', text, 5000);
                 };
 
                 try {
@@ -186,7 +186,7 @@ export async function registerCalendarPanelController(
                     });
 
                     const doneText = `ICS import finished: added=${res.added}, updated=${res.updated}, skipped=${res.skipped}, errors=${res.errors}, alarmsCreated=${res.alarmsCreated}, alarmsDeleted=${res.alarmsDeleted}`;
-                    await showToast(res.errors > 0 ? 'warning' : 'success', doneText, 4000);
+                    await showToast(res.errors > 0 ? 'warning' : 'success', doneText, 5000);
 
                 } catch (e: any) {
                     const errText = String(e?.message || e);
