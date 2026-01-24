@@ -392,7 +392,7 @@ export default async function runPlugin(joplin: any) {
         invalidateAllEventsCache();
     });
 
-    // прогріваємо кеш після того, як UI вже має хендлери
+    // warm up the cache after the UI already has handlers
     void (async () => {
         try {
             const all = await ensureAllEventsCache(joplin);

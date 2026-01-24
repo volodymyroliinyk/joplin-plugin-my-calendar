@@ -238,7 +238,7 @@ describe('panelController', () => {
             ) => {
                 await sendStatus('Parsing...');
                 await sendStatus('Saving...');
-                return {added: 1, updated: 2, skipped: 3, errors: 0};
+                return {added: 1, updated: 2, skipped: 3, errors: 0, alarmsCreated: 4, alarmsDeleted: 5};
             }
         );
 
@@ -267,12 +267,14 @@ describe('panelController', () => {
             updated: 2,
             skipped: 3,
             errors: 0,
+            alarmsCreated: 4,
+            alarmsDeleted: 5,
         });
 
         // final toast success (because errors=0)
         expect(showToast).toHaveBeenCalledWith(
             'success',
-            'ICS import finished: added=1, updated=2, skipped=3, errors=0',
+            'ICS import finished: added=1, updated=2, skipped=3, errors=0, alarmsCreated=4, alarmsDeleted=5',
             4000
         );
 
@@ -287,13 +289,20 @@ describe('panelController', () => {
     test('icsImport success -> errors>0 triggers warning toast', async () => {
         const {handler} = await setup();
 
-        (importIcsIntoNotes as jest.Mock).mockResolvedValue({added: 0, updated: 0, skipped: 0, errors: 2});
+        (importIcsIntoNotes as jest.Mock).mockResolvedValue({
+            added: 0,
+            updated: 0,
+            skipped: 0,
+            errors: 2,
+            alarmsCreated: 0,
+            alarmsDeleted: 0
+        });
 
         await handler({name: 'icsImport', ics: 'X'});
 
         expect(showToast).toHaveBeenCalledWith(
             'warning',
-            'ICS import finished: added=0, updated=0, skipped=0, errors=2',
+            'ICS import finished: added=0, updated=0, skipped=0, errors=2, alarmsCreated=0, alarmsDeleted=0',
             4000
         );
     });
@@ -301,7 +310,14 @@ describe('panelController', () => {
     test('icsImport -> passes targetFolderId only when it is a string; otherwise undefined', async () => {
         const {handler} = await setup();
 
-        (importIcsIntoNotes as jest.Mock).mockResolvedValue({added: 0, updated: 0, skipped: 0, errors: 0});
+        (importIcsIntoNotes as jest.Mock).mockResolvedValue({
+            added: 0,
+            updated: 0,
+            skipped: 0,
+            errors: 0,
+            alarmsCreated: 0,
+            alarmsDeleted: 0
+        });
 
         await handler({name: 'icsImport', ics: 'X', targetFolderId: 'folder-123'});
         let call = (importIcsIntoNotes as jest.Mock).mock.calls[0];
@@ -317,7 +333,14 @@ describe('panelController', () => {
     test('icsImport -> preserveLocalColor=false is passed through', async () => {
         const {handler} = await setup();
 
-        (importIcsIntoNotes as jest.Mock).mockResolvedValue({added: 0, updated: 0, skipped: 0, errors: 0});
+        (importIcsIntoNotes as jest.Mock).mockResolvedValue({
+            added: 0,
+            updated: 0,
+            skipped: 0,
+            errors: 0,
+            alarmsCreated: 0,
+            alarmsDeleted: 0
+        });
 
         await handler({
             name: 'icsImport',
@@ -332,7 +355,14 @@ describe('panelController', () => {
     test('icsImport -> invalid importDefaultColor is ignored (undefined)', async () => {
         const {handler} = await setup();
 
-        (importIcsIntoNotes as jest.Mock).mockResolvedValue({added: 0, updated: 0, skipped: 0, errors: 0});
+        (importIcsIntoNotes as jest.Mock).mockResolvedValue({
+            added: 0,
+            updated: 0,
+            skipped: 0,
+            errors: 0,
+            alarmsCreated: 0,
+            alarmsDeleted: 0
+        });
 
         await handler({
             name: 'icsImport',

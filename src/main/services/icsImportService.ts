@@ -1,4 +1,7 @@
 // src/main/services/icsImportService.ts
+// 
+// tests/services/icsImportService.test.ts
+//
 
 type IcsValarm = {
     trigger: string;              // e.g. -PT1H, -P1D, -P1W, or an absolute date-time
@@ -34,6 +37,22 @@ type IcsEvent = {
     valarms?: IcsValarm[];
 };
 
+function normalizeRecurrenceIdForKey(recurrenceId?: string): string {
+    const v = (recurrenceId || '').trim();
+    if (!v) return '';
+
+    // Keep DATE:yyyyMMdd as-is (date-only recurrence instances)
+    if (/^DATE:\d{8}$/i.test(v)) return v;
+
+    // Backward compatible normalization:
+    // - old versions stored RECURRENCE-ID as plain YYYYMMDDTHHMMSS(Z?)
+    // - newer imports may store TZID:YYYYMMDDTHHMMSS(Z?)
+    // For matching and dedup we treat them as the same instance.
+    const tzMatch = v.match(/^[^:]+:(\d{8}T\d{6}Z?)$/);
+    if (tzMatch) return tzMatch[1];
+
+    return v;
+}
 
 function unfoldIcsLines(ics: string): string[] {
     const raw = ics.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
@@ -201,9 +220,7 @@ function parseMyCalKeyValueText(text: string): IcsEvent[] {
             } catch {
                 // ignore invalid JSON
             }
-        }
-
-        else if (k === 'repeat') cur.repeat = normalizeRepeatFreq(v) || 'none';
+        } else if (k === 'repeat') cur.repeat = normalizeRepeatFreq(v) || 'none';
         else if (k === 'repeat_interval') {
             const n = parseInt(v, 10);
             if (Number.isFinite(n) && n >= 1) cur.repeat_interval = n;
@@ -323,6 +340,172 @@ function parseImportText(text: string): IcsEvent[] {
     return parseMyCalKeyValueText(text);
 }
 
+function parseIsoDurationToMs(s: string): number | null {
+    // supports +/-P[nW][nD]T[nH][nM][nS]
+    const t = s.trim().toUpperCase();
+    const sign = t.startsWith('-') ? -1 : 1;
+    const core = t.startsWith('-') || t.startsWith('+') ? t.slice(1) : t;
+    const m = core.match(/^P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/);
+    if (!m) return null;
+    const w = m[1] ? parseInt(m[1], 10) : 0;
+    const d = m[2] ? parseInt(m[2], 10) : 0;
+    const h = m[3] ? parseInt(m[3], 10) : 0;
+    const mi = m[4] ? parseInt(m[4], 10) : 0;
+    const se = m[5] ? parseInt(m[5], 10) : 0;
+    if (![w, d, h, mi, se].every(n => Number.isFinite(n))) return null;
+    return sign * (((w * 7 + d) * 24 + h) * 60 * 60 * 1000 + mi * 60 * 1000 + se * 1000);
+}
+
+function parseMyCalDateToDate(s?: string): Date | null {
+    if (!s) return null;
+    const t = s.trim();
+    if (!t) return null;
+    const iso = t.replace(' ', 'T');
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return null;
+    return d;
+}
+
+function formatAlarmTitleTime(d: Date): string {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function addDays(d: Date, days: number): Date {
+    const out = new Date(d.getTime());
+    out.setDate(out.getDate() + days);
+    return out;
+}
+
+function addMonths(d: Date, months: number): Date {
+    const out = new Date(d.getTime());
+    out.setMonth(out.getMonth() + months);
+    return out;
+}
+
+function addYears(d: Date, years: number): Date {
+    const out = new Date(d.getTime());
+    out.setFullYear(out.getFullYear() + years);
+    return out;
+}
+
+function weekdayToJs(day: string): number | null {
+    const d = day.toUpperCase();
+    if (d === 'SU') return 0;
+    if (d === 'MO') return 1;
+    if (d === 'TU') return 2;
+    if (d === 'WE') return 3;
+    if (d === 'TH') return 4;
+    if (d === 'FR') return 5;
+    if (d === 'SA') return 6;
+    return null;
+}
+
+type Occurrence = { start: Date; end: Date; recurrence_id?: string };
+
+function expandOccurrences(ev: IcsEvent, windowStart: Date, windowEnd: Date): Occurrence[] {
+    const start = parseMyCalDateToDate(ev.start);
+    if (!start) return [];
+    const end = parseMyCalDateToDate(ev.end) ?? new Date(start.getTime());
+    const durMs = end.getTime() - start.getTime();
+
+    const until = parseMyCalDateToDate(ev.repeat_until);
+    const hardEnd = until && until.getTime() < windowEnd.getTime() ? until : windowEnd;
+
+    const interval = ev.repeat_interval && ev.repeat_interval >= 1 ? ev.repeat_interval : 1;
+
+    const occs: Occurrence[] = [];
+
+    const pushIfInRange = (s: Date) => {
+        const e = new Date(s.getTime() + durMs);
+        if (s.getTime() > hardEnd.getTime()) return;
+        if (e.getTime() < windowStart.getTime()) return;
+        if (s.getTime() > windowEnd.getTime()) return;
+        occs.push({start: s, end: e, recurrence_id: undefined});
+    };
+
+    if (!ev.repeat || ev.repeat === 'none') {
+        pushIfInRange(start);
+        return occs;
+    }
+
+    if (ev.repeat === 'daily') {
+        let cur = new Date(start.getTime());
+        while (cur.getTime() <= hardEnd.getTime()) {
+            pushIfInRange(cur);
+            cur = addDays(cur, interval);
+        }
+        return occs;
+    }
+
+    if (ev.repeat === 'weekly') {
+        const days = (ev.byweekday ? ev.byweekday.split(',') : []).map(d => d.trim()).filter(Boolean);
+        const jsDays = (days.length ? days : [['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][start.getDay()]])
+            .map(weekdayToJs)
+            .filter((n): n is number => n !== null)
+            .sort((a, b) => a - b);
+
+        let weekAnchor = new Date(start.getTime());
+        while (weekAnchor.getTime() <= hardEnd.getTime()) {
+            for (const wd of jsDays) {
+                const s = new Date(weekAnchor.getTime());
+                const delta = wd - s.getDay();
+                s.setDate(s.getDate() + delta);
+                s.setHours(start.getHours(), start.getMinutes(), start.getSeconds(), 0);
+                if (s.getTime() < weekAnchor.getTime()) s.setDate(s.getDate() + 7);
+                if (s.getTime() < start.getTime()) continue;
+                pushIfInRange(s);
+            }
+            weekAnchor = addDays(weekAnchor, 7 * interval);
+        }
+        return occs;
+    }
+
+    if (ev.repeat === 'monthly') {
+        let cur = new Date(start.getTime());
+        const day = ev.bymonthday ? parseInt(ev.bymonthday, 10) : start.getDate();
+        while (cur.getTime() <= hardEnd.getTime()) {
+            const s = new Date(cur.getTime());
+            s.setDate(day);
+            s.setHours(start.getHours(), start.getMinutes(), start.getSeconds(), 0);
+            if (s.getTime() < start.getTime()) {
+                cur = addMonths(cur, interval);
+                continue;
+            }
+            pushIfInRange(s);
+            cur = addMonths(cur, interval);
+        }
+        return occs;
+    }
+
+    if (ev.repeat === 'yearly') {
+        let cur = new Date(start.getTime());
+        while (cur.getTime() <= hardEnd.getTime()) {
+            pushIfInRange(cur);
+            cur = addYears(cur, interval);
+        }
+        return occs;
+    }
+
+    return occs;
+}
+
+function computeAlarmWhen(alarm: IcsValarm, occ: Occurrence): Date | null {
+    const trig = alarm.trigger.trim();
+    const abs = icsDateToMyCalText(trig);
+    if (abs) return parseMyCalDateToDate(abs);
+    const delta = parseIsoDurationToMs(trig);
+    if (delta === null) return null;
+    const base = alarm.related === 'END' ? occ.end : occ.start;
+    return new Date(base.getTime() + delta);
+}
+
+function formatDateForAlarm(d: Date): string {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}+00:00`;
+}
+
+
 function valarmToJsonLine(a: IcsValarm): string {
     const o: any = {};
     // stable order for tests + diffs
@@ -356,7 +539,7 @@ function buildMyCalBlock(ev: IcsEvent): string {
             lines.push(`valarm: ${valarmToJsonLine(a)}`);
         }
     }
-    
+
     const repeat = ev.repeat && ev.repeat !== 'none' ? ev.repeat : undefined;
     if (repeat) {
         lines.push('');
@@ -382,16 +565,37 @@ function buildMyCalBlock(ev: IcsEvent): string {
 }
 
 function makeEventKey(uid: string, recurrenceId?: string): string {
-    return `${(uid || '').trim()}|${(recurrenceId || '').trim()}`;
+    const u = (uid || '').trim();
+    const rid = normalizeRecurrenceIdForKey(recurrenceId);
+    return `${u}|${rid}`;
 }
 
+
 function parseUidAndRecurrence(inner: string): { uid?: string; recurrence_id?: string } {
-    const uidM = inner.match(/^\s*uid\s*:\s*(.+?)\s*$/im);
-    const ridM = inner.match(/^\s*recurrence_id\s*:\s*(.+?)\s*$/im);
+    // NOTE:
+    // In alarm notes, recurrence_id can be empty: `recurrence_id: `
+    // so we must allow empty matches with (.*?)
+    // Fix: use [ \t] instead of \s to avoid matching newlines
+    const uidM = inner.match(/^[ \t]*uid[ \t]*:[ \t]*(.*?)[ \t]*$/im);
+    const ridM = inner.match(/^[ \t]*recurrence_id[ \t]*:[ \t]*(.*?)[ \t]*$/im);
     return {
-        uid: uidM?.[1]?.trim(),
-        recurrence_id: ridM?.[1]?.trim(),
+        uid: uidM?.[1]?.trim() || undefined,
+        recurrence_id: (ridM?.[1] ?? '').trim(),
     };
+}
+
+function extractAllAlarmKeysFromBody(body: string): { key: string; uid: string; recurrence_id: string }[] {
+    const re = /(^|\r?\n)[ \t]*```mycalendar-alarm[ \t]*\r?\n([\s\S]*?)\r?\n[ \t]*```(?=\r?\n|$)/g;
+    const out: { key: string; uid: string; recurrence_id: string }[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(body)) !== null) {
+        const inner = m[2] || '';
+        const meta = parseUidAndRecurrence(inner);
+        if (!meta.uid) continue;
+        const rid = (meta.recurrence_id ?? '').trim();
+        out.push({key: makeEventKey(meta.uid, rid), uid: meta.uid, recurrence_id: rid});
+    }
+    return out;
 }
 
 function extractAllEventKeysFromBody(body: string): string[] {
@@ -416,7 +620,7 @@ function replaceEventBlockByKey(
     newBlock: string,
 ): string {
     const targetUid = (uid || '').trim();
-    const targetRid = (recurrenceId || '').trim();
+    const targetRid = normalizeRecurrenceIdForKey(recurrenceId);
 
     // Grab the block so that:
     // - prefix: either the beginning or \n before the block (but do NOT touch the text before it)
@@ -434,7 +638,8 @@ function replaceEventBlockByKey(
 
         const meta = parseUidAndRecurrence(inner);
         const u = (meta.uid || '').trim();
-        const r = (meta.recurrence_id || '').trim();
+        // const r = (meta.recurrence_id || '').trim();
+        const r = normalizeRecurrenceIdForKey(meta.recurrence_id);
 
         if (u !== targetUid) return fullMatch;
 
@@ -471,7 +676,7 @@ function parseColor(inner: string): string | undefined {
 
 function extractEventColorFromBody(body: string, uid: string, recurrenceId?: string): string | undefined {
     const targetUid = (uid || '').trim();
-    const targetRid = (recurrenceId || '').trim();
+    const targetRid = normalizeRecurrenceIdForKey(recurrenceId);
 
     const re = /(^|\r?\n)[ \t]*```mycalendar-event[ \t]*\r?\n([\s\S]*?)\r?\n[ \t]*```(?=\r?\n|$)/g;
     let m: RegExpExecArray | null;
@@ -481,7 +686,8 @@ function extractEventColorFromBody(body: string, uid: string, recurrenceId?: str
         const meta = parseUidAndRecurrence(inner);
 
         const u = (meta.uid || '').trim();
-        const r = (meta.recurrence_id || '').trim();
+        // const r = (meta.recurrence_id || '').trim();
+        const r = normalizeRecurrenceIdForKey(meta.recurrence_id);
 
         if (u !== targetUid) continue;
 
@@ -505,7 +711,14 @@ export async function importIcsIntoNotes(
     targetFolderId?: string,
     preserveLocalColor: boolean = true,
     importDefaultColor?: string,
-): Promise<{ added: number; updated: number; skipped: number; errors: number }> {
+): Promise<{
+    added: number;
+    updated: number;
+    skipped: number;
+    errors: number;
+    alarmsCreated: number;
+    alarmsDeleted: number
+}> {
     const say = async (t: string) => {
         try {
             if (onStatus) await onStatus(t);
@@ -516,8 +729,10 @@ export async function importIcsIntoNotes(
     const events = parseImportText(ics);
     await say(`Parsed ${events.length} VEVENT(s)`);
 
-    // existing map uid -> {id, body, parent_id}
+    // existing map uid+recurrence -> event not
     const existing: Record<string, { id: string; title: string; body: string; parent_id?: string }> = {};
+    // existing alarm notes map uid+recurrence -> [alarmNoteId]
+    const existingAlarms: Record<string, string[]> = {};
 
     let page = 1;
 
@@ -526,11 +741,19 @@ export async function importIcsIntoNotes(
 
         for (const n of res.items || []) {
             if (!n.body || typeof n.body !== 'string') continue;
-            if (!n.body.includes('```mycalendar-event')) continue;
 
-            const keys = extractAllEventKeysFromBody(n.body);
-            for (const k of keys) {
-                existing[k] = {id: n.id, title: n.title || '', body: n.body, parent_id: n.parent_id};
+            if (n.body.includes('```mycalendar-event')) {
+                const keys = extractAllEventKeysFromBody(n.body);
+                for (const k of keys) {
+                    existing[k] = {id: n.id, title: n.title || '', body: n.body, parent_id: n.parent_id};
+                }
+            }
+
+            if (n.body.includes('```mycalendar-alarm')) {
+                const metas = extractAllAlarmKeysFromBody(n.body);
+                for (const meta of metas) {
+                    (existingAlarms[meta.key] ??= []).push(n.id);
+                }
             }
         }
 
@@ -539,6 +762,8 @@ export async function importIcsIntoNotes(
     }
 
     let added = 0, updated = 0, skipped = 0, errors = 0;
+
+    const importedEventNotes: Record<string, { id: string; parent_id?: string; title: string }> = {};
 
     for (const ev of events) {
         const uid = (ev.uid || '').trim();
@@ -549,6 +774,7 @@ export async function importIcsIntoNotes(
 
         const rid = (ev.recurrence_id || '').trim();
         const key = makeEventKey(uid, rid);
+
 
         if (preserveLocalColor && existing[key] && !ev.color) {
             const existingColor = extractEventColorFromBody(existing[key].body, uid, rid);
@@ -582,6 +808,9 @@ export async function importIcsIntoNotes(
                 } else {
                     skipped++;
                 }
+
+                importedEventNotes[key] = {id, parent_id: (targetFolderId || parent_id), title: desiredTitle};
+
             } catch (e) {
                 errors++;
                 await say(`ERROR update: ${key} - ${String((e as any)?.message || e)}`);
@@ -591,15 +820,104 @@ export async function importIcsIntoNotes(
                 const noteBody: any = {title: desiredTitle, body: block};
                 if (targetFolderId) noteBody.parent_id = targetFolderId;
 
-                await joplin.data.post(['notes'], null, noteBody);
+                const created = await joplin.data.post(['notes'], null, noteBody);
                 added++;
+                if (created && created.id) importedEventNotes[key] = {
+                    id: created.id,
+                    parent_id: targetFolderId,
+                    title: desiredTitle
+                };
+
             } catch (e) {
                 errors++;
                 await say(`ERROR create: ${key} - ${String((e as any)?.message || e)}`);
             }
         }
-
     }
 
-    return {added, updated, skipped, errors};
+    // Stage 2: (re)generate todo+alarm notes from VALARM for the next 30 days
+    const now = new Date();
+    const windowEnd = addDays(now, 30);
+
+    let alarmsDeleted = 0;
+    let alarmsCreated = 0
+
+    for (const ev of events) {
+        const uid = (ev.uid || '').trim();
+        if (!uid) continue;
+        const rid = (ev.recurrence_id || '').trim();
+        const key = makeEventKey(uid, rid);
+
+        const eventNote = importedEventNotes[key] ?? existing[key];
+        if (!eventNote) continue;
+
+        const notebookId = targetFolderId || eventNote.parent_id;
+        if (!notebookId) continue;
+
+        // delete old alarms for this event (if any)
+        const oldAlarmIds = existingAlarms[key] || [];
+        for (const alarmId of oldAlarmIds) {
+            try {
+                // @ts-ignore - joplin.data.delete exists at runtime
+                await joplin.data.delete(['notes', alarmId]);
+                alarmsDeleted++;
+            } catch (e) {
+                await say(`ERROR delete alarm: ${key} - ${String((e as any)?.message || e)}`);
+            }
+        }
+
+        if (!ev.valarms || !ev.valarms.length) continue;
+
+        const occs = expandOccurrences(ev, now, windowEnd);
+
+        for (const occ of occs) {
+            for (const a of ev.valarms) {
+                const when = computeAlarmWhen(a, occ);
+                if (!when) continue;
+
+                const whenMs = when.getTime();
+                if (whenMs < now.getTime()) continue;
+                if (whenMs > windowEnd.getTime()) continue;
+
+                const titleTime = formatAlarmTitleTime(when);
+                const todoTitle = `${(ev.title || 'Event')} + ${titleTime}`;
+
+                const body = [
+                    '```mycalendar-alarm',
+                    `title: ${todoTitle}`,
+                    `uid: ${uid}`,
+                    `recurrence_id: ${rid}`,
+                    `when: ${formatDateForAlarm(new Date(whenMs))}`,
+                    '```',
+                    '',
+                    '---',
+                    '',
+                    `[${ev.title || 'Event'}](:/${eventNote.id})`,
+                    '',
+                ].join('\n');
+
+                try {
+                    const noteBody: any = {
+                        title: todoTitle,
+                        body,
+                        parent_id: notebookId,
+                        is_todo: 1,
+                        alarm_time: whenMs,
+                    };
+
+                    await joplin.data.post(['notes'], null, noteBody);
+                    alarmsCreated++;
+                } catch (e) {
+                    await say(`ERROR create alarm: ${key} - ${String((e as any)?.message || e)}`);
+                }
+            }
+        }
+    }
+
+    if (alarmsDeleted || alarmsCreated) {
+        await say(`Alarms: deleted ${alarmsDeleted}, created ${alarmsCreated} (next 30 days)`);
+    }
+
+
+    return {added, updated, skipped, errors, alarmsCreated, alarmsDeleted};
 }

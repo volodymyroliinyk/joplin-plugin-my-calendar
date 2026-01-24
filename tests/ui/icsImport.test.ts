@@ -23,6 +23,7 @@ function resetMyCalendarUiGlobals() {
     delete (window as any).__mcUiSettings;
     delete (window as any).__mcImportLogger;
 }
+
 function installWebviewApi() {
     let onMessageCb: any = null;
 
@@ -533,264 +534,264 @@ describe('src/ui/icsImport.js', () => {
     });
 
     test('uiSettings: debug toggle mounts/unmounts Debug log and forwards logs to main only when debug=true', () => {
-            setupDom(true);
-            const {getOnMessageCb, postMessage} = installWebviewApi();
-            loadIcsImportFresh();
+        setupDom(true);
+        const {getOnMessageCb, postMessage} = installWebviewApi();
+        loadIcsImportFresh();
 
-            // debug is OFF by default
-            expect(Array.from(document.querySelectorAll('div')).some(d => (d.textContent || '').trim() === 'Debug log')).toBe(false);
+        // debug is OFF by default
+        expect(Array.from(document.querySelectorAll('div')).some(d => (d.textContent || '').trim() === 'Debug log')).toBe(false);
 
-            // Enable debug
-            sendPluginMessage(getOnMessageCb, {name: 'uiSettings', debug: true, icsExportLinks: []});
-            expect(Array.from(document.querySelectorAll('div')).some(d => (d.textContent || '').trim() === 'Debug log')).toBe(true);
+        // Enable debug
+        sendPluginMessage(getOnMessageCb, {name: 'uiSettings', debug: true, icsExportLinks: []});
+        expect(Array.from(document.querySelectorAll('div')).some(d => (d.textContent || '').trim() === 'Debug log')).toBe(true);
 
-            // A status log should both console.log and forward to main (uiLog)
-            sendPluginMessage(getOnMessageCb, {name: 'importStatus', text: 'Hello'});
-            expectConsoleLogContains(logSpy, '[STATUS]');
-            const uiLogCalls = postMessage.mock.calls.filter(c => c[0]?.name === 'uiLog');
-            expect(uiLogCalls.length).toBeGreaterThanOrEqual(1);
+        // A status log should both console.log and forward to main (uiLog)
+        sendPluginMessage(getOnMessageCb, {name: 'importStatus', text: 'Hello'});
+        expectConsoleLogContains(logSpy, '[STATUS]');
+        const uiLogCalls = postMessage.mock.calls.filter(c => c[0]?.name === 'uiLog');
+        expect(uiLogCalls.length).toBeGreaterThanOrEqual(1);
 
-            // Debug log box should receive appended lines when debug=true
-            const logBox = qs('#mc-imp-log');
-            expect((logBox.textContent || '')).toContain('[STATUS]');
+        // Debug log box should receive appended lines when debug=true
+        const logBox = qs('#mc-imp-log');
+        expect((logBox.textContent || '')).toContain('[STATUS]');
 
-            // Disable debug -> log box removed and no forward
-            sendPluginMessage(getOnMessageCb, {name: 'uiSettings', debug: false, icsExportLinks: []});
-            expect(document.querySelector('#mc-imp-log')).toBeNull();
+        // Disable debug -> log box removed and no forward
+        sendPluginMessage(getOnMessageCb, {name: 'uiSettings', debug: false, icsExportLinks: []});
+        expect(document.querySelector('#mc-imp-log')).toBeNull();
 
-            const before = postMessage.mock.calls.filter(c => c[0]?.name === 'uiLog').length;
-            sendPluginMessage(getOnMessageCb, {name: 'importStatus', text: 'NoForward'});
-            const after = postMessage.mock.calls.filter(c => c[0]?.name === 'uiLog').length;
-            expect(after).toBe(before);
-        });
+        const before = postMessage.mock.calls.filter(c => c[0]?.name === 'uiLog').length;
+        sendPluginMessage(getOnMessageCb, {name: 'importStatus', text: 'NoForward'});
+        const after = postMessage.mock.calls.filter(c => c[0]?.name === 'uiLog').length;
+        expect(after).toBe(before);
+    });
 
     test('renderExportLinks: supports http(s), trims title, and auto-names blank titles as \"Link N\"', () => {
-            setupDom(true);
-            const {getOnMessageCb} = installWebviewApi();
-            loadIcsImportFresh();
+        setupDom(true);
+        const {getOnMessageCb} = installWebviewApi();
+        loadIcsImportFresh();
 
-            sendPluginMessage(getOnMessageCb, {
-                name: 'uiSettings',
-                debug: true,
-                icsExportLinks: [
-                    {title: '   ', url: 'https://example.test/a'},
-                    {title: null, url: 'http://example.test/b'},
-                ],
-            });
-
-            const linkBox = qs('#mc-ics-export-link') as HTMLElement;
-            const btns = Array.from(linkBox.querySelectorAll('a')) as HTMLAnchorElement[];
-            expect(btns.length).toBe(2);
-            expect(btns[0].textContent).toBe('Link 1');
-            expect(btns[1].textContent).toBe('Link 2');
-            expect(btns[0].href).toBe('https://example.test/a');
-            expect(btns[1].href).toBe('http://example.test/b');
+        sendPluginMessage(getOnMessageCb, {
+            name: 'uiSettings',
+            debug: true,
+            icsExportLinks: [
+                {title: '   ', url: 'https://example.test/a'},
+                {title: null, url: 'http://example.test/b'},
+            ],
         });
+
+        const linkBox = qs('#mc-ics-export-link') as HTMLElement;
+        const btns = Array.from(linkBox.querySelectorAll('a')) as HTMLAnchorElement[];
+        expect(btns.length).toBe(2);
+        expect(btns[0].textContent).toBe('Link 1');
+        expect(btns[1].textContent).toBe('Link 2');
+        expect(btns[0].href).toBe('https://example.test/a');
+        expect(btns[1].href).toBe('http://example.test/b');
+    });
 
     test('Import button: file selected but no target folder selected -> logs message and does not post icsImport', () => {
-            setupDom(true);
-            const {postMessage} = installWebviewApi();
+        setupDom(true);
+        const {postMessage} = installWebviewApi();
 
-            // Mock FileReader (should not be invoked because folder is missing)
-            const fr: any = {
-                readAsText: jest.fn(),
-            };
-            (global as any).FileReader = function () {
-                return fr;
-            };
+        // Mock FileReader (should not be invoked because folder is missing)
+        const fr: any = {
+            readAsText: jest.fn(),
+        };
+        (global as any).FileReader = function () {
+            return fr;
+        };
 
-            loadIcsImportFresh();
+        loadIcsImportFresh();
 
-            const fileInput = qs('#ics-file') as HTMLInputElement;
-            const fileObj: any = {name: 'a.ics', size: 12};
-            Object.defineProperty(fileInput, 'files', {value: [fileObj], configurable: true});
+        const fileInput = qs('#ics-file') as HTMLInputElement;
+        const fileObj: any = {name: 'a.ics', size: 12};
+        Object.defineProperty(fileInput, 'files', {value: [fileObj], configurable: true});
 
-            // folderSelect value is still placeholder -> ''
-            const folderSel = qs('#mc-target-folder') as HTMLSelectElement;
-            expect(folderSel.value).toBe('');
+        // folderSelect value is still placeholder -> ''
+        const folderSel = qs('#mc-target-folder') as HTMLSelectElement;
+        expect(folderSel.value).toBe('');
 
-            const importBtn = Array.from(document.querySelectorAll('button'))
-                .find(b => (b.textContent || '').trim() === 'Import') as HTMLButtonElement;
-            importBtn.click();
+        const importBtn = Array.from(document.querySelectorAll('button'))
+            .find(b => (b.textContent || '').trim() === 'Import') as HTMLButtonElement;
+        importBtn.click();
 
-            const importCalls = postMessage.mock.calls.filter(c => c[0]?.name === 'icsImport');
-            expect(importCalls.length).toBe(0);
-            expect(fr.readAsText).not.toHaveBeenCalled();
-            expectConsoleLogContains(logSpy, 'Select a target notebook first.');
-        });
+        const importCalls = postMessage.mock.calls.filter(c => c[0]?.name === 'icsImport');
+        expect(importCalls.length).toBe(0);
+        expect(fr.readAsText).not.toHaveBeenCalled();
+        expectConsoleLogContains(logSpy, 'Select a target notebook first.');
+    });
 
     test('Import button: ignores second click while import is in progress (importInProgress gate)', () => {
-            setupDom(true);
-            const {postMessage, getOnMessageCb} = installWebviewApi();
+        setupDom(true);
+        const {postMessage, getOnMessageCb} = installWebviewApi();
 
-            // FileReader that does NOT call onload immediately
-            const fr: any = {
-                result: 'ICS',
-                onload: null,
-                onerror: null,
-                readAsText: jest.fn(),
-            };
-            (global as any).FileReader = function () {
-                return fr;
-            };
+        // FileReader that does NOT call onload immediately
+        const fr: any = {
+            result: 'ICS',
+            onload: null,
+            onerror: null,
+            readAsText: jest.fn(),
+        };
+        (global as any).FileReader = function () {
+            return fr;
+        };
 
-            loadIcsImportFresh();
+        loadIcsImportFresh();
 
-            sendPluginMessage(getOnMessageCb, {
-                name: 'folders',
-                folders: [{id: 'f1', title: 'Folder1', depth: 0}],
-            });
-
-            const fileInput = qs('#ics-file') as HTMLInputElement;
-            const fileObj: any = {name: 'a.ics', size: 12};
-            Object.defineProperty(fileInput, 'files', {value: [fileObj], configurable: true});
-
-            const importBtn = Array.from(document.querySelectorAll('button'))
-                .find(b => (b.textContent || '').trim() === 'Import') as HTMLButtonElement;
-
-            importBtn.click();
-            importBtn.click();
-
-            expect(fr.readAsText).toHaveBeenCalledTimes(1);
-            expect(postMessage.mock.calls.filter(c => c[0]?.name === 'icsImport').length).toBe(0);
-
-            // Now finish FileReader
-            if (typeof fr.onload === 'function') fr.onload();
-            expect(postMessage.mock.calls.filter(c => c[0]?.name === 'icsImport').length).toBe(1);
+        sendPluginMessage(getOnMessageCb, {
+            name: 'folders',
+            folders: [{id: 'f1', title: 'Folder1', depth: 0}],
         });
+
+        const fileInput = qs('#ics-file') as HTMLInputElement;
+        const fileObj: any = {name: 'a.ics', size: 12};
+        Object.defineProperty(fileInput, 'files', {value: [fileObj], configurable: true});
+
+        const importBtn = Array.from(document.querySelectorAll('button'))
+            .find(b => (b.textContent || '').trim() === 'Import') as HTMLButtonElement;
+
+        importBtn.click();
+        importBtn.click();
+
+        expect(fr.readAsText).toHaveBeenCalledTimes(1);
+        expect(postMessage.mock.calls.filter(c => c[0]?.name === 'icsImport').length).toBe(0);
+
+        // Now finish FileReader
+        if (typeof fr.onload === 'function') fr.onload();
+        expect(postMessage.mock.calls.filter(c => c[0]?.name === 'icsImport').length).toBe(1);
+    });
 
     test('FileReader error path: logs error, re-enables UI, and clears loading state (no icsImport message)', () => {
-            setupDom(true);
-            const {postMessage, getOnMessageCb} = installWebviewApi();
+        setupDom(true);
+        const {postMessage, getOnMessageCb} = installWebviewApi();
 
-            const fr: any = {
-                result: null,
-                error: new Error('read fail'),
-                onload: null,
-                onerror: null,
-                readAsText: jest.fn(function () {
-                    if (typeof fr.onerror === 'function') fr.onerror();
-                }),
-            };
-            (global as any).FileReader = function () {
-                return fr;
-            };
+        const fr: any = {
+            result: null,
+            error: new Error('read fail'),
+            onload: null,
+            onerror: null,
+            readAsText: jest.fn(function () {
+                if (typeof fr.onerror === 'function') fr.onerror();
+            }),
+        };
+        (global as any).FileReader = function () {
+            return fr;
+        };
 
-            loadIcsImportFresh();
+        loadIcsImportFresh();
 
-            sendPluginMessage(getOnMessageCb, {
-                name: 'folders',
-                folders: [{id: 'f1', title: 'Folder1', depth: 0}],
-            });
-
-            const fileInput = qs('#ics-file') as HTMLInputElement;
-            const fileObj: any = {name: 'a.ics', size: 12};
-            Object.defineProperty(fileInput, 'files', {value: [fileObj], configurable: true});
-
-            const importBtn = Array.from(document.querySelectorAll('button'))
-                .find(b => (b.textContent || '').trim() === 'Import') as HTMLButtonElement;
-
-            importBtn.click();
-
-            // No icsImport posted
-            expect(postMessage.mock.calls.filter(c => c[0]?.name === 'icsImport').length).toBe(0);
-            expectConsoleErrorContains(errorSpy, 'FileReader error:');
-
-            // UI reset
-            const form = qs('#mc-ics-import-form') as HTMLFormElement;
-            expect(form.classList.contains('mc-loading')).toBe(false);
-            expect(form.getAttribute('aria-busy')).toBe('false');
-
-            const folderSel = qs('#mc-target-folder') as HTMLSelectElement;
-            expect(folderSel.disabled).toBe(false);
-            expect(fileInput.disabled).toBe(false);
-            expect(importBtn.disabled).toBe(false);
+        sendPluginMessage(getOnMessageCb, {
+            name: 'folders',
+            folders: [{id: 'f1', title: 'Folder1', depth: 0}],
         });
+
+        const fileInput = qs('#ics-file') as HTMLInputElement;
+        const fileObj: any = {name: 'a.ics', size: 12};
+        Object.defineProperty(fileInput, 'files', {value: [fileObj], configurable: true});
+
+        const importBtn = Array.from(document.querySelectorAll('button'))
+            .find(b => (b.textContent || '').trim() === 'Import') as HTMLButtonElement;
+
+        importBtn.click();
+
+        // No icsImport posted
+        expect(postMessage.mock.calls.filter(c => c[0]?.name === 'icsImport').length).toBe(0);
+        expectConsoleErrorContains(errorSpy, 'FileReader error:');
+
+        // UI reset
+        const form = qs('#mc-ics-import-form') as HTMLFormElement;
+        expect(form.classList.contains('mc-loading')).toBe(false);
+        expect(form.getAttribute('aria-busy')).toBe('false');
+
+        const folderSel = qs('#mc-target-folder') as HTMLSelectElement;
+        expect(folderSel.disabled).toBe(false);
+        expect(fileInput.disabled).toBe(false);
+        expect(importBtn.disabled).toBe(false);
+    });
 
     test('importDone/importError clear loading overlay and re-enable controls after a started import', () => {
-            setupDom(true);
-            const {getOnMessageCb} = installWebviewApi();
+        setupDom(true);
+        const {getOnMessageCb} = installWebviewApi();
 
-            // FileReader that immediately posts
-            const fr: any = {
-                result: 'ICS',
-                error: null,
-                onload: null,
-                onerror: null,
-                readAsText: jest.fn(function () {
-                    if (typeof fr.onload === 'function') fr.onload();
-                }),
-            };
-            (global as any).FileReader = function () {
-                return fr;
-            };
+        // FileReader that immediately posts
+        const fr: any = {
+            result: 'ICS',
+            error: null,
+            onload: null,
+            onerror: null,
+            readAsText: jest.fn(function () {
+                if (typeof fr.onload === 'function') fr.onload();
+            }),
+        };
+        (global as any).FileReader = function () {
+            return fr;
+        };
 
-            loadIcsImportFresh();
+        loadIcsImportFresh();
 
-            sendPluginMessage(getOnMessageCb, {
-                name: 'folders',
-                folders: [{id: 'f1', title: 'Folder1', depth: 0}],
-            });
-
-            const fileInput = qs('#ics-file') as HTMLInputElement;
-            const fileObj: any = {name: 'a.ics', size: 12};
-            Object.defineProperty(fileInput, 'files', {value: [fileObj], configurable: true});
-
-            const importBtn = Array.from(document.querySelectorAll('button'))
-                .find(b => (b.textContent || '').trim() === 'Import') as HTMLButtonElement;
-
-            importBtn.click();
-
-            const form = qs('#mc-ics-import-form') as HTMLFormElement;
-            expect(form.classList.contains('mc-loading')).toBe(true);
-            expect(form.getAttribute('aria-busy')).toBe('true');
-
-            // importDone clears
-            sendPluginMessage(getOnMessageCb, {name: 'importDone', added: 0, updated: 0, skipped: 0, errors: 0});
-            expect(form.classList.contains('mc-loading')).toBe(false);
-            expect(form.getAttribute('aria-busy')).toBe('false');
-
-            // Start again and then importError clears
-            importBtn.click();
-            expect(form.classList.contains('mc-loading')).toBe(true);
-            sendPluginMessage(getOnMessageCb, {name: 'importError', error: 'boom'});
-            expect(form.classList.contains('mc-loading')).toBe(false);
-            expect(form.getAttribute('aria-busy')).toBe('false');
+        sendPluginMessage(getOnMessageCb, {
+            name: 'folders',
+            folders: [{id: 'f1', title: 'Folder1', depth: 0}],
         });
+
+        const fileInput = qs('#ics-file') as HTMLInputElement;
+        const fileObj: any = {name: 'a.ics', size: 12};
+        Object.defineProperty(fileInput, 'files', {value: [fileObj], configurable: true});
+
+        const importBtn = Array.from(document.querySelectorAll('button'))
+            .find(b => (b.textContent || '').trim() === 'Import') as HTMLButtonElement;
+
+        importBtn.click();
+
+        const form = qs('#mc-ics-import-form') as HTMLFormElement;
+        expect(form.classList.contains('mc-loading')).toBe(true);
+        expect(form.getAttribute('aria-busy')).toBe('true');
+
+        // importDone clears
+        sendPluginMessage(getOnMessageCb, {name: 'importDone', added: 0, updated: 0, skipped: 0, errors: 0});
+        expect(form.classList.contains('mc-loading')).toBe(false);
+        expect(form.getAttribute('aria-busy')).toBe('false');
+
+        // Start again and then importError clears
+        importBtn.click();
+        expect(form.classList.contains('mc-loading')).toBe(true);
+        sendPluginMessage(getOnMessageCb, {name: 'importError', error: 'boom'});
+        expect(form.classList.contains('mc-loading')).toBe(false);
+        expect(form.getAttribute('aria-busy')).toBe('false');
+    });
 
     test('invalid import default color in localStorage falls back to #1470d9', () => {
-            setupDom(true);
-            installWebviewApi();
+        setupDom(true);
+        installWebviewApi();
 
-            localStorage.setItem('mycalendar_import_color_enabled', '1');
-            localStorage.setItem('mycalendar_import_color_value', 'not-a-color');
+        localStorage.setItem('mycalendar_import_color_enabled', '1');
+        localStorage.setItem('mycalendar_import_color_value', 'not-a-color');
 
-            loadIcsImportFresh();
+        loadIcsImportFresh();
 
-            const picker = qs('input[type=\"color\"]') as HTMLInputElement;
-            expect(picker.value.toLowerCase()).toBe('#1470d9');
-        });
+        const picker = qs('input[type=\"color\"]') as HTMLInputElement;
+        expect(picker.value.toLowerCase()).toBe('#1470d9');
+    });
 
     test('safeGetLS/safeSetLS: localStorage exceptions do not crash UI', () => {
-            setupDom(true);
-            installWebviewApi();
+        setupDom(true);
+        installWebviewApi();
 
-            const origGet = Storage.prototype.getItem;
-            const origSet = Storage.prototype.setItem;
-            (Storage.prototype as any).getItem = jest.fn(() => {
-                throw new Error('getItem fail');
-            });
-            (Storage.prototype as any).setItem = jest.fn(() => {
-                throw new Error('setItem fail');
-            });
-
-            expect(() => loadIcsImportFresh()).not.toThrow();
-
-            const preserve = (document.querySelectorAll('input[type=\"checkbox\"]')[0] as HTMLInputElement);
-            expect(() => preserve.click()).not.toThrow();
-
-            // restore
-            (Storage.prototype as any).getItem = origGet;
-            (Storage.prototype as any).setItem = origSet;
+        const origGet = Storage.prototype.getItem;
+        const origSet = Storage.prototype.setItem;
+        (Storage.prototype as any).getItem = jest.fn(() => {
+            throw new Error('getItem fail');
         });
+        (Storage.prototype as any).setItem = jest.fn(() => {
+            throw new Error('setItem fail');
+        });
+
+        expect(() => loadIcsImportFresh()).not.toThrow();
+
+        const preserve = (document.querySelectorAll('input[type=\"checkbox\"]')[0] as HTMLInputElement);
+        expect(() => preserve.click()).not.toThrow();
+
+        // restore
+        (Storage.prototype as any).getItem = origGet;
+        (Storage.prototype as any).setItem = origSet;
+    });
 });

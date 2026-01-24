@@ -1,4 +1,5 @@
 // tests/services/icsImportService.test.ts
+//
 // src/main/services/icsImportService.ts
 //
 // npx jest tests/services/icsImportService.test.ts --runInBand --no-cache;
@@ -25,6 +26,7 @@ type JoplinMock = {
         get: jest.Mock<any, any>;
         put: jest.Mock<any, any>;
         post: jest.Mock<any, any>;
+        delete?: jest.Mock<any, any>;
     };
 };
 
@@ -33,6 +35,7 @@ const mkJoplin = (impl?: Partial<JoplinMock['data']>): JoplinMock => ({
         get: impl?.get ?? jest.fn(),
         put: impl?.put ?? jest.fn(),
         post: impl?.post ?? jest.fn(),
+        delete: (impl as any)?.delete ?? jest.fn(),
     },
 });
 
@@ -119,7 +122,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
         expect(noteBody.body).toContain('end: 2025-01-15 11:30:00+00:00');
         expect(noteBody.body).toContain('uid: u1');
 
-        expect(res).toEqual({added: 1, updated: 0, skipped: 0, errors: 0});
+        expect(res).toEqual({added: 1, updated: 0, skipped: 0, errors: 0, alarmsCreated: 0, alarmsDeleted: 0});
     });
 
     test('imports VALARM as valarm: {json} lines inside mycalendar-event block (supports multiple VALARM)', async () => {
@@ -166,8 +169,128 @@ describe('icsImportService.importIcsIntoNotes', () => {
         expect(noteBody.body).toContain('valarm: {"trigger":"-PT1H","related":"START","action":"DISPLAY","description":"Reminder 1"}');
         expect(noteBody.body).toContain('valarm: {"trigger":"-P1D","action":"DISPLAY"}');
 
-        expect(res).toEqual({added: 1, updated: 0, skipped: 0, errors: 0});
+        expect(res).toEqual({added: 1, updated: 0, skipped: 0, errors: 0, alarmsCreated: 0, alarmsDeleted: 0});
     });
+
+    test('creates todo+alarm notes from VALARM (only future alarms, within 60 days)', async () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2025-01-15T08:00:00.000Z')); // now
+
+        const ics = [
+            'BEGIN:VCALENDAR',
+            'BEGIN:VEVENT',
+            'UID:u-valarm2',
+            'SUMMARY:With alarm',
+            'DTSTART:20250115T100000Z',
+            'DTEND:20250115T113000Z',
+            'BEGIN:VALARM',
+            'ACTION:DISPLAY',
+            'TRIGGER;RELATED=START:-PT1H',
+            'END:VALARM',
+            'END:VEVENT',
+            'END:VCALENDAR',
+        ].join('\n');
+
+        const joplin = mkJoplin({
+            get: jest.fn().mockResolvedValueOnce({items: [], has_more: false}),
+            post: jest.fn()
+                .mockResolvedValueOnce({id: 'event-note-id'}) // event note
+                .mockResolvedValueOnce({id: 'alarm-note-id'}), // alarm todo
+            put: jest.fn(),
+        });
+
+        const onStatus = jest.fn();
+
+        const res = await importIcsIntoNotes(joplin as any, ics, onStatus, 'nb1');
+
+        expect(res.added).toBe(1);
+        expect(res.alarmsCreated).toBe(1);
+        expect((joplin.data.post as any).mock.calls.length).toBe(2);
+
+        const alarmCall = (joplin.data.post as any).mock.calls[1];
+        const alarmNote = alarmCall[2];
+
+        expect(alarmNote.parent_id).toBe('nb1');
+        expect(alarmNote.is_todo).toBe(1);
+        expect(alarmNote.alarm_time).toBe(new Date('2025-01-15T09:00:00.000Z').getTime());
+        expect(String(alarmNote.body)).toContain('```mycalendar-alarm');
+        expect(String(alarmNote.body)).toContain('uid: u-valarm2');
+        expect(String(alarmNote.body)).toContain('[With alarm](:/event-note-id)');
+
+        jest.useRealTimers();
+    });
+
+    test('reimport deletes old alarm notes for the same uid+recurrence and regenerates', async () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2025-01-15T08:00:00.000Z')); // now
+
+        const existingEvent = {
+            id: 'event-note-id',
+            title: 'With alarm',
+            parent_id: 'nb1',
+            body: [
+                '```mycalendar-event',
+                'title: With alarm',
+                'uid: u-del',
+                'recurrence_id: ',
+                'start: 2025-01-15 10:00:00+00:00',
+                'end: 2025-01-15 11:30:00+00:00',
+                '```',
+            ].join('\n'),
+        };
+
+        const existingAlarm = {
+            id: 'old-alarm-id',
+            title: 'With alarm + 2025-01-15 09:00',
+            parent_id: 'nb1',
+            body: [
+                '```mycalendar-alarm',
+                'title: With alarm + 2025-01-15 09:00',
+                'uid: u-del',
+                'recurrence_id: ',
+                'when: 2025-01-15 09:00:00+00:00',
+                '```',
+                '',
+                '---',
+                '',
+                '[With alarm](:/event-note-id)',
+            ].join('\n'),
+        };
+
+        const ics = [
+            'BEGIN:VCALENDAR',
+            'BEGIN:VEVENT',
+            'UID:u-del',
+            'SUMMARY:With alarm',
+            'DTSTART:20250115T100000Z',
+            'DTEND:20250115T113000Z',
+            'BEGIN:VALARM',
+            'ACTION:DISPLAY',
+            'TRIGGER:-PT1H',
+            'END:VALARM',
+            'END:VEVENT',
+            'END:VCALENDAR',
+        ].join('\n');
+
+        const joplin = mkJoplin({
+            get: jest.fn()
+                .mockResolvedValueOnce({items: [existingEvent, existingAlarm], has_more: false}),
+            post: jest.fn().mockResolvedValue({id: 'new-alarm-id'}), // only alarm created (event updated/skipped)
+            put: jest.fn(),
+            delete: jest.fn().mockResolvedValue({}),
+        });
+
+        const res = await importIcsIntoNotes(joplin as any, ics, undefined, 'nb1');
+
+        expect((joplin.data.delete as any)).toHaveBeenCalledWith(['notes', 'old-alarm-id']);
+        expect((joplin.data.post as any)).toHaveBeenCalledTimes(1);
+        expect(res.alarmsDeleted).toBe(1);
+        expect(res.alarmsCreated).toBe(1); // 1 valid alarm in next 60 days
+        expect(res.errors).toBe(0);
+
+        jest.useRealTimers();
+    });
+
 
     test('supports folded lines + unescape in DESCRIPTION/LOCATION', async () => {
         const ics = [
@@ -384,7 +507,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
 
         const res = await importIcsIntoNotes(joplin as any, text);
 
-        expect(res).toEqual({added: 0, updated: 0, skipped: 1, errors: 0});
+        expect(res).toEqual({added: 0, updated: 0, skipped: 1, errors: 0, alarmsCreated: 0, alarmsDeleted: 0});
         expect(joplin.data.post).not.toHaveBeenCalled();
         expect(joplin.data.put).not.toHaveBeenCalled();
     });
@@ -598,7 +721,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
 
         const res = await importIcsIntoNotes(joplin as any, ics);
 
-        expect(res).toEqual({added: 0, updated: 0, skipped: 1, errors: 0});
+        expect(res).toEqual({added: 0, updated: 0, skipped: 1, errors: 0, alarmsCreated: 0, alarmsDeleted: 0});
         expect(joplin.data.put).not.toHaveBeenCalled();
         expect(joplin.data.post).not.toHaveBeenCalled();
     });
@@ -677,42 +800,42 @@ describe('icsImportService.importIcsIntoNotes', () => {
     });
 
     test('update: if targetFolderId changes => PUT includes parent_id even if body/title unchanged', async () => {
-            const ics = [
-                'BEGIN:VCALENDAR',
-                'BEGIN:VEVENT',
-                'UID:u1',
-                'SUMMARY:Same',
-                'DTSTART:20250115T100000Z',
-                'END:VEVENT',
-                'END:VCALENDAR',
-            ].join('\n');
+        const ics = [
+            'BEGIN:VCALENDAR',
+            'BEGIN:VEVENT',
+            'UID:u1',
+            'SUMMARY:Same',
+            'DTSTART:20250115T100000Z',
+            'END:VEVENT',
+            'END:VCALENDAR',
+        ].join('\n');
 
-            const existingNote = {
-                id: 'n1',
-                title: 'Same',
-                parent_id: 'folder-old',
-                body: [
-                    '```mycalendar-event',
-                    'title: Same',
-                    'start: 2025-01-15 10:00:00+00:00',
-                    '',
-                    'uid: u1',
-                    '```',
-                ].join('\n'),
-            };
+        const existingNote = {
+            id: 'n1',
+            title: 'Same',
+            parent_id: 'folder-old',
+            body: [
+                '```mycalendar-event',
+                'title: Same',
+                'start: 2025-01-15 10:00:00+00:00',
+                '',
+                'uid: u1',
+                '```',
+            ].join('\n'),
+        };
 
-            const joplin = mkJoplin({
-                get: jest.fn().mockResolvedValue({items: [existingNote], has_more: false}),
-                put: jest.fn().mockResolvedValue({}),
-            });
-
-            const res = await importIcsIntoNotes(joplin as any, ics, undefined, 'folder-new');
-
-            expect(res).toEqual({added: 0, updated: 1, skipped: 0, errors: 0});
-            expect(joplin.data.put).toHaveBeenCalledTimes(1);
-            const patch = joplin.data.put.mock.calls[0][2];
-            expect(patch).toEqual({parent_id: 'folder-new'});
+        const joplin = mkJoplin({
+            get: jest.fn().mockResolvedValue({items: [existingNote], has_more: false}),
+            put: jest.fn().mockResolvedValue({}),
         });
+
+        const res = await importIcsIntoNotes(joplin as any, ics, undefined, 'folder-new');
+
+        expect(res).toEqual({added: 0, updated: 1, skipped: 0, errors: 0, alarmsCreated: 0, alarmsDeleted: 0});
+        expect(joplin.data.put).toHaveBeenCalledTimes(1);
+        const patch = joplin.data.put.mock.calls[0][2];
+        expect(patch).toEqual({parent_id: 'folder-new'});
+    });
 
     test('error on update: increments errors and calls onStatus with ERROR update', async () => {
         const ics = [
@@ -921,7 +1044,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
 
         const res = await importIcsIntoNotes(joplin as any, ics, undefined, undefined, true);
 
-        expect(res).toEqual({added: 0, updated: 0, skipped: 1, errors: 0});
+        expect(res).toEqual({added: 0, updated: 0, skipped: 1, errors: 0, alarmsCreated: 0, alarmsDeleted: 0});
         expect(joplin.data.put).not.toHaveBeenCalled();
     });
 
@@ -1073,7 +1196,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
         const res = await importIcsIntoNotes(joplin as any, ics, onStatus);
 
         expect(onStatus).toHaveBeenCalledWith('Parsed 0 VEVENT(s)');
-        expect(res).toEqual({added: 0, updated: 0, skipped: 0, errors: 0});
+        expect(res).toEqual({added: 0, updated: 0, skipped: 0, errors: 0, alarmsCreated: 0, alarmsDeleted: 0});
         expect(joplin.data.put).not.toHaveBeenCalled();
         expect(joplin.data.post).not.toHaveBeenCalled();
 
@@ -1250,6 +1373,135 @@ describe('icsImportService.importIcsIntoNotes', () => {
         const body = joplin.data.post.mock.calls[0][2].body as string;
         expect(body).toContain('uid: u_no_vcal');
         expect(body).toContain('title: No Calendar Wrapper');
+        expect(body).toContain('title: No Calendar Wrapper');
+    });
+
+    test('VERIFICATION: mycalendar-alarm properties "when" and "alarm_time" match exactly', async () => {
+        // User specific scenario check
+        const ics = [
+            'BEGIN:VCALENDAR',
+            'BEGIN:VEVENT',
+            'UID:verify-alarm-time',
+            'SUMMARY:Verify Time',
+            'DTSTART:20260317T163000Z', // 16:30 Z
+            'DTEND:20260317T173000Z',
+            'BEGIN:VALARM',
+            'TRIGGER:-PT15M', // 15 min before => 16:15 Z
+            'ACTION:DISPLAY',
+            'END:VALARM',
+            'END:VEVENT',
+            'END:VCALENDAR',
+        ].join('\n');
+
+        const joplin = mkJoplin({
+            get: jest.fn().mockResolvedValue({items: [], has_more: false}),
+            post: jest.fn().mockResolvedValue({id: 'created'}),
+        });
+
+        // We need to mock "now" to be before the alarm so it is created
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2026-03-01T00:00:00Z'));
+
+        const res = await importIcsIntoNotes(joplin as any, ics, undefined, 'verify-nb');
+
+        expect(res.alarmsCreated).toBe(1);
+        const alarmCall = joplin.data.post.mock.calls[1]; // 0 is event, 1 is alarm
+        const noteBody = alarmCall[2];
+
+        // Expected time: 16:30 - 15m = 16:15
+        const expectedTimeStr = '2026-03-17 16:15:00+00:00';
+        const expectedMs = new Date('2026-03-17T16:15:00Z').getTime();
+
+        // 1. Check body "when" property
+        expect(noteBody.body).toContain(`when: ${expectedTimeStr}`);
+
+        // 2. Check system alarm_time property
+        expect(noteBody.alarm_time).toBe(expectedMs);
+
+        // 3. Ensure it is NOT the event start time
+        const eventStartMs = new Date('2026-03-17T16:30:00Z').getTime();
+        expect(noteBody.alarm_time).not.toBe(eventStartMs);
+
+        jest.useRealTimers();
+    });
+
+
+    test('reimport matches existing event by uid+rid even when ICS uses RECURRENCE-ID with TZID (no duplicate event) and regenerates alarms', async () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2025-01-15T08:00:00.000Z'));
+
+        const existingEvent = {
+            id: 'event-note-id',
+            title: 'Occ with alarm',
+            parent_id: 'nb1',
+            body: [
+                '```mycalendar-event',
+                'title: Occ with alarm',
+                'uid: u-rid',
+                'recurrence_id: 20250115T090000',
+                'start: 2025-01-15 14:00:00+00:00',
+                'end: 2025-01-15 15:30:00+00:00',
+                '```',
+            ].join('\n'),
+        };
+
+        const existingAlarm = {
+            id: 'old-alarm-id',
+            title: 'Occ with alarm + 2025-01-15 13:00',
+            parent_id: 'nb1',
+            body: [
+                '```mycalendar-alarm',
+                'title: Occ with alarm + 2025-01-15 13:00',
+                'uid: u-rid',
+                'recurrence_id: 20250115T090000',
+                'when: 2025-01-15 13:00:00+00:00',
+                '```',
+                '',
+                '---',
+                '',
+                '[Occ with alarm](:/event-note-id)',
+            ].join('\n'),
+        };
+
+        const ics = [
+            'BEGIN:VCALENDAR',
+            'BEGIN:VEVENT',
+            'UID:u-rid',
+            'SUMMARY:Occ with alarm',
+            'RECURRENCE-ID;TZID=America/Toronto:20250115T090000',
+            'DTSTART;TZID=America/Toronto:20250115T090000',
+            'DTEND;TZID=America/Toronto:20250115T103000',
+            'BEGIN:VALARM',
+            'ACTION:DISPLAY',
+            'TRIGGER:-PT1H',
+            'END:VALARM',
+            'END:VEVENT',
+            'END:VCALENDAR',
+        ].join('\n');
+
+        const joplin = mkJoplin({
+            get: jest.fn().mockResolvedValue({items: [existingEvent, existingAlarm], has_more: false}),
+            post: jest.fn().mockResolvedValue({id: 'new-alarm-id'}),
+            put: jest.fn().mockResolvedValue({}),
+            delete: jest.fn().mockResolvedValue({}),
+        });
+
+        const res = await importIcsIntoNotes(joplin as any, ics, undefined, 'nb1');
+
+        // Existing alarm must be removed and a new one created (regenerated)
+        expect((joplin.data.delete as any)).toHaveBeenCalledWith(['notes', 'old-alarm-id']);
+
+        // Ensure we did not create a duplicate mycalendar-event note
+        const postCalls = ((joplin.data.post as any).mock.calls || []) as any[];
+        const postedBodies = postCalls.map(c => c?.[2]?.body).filter(Boolean) as string[];
+        expect(postedBodies.some(b => b.includes('```mycalendar-event'))).toBe(false);
+        expect(postedBodies.some(b => b.includes('```mycalendar-alarm'))).toBe(true);
+
+        expect(res.alarmsDeleted).toBe(1);
+        expect(res.alarmsCreated).toBe(1);
+        expect(res.errors).toBe(0);
+
+        jest.useRealTimers();
     });
 
 });
