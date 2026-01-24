@@ -902,7 +902,6 @@ export async function importIcsIntoNotes(
                         body,
                         parent_id: notebookId,
                         is_todo: 1,
-                        alarm_time: whenMs,
                         todo_due: whenMs,
                     };
 
@@ -911,7 +910,6 @@ export async function importIcsIntoNotes(
                     // Some Joplin versions ignore alarm fields during POST; ensure via PUT for reliability.
                     if (created?.id) {
                         await joplin.data.put(['notes', created.id], null, {
-                            alarm_time: whenMs,
                             todo_due: whenMs,
                         });
                     }
