@@ -25,7 +25,6 @@
     });
 
 
-
     function createUiLogger(prefix, outputBoxId) {
         let outputBox = null;
 

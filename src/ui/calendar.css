@@ -604,6 +604,7 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
     .mc-grid-head-cell.mc-weekend {
         background: var(--mc-weekend-head-bg);
     }
+
     .mc-grid-body {
         gap: 2px;
     }
