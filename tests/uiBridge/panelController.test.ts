@@ -254,8 +254,8 @@ describe('panelController', () => {
         expect(postMessage).toHaveBeenCalledWith('panel-1', {name: 'importStatus', text: 'Parsing...'});
         expect(postMessage).toHaveBeenCalledWith('panel-1', {name: 'importStatus', text: 'Saving...'});
 
-        expect(showToast).toHaveBeenCalledWith('info', 'Parsing...', 2000);
-        expect(showToast).toHaveBeenCalledWith('info', 'Saving...', 2000);
+        expect(showToast).toHaveBeenCalledWith('info', 'Parsing...', 5000);
+        expect(showToast).toHaveBeenCalledWith('info', 'Saving...', 5000);
 
         // invalidate cache after successful import
         expect(invalidateAllEventsCache).toHaveBeenCalledTimes(1);
@@ -275,7 +275,7 @@ describe('panelController', () => {
         expect(showToast).toHaveBeenCalledWith(
             'success',
             'ICS import finished: added=1, updated=2, skipped=3, errors=0, alarmsCreated=4, alarmsDeleted=5',
-            4000
+            5000
         );
 
         // checking arguments importIcsIntoNotes (default preserveLocalColor = true, default targetFolderId=undefined)
@@ -303,7 +303,7 @@ describe('panelController', () => {
         expect(showToast).toHaveBeenCalledWith(
             'warning',
             'ICS import finished: added=0, updated=0, skipped=0, errors=2, alarmsCreated=0, alarmsDeleted=0',
-            4000
+            5000
         );
     });
 
