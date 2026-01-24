@@ -903,9 +903,18 @@ export async function importIcsIntoNotes(
                         parent_id: notebookId,
                         is_todo: 1,
                         alarm_time: whenMs,
+                        todo_due: whenMs,
                     };
 
-                    await joplin.data.post(['notes'], null, noteBody);
+                    const created: any = await joplin.data.post(['notes'], null, noteBody);
+
+                    // Some Joplin versions ignore alarm fields during POST; ensure via PUT for reliability.
+                    if (created?.id) {
+                        await joplin.data.put(['notes', created.id], null, {
+                            alarm_time: whenMs,
+                            todo_due: whenMs,
+                        });
+                    }
                     alarmsCreated++;
                 } catch (e) {
                     await say(`ERROR create alarm: ${key} - ${String((e as any)?.message || e)}`);
