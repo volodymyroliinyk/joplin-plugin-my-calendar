@@ -1522,4 +1522,129 @@ describe('icsImportService.importIcsIntoNotes', () => {
         jest.useRealTimers();
     });
 
+    test('parseIsoDurationToMs: supports P1W and combined P1DT2H3M4S', async () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2025-01-15T08:00:00.000Z'));
+
+        const ics = [
+            'BEGIN:VEVENT',
+            'UID:u-dur',
+            'DTSTART:20250115T100000Z',
+            'BEGIN:VALARM',
+            'TRIGGER:-P1W', // 1 week before = Jan 8 (past relative to Jan 15 08:00)
+            'ACTION:DISPLAY',
+            'END:VALARM',
+            'BEGIN:VALARM',
+            'TRIGGER:PT10M', // 10 mins after = 10:10 (future)
+            'ACTION:DISPLAY',
+            'END:VALARM',
+            'END:VEVENT',
+        ].join('\n');
+
+        const joplin = mkJoplin({
+            get: jest.fn().mockResolvedValue({items: [], has_more: false}),
+            post: jest.fn().mockResolvedValue({id: 'new-id'}),
+        });
+
+        const res = await importIcsIntoNotes(joplin as any, ics, undefined, 'nb1', true, undefined, 60);
+
+        // Only PT10M should be created because Jan 8 is in the past
+        expect(res.alarmsCreated).toBe(1);
+
+        jest.useRealTimers();
+    });
+
+    test('parseIsoDurationToMs: handles negative and invalid durations', async () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2025-01-01T00:00:00Z'));
+
+        const ics = [
+            'BEGIN:VEVENT',
+            'UID:u-dur2',
+            'DTSTART:20250110T100000Z',
+            'BEGIN:VALARM',
+            'TRIGGER:PT1H', // 1 hour after (positive)
+            'ACTION:DISPLAY',
+            'END:VALARM',
+            'BEGIN:VALARM',
+            'TRIGGER:P1M', // Invalid
+            'ACTION:DISPLAY',
+            'END:VALARM',
+            'END:VEVENT',
+        ].join('\n');
+
+        const joplin = mkJoplin({
+            get: jest.fn().mockResolvedValue({items: [], has_more: false}),
+            post: jest.fn().mockResolvedValue({id: 'new-id'}),
+        });
+
+        const res = await importIcsIntoNotes(joplin as any, ics, undefined, 'nb1', true, undefined, 60);
+        expect(res.alarmsCreated).toBe(1);
+        const alarmNote = joplin.data.post.mock.calls[1][2];
+        expect(alarmNote.todo_due).toBe(new Date('2025-01-10T11:00:00Z').getTime());
+
+        jest.useRealTimers();
+    });
+
+    test('error on alarm delete: logs error but continues', async () => {
+        const existingEvent = {
+            id: 'e1',
+            title: 'Event',
+            body: block('uid: u1\nstart: 2025-01-15 10:00:00+00:00'),
+        };
+        const existingAlarm = {
+            id: 'a1',
+            title: 'Alarm',
+            body: '```mycalendar-alarm\nuid: u1\n```',
+        };
+
+        const onStatus = jest.fn();
+        const joplin = mkJoplin({
+            get: jest.fn().mockResolvedValue({items: [existingEvent, existingAlarm], has_more: false}),
+            delete: jest.fn().mockRejectedValue(new Error('delete fail')),
+            post: jest.fn().mockResolvedValue({id: 'new-alarm'}),
+        });
+
+        const ics = [
+            'BEGIN:VEVENT',
+            'UID:u1',
+            'DTSTART:20250115T100000Z',
+            'BEGIN:VALARM',
+            'TRIGGER:-PT15M',
+            'ACTION:DISPLAY',
+            'END:VALARM',
+            'END:VEVENT',
+        ].join('\n');
+
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2025-01-01T00:00:00Z'));
+
+        const res = await importIcsIntoNotes(joplin as any, ics, onStatus, 'nb1');
+        expect(joplin.data.delete).toHaveBeenCalledWith(['notes', 'a1']);
+        expect(onStatus).toHaveBeenCalledWith(expect.stringContaining('ERROR delete alarm: u1| - delete fail'));
+        expect(res.alarmsCreated).toBe(1);
+
+        jest.useRealTimers();
+    });
+
+    test('parseMyCalKeyValueText: ignores valarm with invalid JSON', async () => {
+        const text = [
+            'uid: u1',
+            'title: Test',
+            'start: 2025-01-01 10:00:00',
+            'valarm: {invalid json}',
+            'valarm: {"trigger":"-PT10M"}',
+        ].join('\n');
+
+        const joplin = mkJoplin({
+            get: jest.fn().mockResolvedValue({items: [], has_more: false}),
+            post: jest.fn().mockResolvedValue({}),
+        });
+
+        await importIcsIntoNotes(joplin as any, text);
+        const noteBody = joplin.data.post.mock.calls[0][2];
+        const matches = String(noteBody.body).match(/^valarm:\s*\{.*\}$/gm) || [];
+        expect(matches.length).toBe(1);
+    });
+
 });

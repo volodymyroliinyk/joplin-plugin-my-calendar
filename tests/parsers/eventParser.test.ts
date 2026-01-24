@@ -469,4 +469,35 @@ describe('eventParser.parseEventsFromBody', () => {
         // Parsed as device-local time because tz was not known yet at repeat_until line.
         expect(ev.repeatUntilUtc).toBe(new Date('2025-02-01T00:00:00').getTime());
     });
+
+    test('all_day parsing exhaustive: true, false, 1, 0, yes, no', () => {
+        const body = [
+            block(['title: T1', 'start: 2025-01-01T00:00:00Z', 'all_day: true']),
+            block(['title: T2', 'start: 2025-01-01T00:00:00Z', 'all_day: false']),
+            block(['title: T3', 'start: 2025-01-01T00:00:00Z', 'all_day: 1']),
+            block(['title: T4', 'start: 2025-01-01T00:00:00Z', 'all_day: 0']),
+            block(['title: T5', 'start: 2025-01-01T00:00:00Z', 'all_day: yes']),
+            block(['title: T6', 'start: 2025-01-01T00:00:00Z', 'all_day: no']),
+        ].join('\n');
+
+        const evs = parseEventsFromBody(noteId, fallbackTitle, body);
+        expect(evs[0].allDay).toBe(true);
+        expect(evs[1].allDay).toBe(false);
+        expect(evs[2].allDay).toBe(true);
+        expect(evs[3].allDay).toBe(false);
+        expect(evs[4].allDay).toBe(true);
+        expect(evs[5].allDay).toBe(false);
+    });
+
+    test('byweekday parsing extreme cases: spaces, empty tokens, invalid days', () => {
+        const body = block([
+            'title: W',
+            'start: 2025-01-01T00:00:00Z',
+            'byweekday:  , MO, , tu , FOO, sa , ',
+        ]);
+
+        const [ev] = parseEventsFromBody(noteId, fallbackTitle, body);
+        // MO=0, TU=1, SA=5
+        expect(ev.byWeekdays).toEqual([0, 1, 5]);
+    });
 });
