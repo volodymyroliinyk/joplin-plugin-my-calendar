@@ -28,6 +28,9 @@ type JoplinMock = {
         post: jest.Mock<any, any>;
         delete?: jest.Mock<any, any>;
     };
+    settings: {
+        value: jest.Mock<any, any>;
+    };
 };
 
 const mkJoplin = (impl?: Partial<JoplinMock['data']>): JoplinMock => ({
@@ -36,6 +39,9 @@ const mkJoplin = (impl?: Partial<JoplinMock['data']>): JoplinMock => ({
         put: impl?.put ?? jest.fn(),
         post: impl?.post ?? jest.fn(),
         delete: (impl as any)?.delete ?? jest.fn(),
+    },
+    settings: {
+        value: jest.fn().mockResolvedValue(30),
     },
 });
 

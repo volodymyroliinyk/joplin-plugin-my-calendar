@@ -15,6 +15,7 @@ export const SETTING_ICS_EXPORT_LINK3_URL = 'mycalendar.icsExportLink3Url';
 export const SETTING_ICS_EXPORT_LINK4_TITLE = 'mycalendar.icsExportLink4Title';
 export const SETTING_ICS_EXPORT_LINK4_URL = 'mycalendar.icsExportLink4Url';
 export const SETTING_DAY_EVENTS_REFRESH_MINUTES = 'mycalendar.dayEventsRefreshMinutes';
+export const SETTING_ICS_IMPORT_ALARM_RANGE_DAYS = 'mycalendar.icsImportAlarmRangeDays';
 
 export type WeekStart = 'monday' | 'sunday';
 
@@ -93,6 +94,15 @@ export async function registerSettings(joplin: any) {
         },
 
         // 7) ICS Import
+
+        [SETTING_ICS_IMPORT_ALARM_RANGE_DAYS]: {
+            value: 30,
+            type: 1, // int
+            section: 'mycalendar',
+            public: true,
+            label: 'ICS import alarm range (days)',
+            description: 'ICS import section: Import events alarms from now up to N days ahead. Default 30. During reimport all alarms will regenerated.',
+        },
         // 8) ICS export links (up to 4)
         [SETTING_ICS_EXPORT_LINK1_TITLE]: {
             value: '',
@@ -265,4 +275,14 @@ export async function getDayEventsRefreshMinutes(joplin: any): Promise<number> {
     const n = Number(raw);
     if (!Number.isFinite(n)) return 1;
     return Math.min(60, Math.max(1, Math.round(n)));
+}
+
+export async function getIcsImportAlarmRangeDays(joplin: any): Promise<number> {
+    const raw = await joplin.settings.value(SETTING_ICS_IMPORT_ALARM_RANGE_DAYS);
+    const n = Number(raw);
+    if (!Number.isFinite(n)) {
+        return 30;
+    }
+    // Guardrails: keep the import range reasonable.
+    return Math.min(365, Math.max(1, Math.round(n)));
 }

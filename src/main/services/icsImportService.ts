@@ -3,6 +3,8 @@
 // tests/services/icsImportService.test.ts
 //
 
+import {getIcsImportAlarmRangeDays} from "../settings/settings";
+
 type IcsValarm = {
     trigger: string;              // e.g. -PT1H, -P1D, -P1W, or an absolute date-time
     related?: 'START' | 'END';     // TRIGGER;RELATED=START|END
@@ -711,6 +713,7 @@ export async function importIcsIntoNotes(
     targetFolderId?: string,
     preserveLocalColor: boolean = true,
     importDefaultColor?: string,
+    importAlarmRangeDays?: number,
 ): Promise<{
     added: number;
     updated: number;
@@ -835,9 +838,13 @@ export async function importIcsIntoNotes(
         }
     }
 
-    // Stage 2: (re)generate todo+alarm notes from VALARM for the next 30 days
+    // Stage 2: (re)generate todo+alarm notes from VALARM for the next N days
     const now = new Date();
-    const windowEnd = addDays(now, 30);
+    const alarmRangeDays =
+        Number.isFinite(importAlarmRangeDays) && (importAlarmRangeDays as number) > 0
+            ? Math.round(importAlarmRangeDays as number)
+            : await getIcsImportAlarmRangeDays(joplin as any);
+    const windowEnd = addDays(now, alarmRangeDays);
 
     let alarmsDeleted = 0;
     let alarmsCreated = 0
@@ -922,7 +929,7 @@ export async function importIcsIntoNotes(
     }
 
     if (alarmsDeleted || alarmsCreated) {
-        await say(`Alarms: deleted ${alarmsDeleted}, created ${alarmsCreated} (next 30 days)`);
+        await say(`Alarms: deleted ${alarmsDeleted}, created ${alarmsCreated} (next ${alarmRangeDays} days)`);
     }
 
 

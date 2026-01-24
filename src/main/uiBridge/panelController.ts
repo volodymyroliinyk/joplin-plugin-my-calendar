@@ -5,6 +5,7 @@ import {importIcsIntoNotes} from '../services/icsImportService';
 import {showToast} from '../utils/toast';
 import {pushUiSettings} from "./uiSettings";
 import {err} from '../utils/logger';
+import {getIcsImportAlarmRangeDays} from '../settings/settings';
 
 type FolderRow = { id: string; title: string; parent_id?: string | null };
 type FolderNode = FolderRow & { children: FolderNode[] };
@@ -169,13 +170,16 @@ export async function registerCalendarPanelController(
                             ? msg.importDefaultColor
                             : undefined;
 
+                    const importAlarmRangeDays = await getIcsImportAlarmRangeDays(joplin);
+
                     const res = await importIcsIntoNotes(
                         joplin,
                         msg.ics,
                         sendStatus,
                         targetFolderId,
                         preserveLocalColor,
-                        importDefaultColor
+                        importDefaultColor,
+                        importAlarmRangeDays
                     );
 
                     invalidateAllEventsCache();

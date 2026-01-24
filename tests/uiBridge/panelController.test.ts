@@ -34,7 +34,7 @@ import {importIcsIntoNotes} from '../../src/main/services/icsImportService';
 import {showToast} from '../../src/main/utils/toast';
 import {pushUiSettings} from '../../src/main/uiBridge/uiSettings';
 import {err} from '../../src/main/utils/logger';
-import {SETTING_DEBUG, SETTING_WEEK_START} from "../../src/main/settings/settings";
+import {SETTING_DEBUG, SETTING_WEEK_START, SETTING_ICS_IMPORT_ALARM_RANGE_DAYS} from "../../src/main/settings/settings";
 
 type AnyFn = (...args: any[]) => any;
 
@@ -52,6 +52,9 @@ function makeJoplinMock() {
                 }
                 if (key === SETTING_DEBUG) {
                     return Promise.resolve(false);
+                }
+                if (key === SETTING_ICS_IMPORT_ALARM_RANGE_DAYS) {
+                    return Promise.resolve(30);
                 }
                 return Promise.resolve(null);
             }),
@@ -284,6 +287,7 @@ describe('panelController', () => {
         expect(call[3]).toBeUndefined(); // targetFolderId
         expect(call[4]).toBe(true); // preserveLocalColor default true
         expect(call[5]).toBe('#aabbcc'); // importDefaultColor is valid
+        expect(call[6]).toBe(30); // importAlarmRangeDays default
     });
 
     test('icsImport success -> errors>0 triggers warning toast', async () => {
@@ -372,6 +376,7 @@ describe('panelController', () => {
 
         const call = (importIcsIntoNotes as jest.Mock).mock.calls[0];
         expect(call[5]).toBeUndefined();
+        expect(call[6]).toBe(30); // importAlarmRangeDays default
     });
 
     test('icsImport failure -> posts importError and shows error toast; does NOT invalidate cache', async () => {
