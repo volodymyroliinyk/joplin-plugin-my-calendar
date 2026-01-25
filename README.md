@@ -28,6 +28,23 @@ note-taking app.
 - **High Security**: Built-in protection against Markdown and CSS injections.
 - **Universal Sync**: Works with Joplin's built-in synchronization across all your devices.
 
+### 📱 Platform Availability
+
+While we strive for parity, some features are specific to the Desktop version due to platform-specific APIs.
+
+| Feature                            | Desktop | Mobile |
+|:-----------------------------------|:-------:|:------:|
+| Monthly Calendar Grid              |    ✅    |   ✅    |
+| Smart Day View                     |    ✅    |   ✅    |
+| Native Joplin Settings             |    ✅    |   ✅    |
+| ICS File Import                    |    ✅    |   ❌    |
+| Quick ICS Export Links             |    ✅    |   ❌    |
+| Markdown Sanitization              |    ✅    |   ✅    |
+| Automatic Alarms (Todo generation) |    ✅    |   ✅*   |
+
+*\*Note: Alarms are generated/synced during the import process on Desktop. Once created as "Todo" notes, they will sync
+and trigger notifications on Mobile automatically.*
+
 ---
 
 ## 🚀 Getting Started

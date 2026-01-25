@@ -99,7 +99,7 @@ export async function registerSettings(joplin: any) {
             value: 30,
             type: 1, // int
             section: 'mycalendar',
-            public: true,
+            public: !mobile,
             label: 'ICS import alarm range (days)',
             description: 'ICS import section: Import events alarms from now up to N days ahead. Default 30. During reimport all alarms will regenerated.',
         },
