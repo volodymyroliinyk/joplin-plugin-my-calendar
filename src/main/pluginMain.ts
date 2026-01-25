@@ -19,10 +19,6 @@ import {
 
 import {dbg, err, info, log, warn} from './utils/logger';
 
-let allEventsCache: EventInput[] | null = null;
-
-
-
 function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number): Occurrence[] {
     // Invariant: recurring events must have timezone
     const tz = ev.tz || Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -123,7 +119,8 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
 
     if (ev.repeat === 'monthly') {
         const dom = ev.byMonthDay ?? baseD;
-        let y = baseY, m = baseM;
+        const y = baseY;
+        let m = baseM;
         let cursor = Date.UTC(y, m, dom, baseH, baseMin, baseS);
         while (cursor < ev.startUtc) {
             m += 1;
@@ -222,17 +219,6 @@ async function safePostMessage(joplin: any, panelId: string, message: unknown): 
     if (typeof pm === 'function') await pm(panelId, message);
 }
 
-async function safeFocus(joplin: any, panelId: string): Promise<void> {
-    try {
-        const panelsAny = getPanelsAny(joplin);
-        if (panelsAny && typeof panelsAny.focus === 'function') {
-            await panelsAny.focus(panelId);
-        }
-    } catch {
-        log('panels.focus not available on this platform');
-    }
-}
-
 // Ensure UI always receives current settings when the webview (re)initializes.
 async function registerUiMessageHandlers(joplin: any, panelId: string) {
     const onMessage = getPanelsAny(joplin)?.onMessage;
@@ -318,8 +304,9 @@ export default async function runPlugin(joplin: any) {
             try {
                 // const pm = joplin?.views?.panels?.postMessage;
                 // if (typeof pm === 'function') await pm(panel, {name: 'redrawMonth'});
-                await safePostMessage(joplin, panel, {name: 'redrawMonth'})
-            } catch {
+                await safePostMessage(joplin, panel, {name: 'redrawMonth'});
+            } catch (_err) {
+                // ignore
             }
             try {
                 const panelsAny = (joplin as any).views?.panels;
@@ -336,7 +323,6 @@ export default async function runPlugin(joplin: any) {
 
     await joplin.workspace.onNoteChange(async ({id}: { id?: string }) => {
         if (id) invalidateNote(id);
-        // invalidateAllEventsCache();
     });
 
     await joplin.workspace.onSyncComplete(async () => {

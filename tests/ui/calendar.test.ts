@@ -94,7 +94,7 @@ describe('src/ui/calendar.js', () => {
         delete (window as any).webviewApi;
     });
 
-    function attachUiLoggerSpies() {
+    const _attachUiLoggerSpies = () => {
         const uiLogger = (window as any).__mcUiLogger;
         if (!uiLogger) throw new Error('Missing window.__mcUiLogger');
         errorSpy = jest.spyOn(uiLogger, 'error');
@@ -426,9 +426,6 @@ describe('src/ui/calendar.js', () => {
         const {getOnMessageCb} = installWebviewApi();
         loadCalendarJsFresh();
         sendPluginMessage(getOnMessageCb, {name: 'uiSettings', weekStart: 'sunday', dayEventsRefreshMinutes: 10}); // large fallback
-
-        const sel = findSelectedCell()!;
-        const dayTs = Number(sel.dataset.utc);
 
         const now = Date.now();
         const endSoon = now + 5_000; // 5s from now
