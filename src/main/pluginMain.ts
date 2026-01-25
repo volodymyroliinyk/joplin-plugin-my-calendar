@@ -294,6 +294,45 @@ export default async function runPlugin(joplin: any) {
         buildICS,
     });
 
+    // warm up the cache after the UI already has handlers
+    void (async () => {
+        try {
+            const all = await ensureAllEventsCache(joplin);
+            log('events cached:', all.length);
+        } catch (error) {
+            err('ensureAllEventsCache error:', error);
+        }
+    })();
+
+    const toggleState = {
+        visible: true,
+        active: false,
+        update: async () => {
+            if (!toggleState.active) return;
+
+            const label = toggleState.visible ? 'Hide My Calendar' : 'Show My Calendar';
+            // We use a checkmark character to simulate the checkbox as Joplin doesn't support it natively for plugins
+            await joplin.commands.register({
+                name: 'mycalendar.togglePanel',
+                label: label,
+                iconName: 'fas fa-calendar-alt',
+                execute: async () => {
+                    toggleState.visible = !toggleState.visible;
+                    if (toggleState.visible) {
+                        await joplin.views.panels.show(panel);
+                        log('toggle Show');
+                    } else {
+                        if (joplin.views?.panels?.hide) {
+                            await joplin.views.panels.hide(panel);
+                        }
+                        log('toggle Hide');
+                    }
+                    await toggleState.update();
+                },
+            });
+        }
+    };
+
     await joplin.commands.register({
         name: 'mycalendar.open',
         label: 'Open MyCalendar',
@@ -317,9 +356,12 @@ export default async function runPlugin(joplin: any) {
                 // The mobile method is missing - it's expected
                 log('panels.focus not available on this platform');
             }
+
+            // Sync toggle state
+            toggleState.visible = true;
+            await toggleState.update();
         },
     });
-
 
     await joplin.workspace.onNoteChange(async ({id}: { id?: string }) => {
         if (id) invalidateNote(id);
@@ -329,16 +371,6 @@ export default async function runPlugin(joplin: any) {
         invalidateAllEventsCache();
     });
 
-    // warm up the cache after the UI already has handlers
-    void (async () => {
-        try {
-            const all = await ensureAllEventsCache(joplin);
-            log('events cached:', all.length);
-        } catch (error) {
-            err('ensureAllEventsCache error:', error);
-        }
-    })();
-
     await pushUiSettings(joplin, panel);
 
     await joplin.views.panels.show(panel);
@@ -347,7 +379,7 @@ export default async function runPlugin(joplin: any) {
         await pushUiSettings(joplin, panel);
     });
 
-    await registerDesktopToggle(joplin, panel);
+    await registerDesktopToggle(joplin, panel, toggleState);
 
     // --- Create the import panel (desktop)
 
@@ -363,7 +395,7 @@ export default async function runPlugin(joplin: any) {
 }
 
 // === MyCalendar: safe desktop toggle helper ===
-async function registerDesktopToggle(joplin: any, panel: string) {
+async function registerDesktopToggle(joplin: any, panel: string, toggleState: any) {
     try {
         const canShow = !!joplin?.views?.panels?.show;
         const canHide = !!joplin?.views?.panels?.hide;
@@ -376,44 +408,30 @@ async function registerDesktopToggle(joplin: any, panel: string) {
             return;
         }
 
-        let mycalendarVisible = true;
-
-        // 3.1 toggle  command
-        await joplin.commands.register({
-            name: 'mycalendar.togglePanel',
-            label: 'Toggle MyCalendar panel',
-            execute: async () => {
-                try {
-                    if (!panel) return;
-                    if (mycalendarVisible) {
-                        // on Desktop there is Hide (); on Mobile there is no - just do nothing
-                        if (joplin.views?.panels?.hide) {
-                            await joplin.views.panels.hide(panel);
-                        }
-                        mycalendarVisible = false;
-
-                        log('toggle Hide');
-                    } else {
-                        await joplin.views.panels.show(panel);
-                        // We do not call Focus () - on Mobile of this method there is no → were errors in the lounges
-                        mycalendarVisible = true;
-                        log('toggle Show');
-                    }
-                } catch (e) {
-                    warn('toggle error', e);
-                }
-            },
-        });
+        toggleState.active = true;
+        await toggleState.update();
 
         try {
             await joplin.views.menuItems.create(
                 'mycalendarToggleMenu',
                 'mycalendar.togglePanel',
-                'view'
+                'view',
+                {accelerator: 'Ctrl+Alt+C'}
             );
             log('toggle menu item registered');
         } catch (e) {
             warn('menu create failed (non-fatal):', e);
+        }
+
+        try {
+            await joplin.views.toolbarButtons.create(
+                'mycalendarToolbarButton',
+                'mycalendar.togglePanel',
+                'noteToolbar'
+            );
+            log('toolbar button registered');
+        } catch (e) {
+            warn('toolbar button create failed (non-fatal):', e);
         }
 
     } catch (e) {

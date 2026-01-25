@@ -62,6 +62,10 @@ function makeJoplinMock(opts?: {
         menuItems.create = jest.fn().mockResolvedValue(undefined);
     }
 
+    const toolbarButtons: any = {
+        create: jest.fn().mockResolvedValue(undefined),
+    };
+
     let onNoteChangeCb: AnyFn | null = null;
     let onSyncCompleteCb: AnyFn | null = null;
 
@@ -71,6 +75,7 @@ function makeJoplinMock(opts?: {
         views: {
             panels,
             menuItems,
+            toolbarButtons,
         },
         commands: {
             register: commandsRegister,
@@ -101,6 +106,7 @@ function makeJoplinMock(opts?: {
         panels,
         menuItems,
         commandsRegister,
+        toolbarButtons,
         getOnNoteChange: () => onNoteChangeCb,
         getOnSyncComplete: () => onSyncCompleteCb
     };
@@ -145,7 +151,15 @@ describe('pluginMain.runPlugin', () => {
         (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
         (ensureAllEventsCache as jest.Mock).mockResolvedValue([{id: 'e1'}, {id: 'e2'}]);
 
-        const {joplin, panels, menuItems, commandsRegister, getOnNoteChange, getOnSyncComplete} = makeJoplinMock({
+        const {
+            joplin,
+            panels,
+            menuItems,
+            toolbarButtons,
+            commandsRegister,
+            getOnNoteChange,
+            getOnSyncComplete
+        } = makeJoplinMock({
             withFocus: true,
             withHide: true,
             withMenu: true,
@@ -180,11 +194,25 @@ describe('pluginMain.runPlugin', () => {
         // panel shown once during init
         expect(panels.show).toHaveBeenCalledWith('panel-1');
 
-        // desktop toggle registered (togglePanel command + menu item)
+        // desktop toggle registered (togglePanel command + menu item + toolbar button)
         expect(commandsRegister).toHaveBeenCalledWith(
-            expect.objectContaining({name: 'mycalendar.togglePanel', label: 'Toggle MyCalendar panel'})
+            expect.objectContaining({
+                name: 'mycalendar.togglePanel',
+                label: 'Hide My Calendar',
+                iconName: 'fas fa-calendar-alt'
+            })
         );
-        expect(menuItems.create).toHaveBeenCalledWith('mycalendarToggleMenu', 'mycalendar.togglePanel', 'view');
+        expect(menuItems.create).toHaveBeenCalledWith(
+            'mycalendarToggleMenu',
+            'mycalendar.togglePanel',
+            'view',
+            {accelerator: 'Ctrl+Alt+C'}
+        );
+        expect(toolbarButtons.create).toHaveBeenCalledWith(
+            'mycalendarToolbarButton',
+            'mycalendar.togglePanel',
+            'noteToolbar'
+        );
 
         // init focus called if present (non-fatal if missing/throws)
         expect(panels.focus).toHaveBeenCalledWith('panel-1');
@@ -268,7 +296,7 @@ describe('pluginMain.runPlugin', () => {
         // expect(invalidateAllEventsCache).toHaveBeenCalledTimes(2);
     });
 
-    test('desktop toggle: execute hides then shows (stateful)', async () => {
+    test('desktop toggle: execute hides then shows (stateful and updates label)', async () => {
         const logSpy = jest.spyOn(logger, 'log').mockImplementation(() => undefined);
 
         (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
@@ -278,17 +306,32 @@ describe('pluginMain.runPlugin', () => {
 
         await runPlugin(joplin as any);
 
-        const toggleCmd = findCommand(commandsRegister as any, 'mycalendar.togglePanel');
+        // find latest registration for togglePanel
+        const getToggleCmd = () => {
+            const calls = (commandsRegister as jest.Mock).mock.calls.filter(([arg]) => arg?.name === 'mycalendar.togglePanel');
+            return calls[calls.length - 1][0];
+        };
+
+        const toggleCmd1 = getToggleCmd();
+        expect(toggleCmd1.label).toBe('Hide My Calendar');
 
         // initial state is visible=true -> first execute hides (if hide exists)
-        await toggleCmd.execute();
+        await toggleCmd1.execute();
         expect(panels.hide).toHaveBeenCalledWith('panel-1');
         expect(logSpy).toHaveBeenCalledWith('toggle Hide');
 
+        // Label should have changed to 'Show My Calendar'
+        const toggleCmd2 = getToggleCmd();
+        expect(toggleCmd2.label).toBe('Show My Calendar');
+
         // second execute shows
-        await toggleCmd.execute();
+        await toggleCmd2.execute();
         expect(panels.show).toHaveBeenCalledWith('panel-1');
         expect(logSpy).toHaveBeenCalledWith('toggle Show');
+
+        // Label should have changed back to 'Hide My Calendar'
+        const toggleCmd3 = getToggleCmd();
+        expect(toggleCmd3.label).toBe('Hide My Calendar');
 
         logSpy.mockRestore();
     });
@@ -299,7 +342,7 @@ describe('pluginMain.runPlugin', () => {
         (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
         (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);
 
-        const {joplin, commandsRegister, menuItems} = makeJoplinMock({
+        const {joplin, commandsRegister, menuItems, toolbarButtons} = makeJoplinMock({
             withHide: false, // hide missing
             withMenu: true,
         });
@@ -312,6 +355,9 @@ describe('pluginMain.runPlugin', () => {
 
         // menu item should not be created
         expect(menuItems.create).not.toHaveBeenCalled();
+
+        // toolbar button should not be created
+        expect(toolbarButtons.create).not.toHaveBeenCalled();
 
         // info about skipping
         expect(infoSpy).toHaveBeenCalledWith('toggle: panels.show/hide not available - skip');
