@@ -4,17 +4,29 @@ joplin-plugin-my-calendar/
 ├── src/
 │   ├── main/
 │   │   ├── parsers/
-│   │   │   └── eventParser.ts
+│   │   │   ├── eventParser.ts
+│   │   │   └── icsParser.ts
 │   │   ├── services/
+│   │   │   ├── alarmService.ts
 │   │   │   ├── eventsCache.ts
-│   │   │   └── icsImportService.ts
+│   │   │   ├── folderService.ts
+│   │   │   ├── icsImportService.ts
+│   │   │   ├── joplinNoteService.ts
+│   │   │   ├── noteBuilder.ts
+│   │   │   └── occurrenceService.ts
 │   │   ├── settings/
 │   │   │   └── settings.ts
+│   │   ├── types/
+│   │   │   ├── icsTypes.ts
+│   │   │   └── joplin.interface.ts
 │   │   ├── uiBridge/
 │   │   │   ├── panelController.ts
 │   │   │   ├── panelMessages.ts
 │   │   │   └── uiSettings.ts
 │   │   ├── utils/
+│   │   │   ├── dateTimeUtils.ts
+│   │   │   ├── dateUtils.ts
+│   │   │   ├── joplinUtils.ts
 │   │   │   ├── logger.ts
 │   │   │   └── toast.ts
 │   │   ├── views/
@@ -32,12 +44,18 @@ joplin-plugin-my-calendar/
 ├── tests/
 │   ├── main/
 │   │   ├── pluginMain.test.ts
+│   │   ├── pluginMainHelpers.test.ts
 │   │   └── weekStartFlow.test.ts
 │   ├── parsers/
-│   │   └── eventParser.test.ts
+│   │   ├── eventParser.test.ts
+│   │   └── icsParser.test.ts
 │   ├── services/
 │   │   ├── eventsCache.test.ts
-│   │   └── icsImportService.test.ts
+│   │   ├── folderService.test.ts
+│   │   ├── icsImportService.test.ts
+│   │   └── noteBuilder.test.ts
+│   ├── settings/
+│   │   └── settings.test.ts
 │   ├── ui/
 │   │   ├── calendar.messages.test.ts
 │   │   ├── calendar.test.ts
@@ -47,6 +65,7 @@ joplin-plugin-my-calendar/
 │   │   ├── panelController.test.ts
 │   │   └── uiSettings.test.ts
 │   ├── utils/
+│   │   ├── dateTimeUtils.test.ts
 │   │   ├── logger.test.ts
 │   │   └── toast.test.ts
 │   ├── views/
@@ -59,6 +78,5 @@ joplin-plugin-my-calendar/
 ├── list.todo
 ├── package-lock.json
 ├── package.json
-├── report.txt
 ├── tsconfig.json
 └── webpack.config.js
