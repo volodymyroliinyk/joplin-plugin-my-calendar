@@ -38,7 +38,6 @@ type IcsEvent = {
     all_day?: boolean;
     valarms?: IcsValarm[];
 };
-
 function normalizeRecurrenceIdForKey(recurrenceId?: string): string {
     const v = (recurrenceId || '').trim();
     if (!v) return '';
@@ -54,6 +53,29 @@ function normalizeRecurrenceIdForKey(recurrenceId?: string): string {
     if (tzMatch) return tzMatch[1];
 
     return v;
+}
+
+/**
+ * Ensures a value recorded in a ```mycalendar-event``` or ```mycalendar-alarm``` block
+ * cannot "break out" of the fence.
+ * - Removes backticks
+ * - Replaces newlines with spaces for single-line fields
+ */
+function sanitizeForMarkdownBlock(input: unknown, singleLine = true): string {
+    let s = String(input ?? '').trim();
+    // Prevent breaking out of code block (```)
+    s = s.replace(/`/g, "'");
+
+    if (singleLine) {
+        // Enforce single line to prevent key: value injection
+        s = s.replace(/[\r\n]+/g, ' ');
+    }
+    return s;
+}
+
+function isValidHexColor(c?: string): boolean {
+    if (!c) return false;
+    return /^#(?:[0-9a-fA-F]{3}){1,2}$/.test(c);
 }
 
 function unfoldIcsLines(ics: string): string[] {
@@ -526,19 +548,29 @@ function buildMyCalBlock(ev: IcsEvent): string {
     const lines: string[] = [];
     lines.push('```mycalendar-event');
 
-    if (ev.title) lines.push(`title: ${ev.title}`);
-    if (ev.start) lines.push(`start: ${ev.start}`);
-    if (ev.end) lines.push(`end: ${ev.end}`);
-    if (ev.tz) lines.push(`tz: ${ev.tz}`);
-    if (ev.color) lines.push(`color: ${ev.color}`);
-    if (ev.location) lines.push(`location: ${ev.location}`);
-    if (ev.description) lines.push(`description: ${ev.description}`);
+    if (ev.title) lines.push(`title: ${sanitizeForMarkdownBlock(ev.title).slice(0, 500)}`);
+    if (ev.start) lines.push(`start: ${sanitizeForMarkdownBlock(ev.start)}`);
+    if (ev.end) lines.push(`end: ${sanitizeForMarkdownBlock(ev.end)}`);
+    if (ev.tz) lines.push(`tz: ${sanitizeForMarkdownBlock(ev.tz)}`);
+
+    if (isValidHexColor(ev.color)) {
+        lines.push(`color: ${ev.color}`);
+    }
+
+    if (ev.location) lines.push(`location: ${sanitizeForMarkdownBlock(ev.location).slice(0, 1000)}`);
+    if (ev.description) {
+        // Description can be multiline in ICS, but our block values usually are not.
+        // We sanitize to prevent breaking ``` but allow some length.
+        lines.push(`description: ${sanitizeForMarkdownBlock(ev.description, false).slice(0, 10000)}`);
+    }
 
     if (ev.valarms && ev.valarms.length) {
         lines.push('');
         for (const a of ev.valarms) {
-            // repeated key allows multiple alarms
-            lines.push(`valarm: ${valarmToJsonLine(a)}`);
+            // valarm is JSON. JSON is already quite safe against simple line breaks if stringified correctly,
+            // but we sanitize the whole line just in case.
+            const json = valarmToJsonLine(a);
+            lines.push(`valarm: ${sanitizeForMarkdownBlock(json)}`);
         }
     }
 
@@ -547,18 +579,18 @@ function buildMyCalBlock(ev: IcsEvent): string {
         lines.push('');
         lines.push(`repeat: ${repeat}`);
         lines.push(`repeat_interval: ${ev.repeat_interval ?? 1}`);
-        if (ev.repeat_until) lines.push(`repeat_until: ${ev.repeat_until}`);
-        if (ev.byweekday) lines.push(`byweekday: ${ev.byweekday}`);
-        if (ev.bymonthday) lines.push(`bymonthday: ${ev.bymonthday}`);
+        if (ev.repeat_until) lines.push(`repeat_until: ${sanitizeForMarkdownBlock(ev.repeat_until)}`);
+        if (ev.byweekday) lines.push(`byweekday: ${sanitizeForMarkdownBlock(ev.byweekday)}`);
+        if (ev.bymonthday) lines.push(`bymonthday: ${sanitizeForMarkdownBlock(ev.bymonthday)}`);
     }
 
     if (ev.all_day) lines.push(`all_day: true`);
 
     if (ev.uid) {
         lines.push('');
-        lines.push(`uid: ${ev.uid}`);
+        lines.push(`uid: ${sanitizeForMarkdownBlock(ev.uid)}`);
         if (ev.recurrence_id) {
-            lines.push(`recurrence_id: ${ev.recurrence_id}`);
+            lines.push(`recurrence_id: ${sanitizeForMarkdownBlock(ev.recurrence_id)}`);
         }
     }
 
@@ -891,9 +923,9 @@ export async function importIcsIntoNotes(
 
                 const body = [
                     '```mycalendar-alarm',
-                    `title: ${todoTitle}`,
-                    `uid: ${uid}`,
-                    `recurrence_id: ${rid}`,
+                    `title: ${sanitizeForMarkdownBlock(todoTitle).slice(0, 500)}`,
+                    `uid: ${sanitizeForMarkdownBlock(uid)}`,
+                    `recurrence_id: ${sanitizeForMarkdownBlock(rid)}`,
                     `when: ${formatDateForAlarm(new Date(whenMs))}`,
                     '```',
                     '',
