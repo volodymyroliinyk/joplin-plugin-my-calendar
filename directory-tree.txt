@@ -1,82 +1,69 @@
-joplin-plugin-my-calendar/
-├── publish/
-│   └── com.volodymyroliinyk.joplin.plugin.my-calendar.jpl
-├── src/
-│   ├── main/
-│   │   ├── parsers/
-│   │   │   ├── eventParser.ts
-│   │   │   └── icsParser.ts
-│   │   ├── services/
-│   │   │   ├── alarmService.ts
-│   │   │   ├── eventsCache.ts
-│   │   │   ├── folderService.ts
-│   │   │   ├── icsImportService.ts
-│   │   │   ├── joplinNoteService.ts
-│   │   │   ├── noteBuilder.ts
-│   │   │   └── occurrenceService.ts
-│   │   ├── settings/
-│   │   │   └── settings.ts
-│   │   ├── types/
-│   │   │   ├── icsTypes.ts
-│   │   │   └── joplin.interface.ts
-│   │   ├── uiBridge/
-│   │   │   ├── panelController.ts
-│   │   │   ├── panelMessages.ts
-│   │   │   └── uiSettings.ts
-│   │   ├── utils/
-│   │   │   ├── dateTimeUtils.ts
-│   │   │   ├── dateUtils.ts
-│   │   │   ├── joplinUtils.ts
-│   │   │   ├── logger.ts
-│   │   │   └── toast.ts
-│   │   ├── views/
-│   │   │   └── calendarView.ts
-│   │   └── pluginMain.ts
-│   ├── types/
-│   │   ├── global-joplin.d.ts
-│   │   └── joplin-api.d.ts
-│   ├── ui/
-│   │   ├── calendar.css
-│   │   ├── calendar.js
-│   │   └── icsImport.js
-│   ├── index.ts
-│   └── manifest.json
-├── tests/
-│   ├── main/
-│   │   ├── pluginMain.test.ts
-│   │   ├── pluginMainHelpers.test.ts
-│   │   └── weekStartFlow.test.ts
-│   ├── parsers/
-│   │   ├── eventParser.test.ts
-│   │   └── icsParser.test.ts
-│   ├── services/
-│   │   ├── eventsCache.test.ts
-│   │   ├── folderService.test.ts
-│   │   ├── icsImportService.test.ts
-│   │   └── noteBuilder.test.ts
-│   ├── settings/
-│   │   └── settings.test.ts
-│   ├── ui/
-│   │   ├── calendar.messages.test.ts
-│   │   ├── calendar.test.ts
-│   │   ├── calendar.weekStart.test.ts
-│   │   └── icsImport.test.ts
-│   ├── uiBridge/
-│   │   ├── panelController.test.ts
-│   │   └── uiSettings.test.ts
-│   ├── utils/
-│   │   ├── dateTimeUtils.test.ts
-│   │   ├── logger.test.ts
-│   │   └── toast.test.ts
-│   ├── views/
-│       └── calendarView.test.ts
-├── LICENSE
-├── README.md
-├── directory-tree.txt
-├── eslint.config.js
-├── jest.config.js
-├── list.todo
-├── package-lock.json
-├── package.json
-├── tsconfig.json
-└── webpack.config.js
+src
+src/main
+src/main/uiBridge
+src/main/uiBridge/uiSettings.ts
+src/main/uiBridge/panelMessages.ts
+src/main/uiBridge/panelController.ts
+src/main/views
+src/main/views/calendarView.ts
+src/main/settings
+src/main/settings/settings.ts
+src/main/types
+src/main/types/joplin.interface.ts
+src/main/types/icsTypes.ts
+src/main/pluginMain.ts
+src/main/services
+src/main/services/icsImportService.ts
+src/main/services/occurrenceService.ts
+src/main/services/eventsCache.ts
+src/main/services/folderService.ts
+src/main/services/alarmService.ts
+src/main/services/noteBuilder.ts
+src/main/services/joplinNoteService.ts
+src/main/utils
+src/main/utils/dateUtils.ts
+src/main/utils/joplinUtils.ts
+src/main/utils/toast.ts
+src/main/utils/logger.ts
+src/main/utils/dateTimeUtils.ts
+src/main/parsers
+src/main/parsers/eventParser.ts
+src/main/parsers/icsParser.ts
+src/manifest.json
+src/types
+src/types/joplin-api.d.ts
+src/types/global-joplin.d.ts
+src/index.ts
+src/ui
+src/ui/calendar.js
+src/ui/icsImport.js
+src/ui/calendar.css
+tests
+tests/main
+tests/main/pluginMain.test.ts
+tests/main/weekStartFlow.test.ts
+tests/main/pluginMainHelpers.test.ts
+tests/uiBridge
+tests/uiBridge/uiSettings.test.ts
+tests/uiBridge/panelController.test.ts
+tests/views
+tests/views/calendarView.test.ts
+tests/settings
+tests/settings/settings.test.ts
+tests/ui
+tests/ui/icsImport.test.ts
+tests/ui/calendar.messages.test.ts
+tests/ui/calendar.weekStart.test.ts
+tests/ui/calendar.test.ts
+tests/services
+tests/services/eventsCache.test.ts
+tests/services/noteBuilder.test.ts
+tests/services/folderService.test.ts
+tests/services/icsImportService.test.ts
+tests/utils
+tests/utils/toast.test.ts
+tests/utils/logger.test.ts
+tests/utils/dateTimeUtils.test.ts
+tests/parsers
+tests/parsers/eventParser.test.ts
+tests/parsers/icsParser.test.ts
