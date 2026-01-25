@@ -5,11 +5,18 @@
 		"target": "es2015",
 		"jsx": "react",
 		"allowJs": true,
-      "baseUrl": ".",
-      "paths": {
-        "@main/*": [
-          "src/main/*"
-        ]
-      }
-	}
+		"baseUrl": ".",
+		"strict": true,
+		"esModuleInterop": true,
+		"skipLibCheck": true,
+		"paths": {
+			"@main/*": [
+				"src/main/*"
+			]
+		}
+	},
+	"include": [
+		"src/**/*",
+		"tests/**/*"
+	]
 }

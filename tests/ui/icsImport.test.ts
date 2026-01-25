@@ -35,8 +35,8 @@ function installWebviewApi() {
     };
 
     return {
-        postMessage: (window as any).webviewApi.postMessage,
-        getOnMessageCb: () => onMessageCb,
+        postMessage: (window as any).webviewApi.postMessage as jest.Mock,
+        getOnMessageCb: () => onMessageCb as ((msg: any) => void) | null,
     };
 }
 

@@ -97,7 +97,7 @@ async function setup() {
 
     if (!handler) throw new Error('onMessage handler was not registered');
 
-    return {joplin, helpers, handler, onMessage, postMessage, dataGet, execute};
+    return {joplin, helpers, handler: handler as AnyFn, onMessage, postMessage, dataGet, execute};
 }
 
 beforeEach(() => {
