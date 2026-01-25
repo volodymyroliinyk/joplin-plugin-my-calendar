@@ -5,9 +5,9 @@ CALSCALE:GREGORIAN
 BEGIN:VEVENT
 UID:demo-1@mycalendar
 DTSTAMP:20260124T235500Z
-SUMMARY:🚀 Ласкаво просимо до My Calendar!
-DESCRIPTION:Це демонстраційна подія. \nВи можете додавати будь-яки
- й Markdown текст нижче цього блоку в нотатці!
+SUMMARY:🚀 Welcome to My Calendar!
+DESCRIPTION:This is a demo event.\nYou can add any Markdown text below thi
+ s block in the note!
 LOCATION:Joplin App
 DTSTART:20260125T100000
 DTEND:20260125T110000
@@ -16,7 +16,7 @@ END:VEVENT
 BEGIN:VEVENT
 UID:demo-2@mycalendar
 DTSTAMP:20260124T235500Z
-SUMMARY:🏔️ Зимова відпустка в горах
+SUMMARY:🏔️ Winter Vacation in the Mountains
 DTSTART;VALUE=DATE:20260128
 DTEND;VALUE=DATE:20260202
 X-COLOR:#e67e22
@@ -24,7 +24,7 @@ END:VEVENT
 BEGIN:VEVENT
 UID:demo-3@mycalendar
 DTSTAMP:20260124T235500Z
-SUMMARY:🏋️ Тренування (Щовівторка та щочетверга)
+SUMMARY:🏋️ Workout (Every Tue and Thu)
 RRULE:FREQ=WEEKLY;BYDAY=TU,TH;INTERVAL=1
 DTSTART:20260127T080000
 DTEND:20260127T093000
@@ -33,7 +33,7 @@ END:VEVENT
 BEGIN:VEVENT
 UID:demo-4@mycalendar
 DTSTAMP:20260124T235500Z
-SUMMARY:☕ Кава-брейк (Щодня)
+SUMMARY:☕ Coffee Break (Daily)
 RRULE:FREQ=DAILY;INTERVAL=1
 DTSTART:20260125T110000
 DTEND:20260125T113000
@@ -42,7 +42,7 @@ END:VEVENT
 BEGIN:VEVENT
 UID:demo-5@mycalendar
 DTSTAMP:20260124T235500Z
-SUMMARY:🌍 Колл з командою (UTC Offset)
+SUMMARY:🌍 Team Sync (UTC Offset)
 DTSTART:20260130T140000Z
 DTEND:20260130T150000Z
 X-COLOR:#9b59b6
@@ -50,21 +50,20 @@ END:VEVENT
 BEGIN:VEVENT
 UID:demo-6@mycalendar
 DTSTAMP:20260124T235500Z
-SUMMARY:💡 Рев'ю проекту (з нагадуванням)
+SUMMARY:💡 Project Review (with Reminder)
 DTSTART:20260205T150000Z
 DTEND:20260205T163000Z
 X-COLOR:#e74c3c
 BEGIN:VALARM
 TRIGGER:-PT15M
 ACTION:DISPLAY
-DESCRIPTION:Нагадування: Рев'ю проекту почнеться за 15 хвилин
- !
+DESCRIPTION:Reminder: Project review starts in 15 minutes!
 END:VALARM
 END:VEVENT
 BEGIN:VEVENT
 UID:demo-7@mycalendar
 DTSTAMP:20260124T235500Z
-SUMMARY:📅 Звіт за місяць
+SUMMARY:📅 Monthly Report
 DTSTART:20260131T090000
 DTEND:20260131T100000
 RRULE:FREQ=MONTHLY;BYMONTHDAY=31
@@ -73,10 +72,10 @@ END:VEVENT
 BEGIN:VEVENT
 UID:demo-8@mycalendar
 DTSTAMP:20260124T235500Z
-SUMMARY:🍕 Вечірка з піцою 🎉
+SUMMARY:🍕 Pizza Party 🎉
 DTSTART:20260214T190000
 DTEND:20260214T220000
 X-COLOR:#ff6b6b
-LOCATION:Офіс / Zoom
+LOCATION:Office / Zoom
 END:VEVENT
 END:VCALENDAR
