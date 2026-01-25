@@ -39,7 +39,7 @@ module.exports = {
         // Copy the manifest and UI statics
         new CopyWebpackPlugin({
             patterns: [
-                { from: 'src/manifest.json', to: 'manifest.json' },
+                {from: 'manifest.json', to: 'manifest.json'},
                 {from: 'src/ui', to: 'ui'}, // calendar.js, calendar.css, icsImport.js
             ],
         }),
