@@ -3,6 +3,7 @@
 [![Joplin Plugin](https://img.shields.io/badge/Joplin-Plugin-blue)](https://joplinapp.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Support via PayPal](https://img.shields.io/badge/Support-PayPal-00457C?style=flat-square&logo=paypal)](https://www.paypal.me/volodymyroliinykca)
 
 **My Calendar** is a powerful, flexible, and privacy-focused calendar plugin for [Joplin](https://joplinapp.org/). It
 turns your notes into calendar events, providing a unified view of your schedule directly within your favorite
@@ -158,6 +159,15 @@ This plugin is built with **modern TypeScript** and focused on high code quality
 
 The code implements strict sanitization to ensure that imported calendar data cannot execute arbitrary Markdown or break
 the Joplin interface.
+
+## ❤️ Support
+
+If you find this plugin useful, please consider supporting its development. Your donations help me dedicate more time to
+maintaining the project and adding new features.
+
+- **[Donate via PayPal](https://www.paypal.me/volodymyroliinykca)** - support the development of **My Calendar**.
+
+Every coffee counts. Thank you! ☕
 
 ---
 
