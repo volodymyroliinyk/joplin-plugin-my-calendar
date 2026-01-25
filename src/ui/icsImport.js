@@ -73,12 +73,12 @@
             // Better handling for common element properties (best practice for inputs)
             if (k === 'checked') {
                 n.checked = Boolean(v);
-                if (Boolean(v)) n.setAttribute('checked', 'checked');
+                if (v) n.setAttribute('checked', 'checked');
                 continue;
             }
             if (k === 'disabled') {
                 n.disabled = Boolean(v);
-                if (Boolean(v)) n.setAttribute('disabled', 'disabled');
+                if (v) n.setAttribute('disabled', 'disabled');
                 continue;
             }
             if (k === 'value') {

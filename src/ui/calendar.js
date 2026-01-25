@@ -26,7 +26,6 @@
 
 
     function createUiLogger(prefix, outputBoxId) {
-        let outputBox = null;
 
         function appendToBox(args) {
             if (!outputBoxId) return;
@@ -37,13 +36,9 @@
                 div.textContent = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
                 box.appendChild(div);
                 box.scrollTop = box.scrollHeight;
-            } catch (e) {
+            } catch {
                 // ignore
             }
-        }
-
-        function setOutputBox(el) {
-            outputBox = el || null;
         }
 
         function forwardToMain(level, args) {
@@ -87,7 +82,6 @@
         }
 
         return {
-            setOutputBox,
             log: (...args) => {
                 write(console.log, args);
                 forwardToMain('log', args);
@@ -111,7 +105,7 @@
         };
     }
 
-// Expose for unit tests; keep singleton across reloads
+    // Expose for unit tests; keep singleton across reloads
     const uiLogger = window.__mcUiLogger || (window.__mcUiLogger = createUiLogger('[MyCalendar]', 'mc-log'));
 
     // console.log('[MyCalendar][DBG][weekStart] uiSettings 3::', uiSettings);
@@ -384,7 +378,8 @@
                     _uiReadyDebounce = setTimeout(() => {
                         try {
                             window.webviewApi?.postMessage?.({name: 'uiReady'});
-                        } catch {
+                        } catch (_err) {
+                            // ignore
                         }
                     }, 50);
                 }
@@ -438,12 +433,12 @@
                 };
 
                 if (window.__mcBackendReady && window.__mcUiReadySent && window.__mcOnMessageRegistered) {
-                    cb && cb();
+                    if (cb) cb();
                     return;
                 }
 
                 if (tryNow()) {
-                    cb && cb();
+                    if (cb) cb();
                     return;
                 }
 
@@ -453,7 +448,7 @@
                     attempts++;
                     if (tryNow()) {
                         clearInterval(timer);
-                        cb && cb();
+                        if (cb) cb();
                         return;
                     }
                     // ~5 seconds max
@@ -751,7 +746,7 @@
                             hour12: false,
                         }).format(new Date(ts));
                     }
-                } catch (e) {
+                } catch {
                     // ignore invalid tz and fallback
                 }
 
@@ -957,7 +952,7 @@
         }
     }
 
-// Init check
+    // Init check
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
     else init();
 

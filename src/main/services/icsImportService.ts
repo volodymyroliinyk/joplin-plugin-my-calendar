@@ -725,7 +725,8 @@ export async function importIcsIntoNotes(
     const say = async (t: string) => {
         try {
             if (onStatus) await onStatus(t);
-        } catch {
+        } catch (_err) {
+            // ignore
         }
     };
 
@@ -865,7 +866,6 @@ export async function importIcsIntoNotes(
         const oldAlarmIds = existingAlarms[key] || [];
         for (const alarmId of oldAlarmIds) {
             try {
-                // @ts-ignore - joplin.data.delete exists at runtime
                 await joplin.data.delete(['notes', alarmId]);
                 alarmsDeleted++;
             } catch (e) {

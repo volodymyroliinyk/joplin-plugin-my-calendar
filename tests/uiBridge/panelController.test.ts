@@ -78,7 +78,7 @@ function makeJoplinMock() {
 
 function makeHelpers() {
     return {
-        expandAllInRange: jest.fn((events: any[], fromUtc: number, toUtc: number) => events),
+        expandAllInRange: jest.fn((events: any[], _fromUtc: number, _toUtc: number) => events),
         buildICS: jest.fn((events: any[]) => `ICS(${events.length})`),
     };
 }

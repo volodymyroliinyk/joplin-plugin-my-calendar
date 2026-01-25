@@ -16,6 +16,7 @@
         // IMPORTANT: REQUIRE PLUGINMAIN only after we've been convinced that there was a joplin.
         // This way webpack will not overload the addiction earlier (and will not break RENDER).
 
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
         const runPlugin = require('./main/pluginMain').default;
 
         j.plugins.register({

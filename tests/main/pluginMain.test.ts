@@ -25,7 +25,6 @@ import {createCalendarPanel} from '../../src/main/views/calendarView';
 import {
     ensureAllEventsCache,
     invalidateNote,
-    invalidateAllEventsCache,
 } from '../../src/main/services/eventsCache';
 import {registerCalendarPanelController} from '../../src/main/uiBridge/panelController';
 
@@ -602,7 +601,6 @@ describe('pluginMain.runPlugin', () => {
         // Event from Jan 1 23:00 to Jan 2 01:00
         const start = Date.UTC(2025, 0, 1, 23, 0, 0);
         const end = Date.UTC(2025, 0, 2, 1, 0, 0);
-        const dur = end - start;
 
         const ev = {
             id: 'dur1',
