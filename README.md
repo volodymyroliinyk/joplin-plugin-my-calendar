@@ -9,6 +9,10 @@
 turns your notes into calendar events, providing a unified view of your schedule directly within your favorite
 note-taking app.
 
+|                     Light Mode                     |                    Dark Mode                     |
+|:--------------------------------------------------:|:------------------------------------------------:|
+| ![Light View](./assets/screenshots/light_view.png) | ![Dark View](./assets/screenshots/dark_view.png) |
+
 ---
 
 ## 🌟 Key Features
@@ -144,6 +148,12 @@ Customize your experience in the Joplin Settings (`Tools` > `Options` > `My Cale
 ### Developer
 
 - **Enable debug logging**: Activates a visible log box and extra console output to help troubleshoot any issues.
+
+#### Settings Interface
+
+|                           Light Theme                           |                          Dark Theme                           |
+|:---------------------------------------------------------------:|:-------------------------------------------------------------:|
+| ![Light Settings](./assets/screenshots/light_settings_view.png) | ![Dark Settings](./assets/screenshots/dark_settings_view.png) |
 
 ---
 
