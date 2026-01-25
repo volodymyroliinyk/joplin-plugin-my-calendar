@@ -1,0 +1,81 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//My Calendar//Joplin Plugin Demo//EN
+CALSCALE:GREGORIAN
+
+BEGIN:VEVENT
+UID:demo-1@mycalendar
+SUMMARY:🚀 Ласкаво просимо до My Calendar!
+DESCRIPTION:Це демонстраційна подія. \nВи можете додавати будь-який Markdown текст нижче цього блоку в нотатці!
+LOCATION:Joplin App
+DTSTART:20260125T100000
+DTEND:20260125T110000
+X-COLOR:#3498db
+END:VEVENT
+
+BEGIN:VEVENT
+UID:demo-2@mycalendar
+SUMMARY:🏔️ Зимова відпустка в горах
+DTSTART;VALUE=DATE:20260128
+DTEND;VALUE=DATE:20260202
+X-COLOR:#e67e22
+END:VEVENT
+
+BEGIN:VEVENT
+UID:demo-3@mycalendar
+SUMMARY:🏋️ Тренування (Щовівторка та щочетверга)
+RRULE:FREQ=WEEKLY;BYDAY=TU,TH;INTERVAL=1
+DTSTART:20260127T080000
+DTEND:20260127T093000
+X-COLOR:#2ecc71
+END:VEVENT
+
+BEGIN:VEVENT
+UID:demo-4@mycalendar
+SUMMARY:☕ Кава-брейк (Щодня)
+RRULE:FREQ=DAILY;INTERVAL=1
+DTSTART:20260125T110000
+DTEND:20260125T113000
+X-COLOR:#f1c40f
+END:VEVENT
+
+BEGIN:VEVENT
+UID:demo-5@mycalendar
+SUMMARY:🌍 Колл з командою (Timezone: London)
+DTSTART;TZID=Europe/London:20260130T140000
+DTEND;TZID=Europe/London:20260130T150000
+X-COLOR:#9b59b6
+END:VEVENT
+
+BEGIN:VEVENT
+UID:demo-6@mycalendar
+SUMMARY:💡 Рев'ю проекту (з нагадуванням)
+DTSTART:20260205T150000Z
+DTEND:20260205T163000Z
+X-COLOR:#e74c3c
+BEGIN:VALARM
+TRIGGER:-PT15M
+ACTION:DISPLAY
+DESCRIPTION:Нагадування: Рев'ю проекту почнеться за 15 хвилин!
+END:VALARM
+END:VEVENT
+
+BEGIN:VEVENT
+UID:demo-7@mycalendar
+SUMMARY:📅 Звіт за місяць
+DTSTART:20260131T090000
+DTEND:20260131T100000
+RRULE:FREQ=MONTHLY;BYMONTHDAY=31
+X-COLOR:#34495e
+END:VEVENT
+
+BEGIN:VEVENT
+UID:demo-8@mycalendar
+SUMMARY:🍕 Вечірка з піцою 🎉
+DTSTART:20260214T190000
+DTEND:20260214T220000
+X-COLOR:#ff6b6b
+LOCATION:Офіс / Zoom
+END:VEVENT
+
+END:VCALENDAR

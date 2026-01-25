@@ -51,6 +51,9 @@ location: Conference Room B
 
 The note will immediately appear on your calendar!
 
+> 💡 **Looking for more?** Check the [examples](./examples) folder for more templates, including recurring events and
+> all-day appointments.
+
 ---
 
 ## 📥 ICS Import System

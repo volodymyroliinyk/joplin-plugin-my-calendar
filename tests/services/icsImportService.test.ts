@@ -612,6 +612,76 @@ describe('icsImportService.importIcsIntoNotes', () => {
         expect(patch.body).not.toContain('color: #ff0000');
     });
 
+    test('re-import preserves custom text before, after, and between multiple event blocks', async () => {
+        const ics = [
+            'BEGIN:VCALENDAR',
+            'BEGIN:VEVENT',
+            'UID:u1',
+            'SUMMARY:Updated Event 1',
+            'DTSTART:20250115T110000Z',
+            'END:VEVENT',
+            'BEGIN:VEVENT',
+            'UID:u2',
+            'SUMMARY:Updated Event 2',
+            'DTSTART:20250115T150000Z',
+            'END:VEVENT',
+            'END:VCALENDAR',
+        ].join('\n');
+
+        const existingBody = [
+            '# Personal Intro',
+            'This is my custom intro.',
+            '',
+            block([
+                'title: Old Event 1',
+                'start: 2025-01-15 10:00:00+00:00',
+                '',
+                'uid: u1',
+            ].join('\n')),
+            '',
+            '## Middle Section',
+            'Any text between the blocks will be preserved.',
+            '',
+            block([
+                'title: Old Event 2',
+                'start: 2025-01-15 14:00:00+00:00',
+                '',
+                'uid: u2',
+            ].join('\n')),
+            '',
+            '### Footer',
+            'Don\'t delete me!',
+        ].join('\n');
+
+        const joplin = mkJoplin({
+            get: jest.fn().mockResolvedValue({
+                items: [{id: 'note-unique', title: 'My Log', body: existingBody}],
+                has_more: false,
+            }),
+            put: jest.fn().mockResolvedValue({}),
+        });
+
+        const res = await importIcsIntoNotes(joplin as any, ics);
+
+        expect(res.updated).toBe(2);
+        // Sequential updates on the same note
+        expect(joplin.data.put).toHaveBeenCalledTimes(2);
+
+        const finalBody = joplin.data.put.mock.calls[1][2].body;
+
+        expect(finalBody).toContain('# Personal Intro');
+        expect(finalBody).toContain('This is my custom intro.');
+        expect(finalBody).toContain('## Middle Section');
+        expect(finalBody).toContain('Any text between the blocks will be preserved.');
+        expect(finalBody).toContain('### Footer');
+        expect(finalBody).toContain('Don\'t delete me!');
+
+        expect(finalBody).toContain('title: Updated Event 1');
+        expect(finalBody).toContain('start: 2025-01-15 11:00:00+00:00');
+        expect(finalBody).toContain('title: Updated Event 2');
+        expect(finalBody).toContain('start: 2025-01-15 15:00:00+00:00');
+    });
+
     test('importDefaultColor is applied only when event has no color after preserveLocalColor step', async () => {
         const ics = [
             'BEGIN:VCALENDAR',
