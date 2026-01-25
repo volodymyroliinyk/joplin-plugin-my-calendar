@@ -43,6 +43,7 @@
     "dist/main",
     "dist/ui",
     "dist/manifest.json",
-    "manifest.json"
+    "manifest.json",
+    "CHANGELOG.md"
   ]
 }
