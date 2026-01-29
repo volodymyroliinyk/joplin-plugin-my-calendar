@@ -1,99 +1,105 @@
-# 🚀 Workflow
+# 🚀 Development Workflow Guide
 
-- [ ] Start of work (Start)
-    - [ ] Creating a branch: Always create a new branch for a task. Do not work in main.
-        - [ ] git checkout -b feature/new-calendar-view OR fix/timezone-bug
-- [ ] Development (Development Loop)
-    - [ ] Coding.
-    - [x] Auto-Check (Husky): New. Configure husky (git hooks). When you do a git commit, it automatically starts lint.
-      If there are errors - the commit is not created. This saves time because you don't "contaminate" the history with
-      bad code.
-    - [ ] Commits (Conventional Commits): Critical for Changelog automation.
-        - [ ] Use the standard message format:
-            - [ ] feat: add monthly view (for new functionality)
-            - [ ] fix: resolve timezone offset (for bugs)
-            - [ ] docs: update readme (for documentation)
-        - [ ] This will allow the script to automatically understand what will go into the Changelog.
-- [ ] Local inspection (Pre-Release)
-    - [ ] Running pre-pack.sh: Your script. It ensures that everything goes together and tests pass.
-    - [ ] Manual QA: Testing the .jpl file on Desktop and Mobile.
-- [ ] Merge
-    - [ ] Pull Request: If you use GitHub, it's better to do PR in main.
-    - [x] GitHub Actions (CI): New. Configure the .github/workflows/test.yml file. GitHub will automatically run your
-      tests (npm run test) on the server with every push or PR. This is "insurance" if you forget to run the local
-      tests.
-- [ ] Release
-    - [ ] Run release.sh:
-        - [ ] The script must be updated to:
-            - [ ] a. Analyze commits since the last tag.
-            - [ ] b. Automatically generate CHANGELOG.md (based on feat and fix).
-            - [ ] c. Raise the version.
-            - [ ] d. Make tag and push.
+This document outlines the development process, branching strategy, and commit conventions used in this project.
+Following these guidelines ensures code quality, consistency, and automated releases.
 
 ---
 
-## Branches
+## 📋 General Workflow
 
-Here is a simple and effective specification that I recommend:
-<type>/<hyphen-short-description>
+The development process is divided into several key stages:
 
-**The main types:**
+### 1. Start of Work
 
-• feature/: To develop new functionality.
-◦ feature/add-dark-mode
-◦ feature/ics-import-system
-• fix/: To fix errors (bugs).
-◦ fix/timezone-calculation-error
-◦ fix/calendar-grid-display-bug
-• chore/: For non-code related tasks (dependency updates, CI/CD setup).
-◦ chore/update-dependencies
-◦ chore/configure-husky
-• docs/: For working with documentation (README.md, CHANGELOG.md, etc.).
-◦ docs/update-readme-with-scripts
-• refactor/: To improve code without changing its behavior.
-◦ refactor/simplify-date-parser
+- **Create a Branch**: Always start new work on a dedicated branch. Never commit directly to `main`.
+  ```bash
+  # For a new feature
+  git checkout -b feature/new-calendar-view
+
+  # For a bug fix
+  git checkout -b fix/timezone-bug
+  ```
+
+### 2. Development Loop
+
+- **Write Code**: Implement your feature or fix.
+- **Commit Changes**: Use the **Conventional Commits** standard for your commit messages. This is critical for automated
+  changelog generation.
+  ```bash
+  git commit -m "feat: add monthly calendar view"
+  ```
+- **Automated Checks (Husky)**: When you commit, a pre-commit hook will automatically run the linter (`npm run lint`).
+  If there are errors, the commit will be aborted, preventing bad code from entering the history.
+
+### 3. Pre-Release Checks
+
+- **Run Local Checks**: Before pushing, run the `pre-pack.sh` script. It ensures that the code is lint-free and all
+  tests pass.
+  ```bash
+  ./scripts/pre-pack.sh
+  ```
+- **Manual QA**: Test the generated `.jpl` file on both Desktop and Mobile to ensure everything works as expected.
+
+### 4. Merging
+
+- **Pull Request (PR)**: Create a Pull Request from your branch into `main`. This is the preferred way to merge changes,
+  even if you are the only developer.
+- **Pre-Push Hook**: When you push to `main`, a pre-push hook will verify that tests have passed recently, preventing
+  broken code from being merged.
+
+### 5. Release
+
+- **Run the Release Script**: Use the `release.sh` script to automate the entire release process.
+  ```bash
+  ./scripts/release.sh [patch|minor|major]
+  ```
+  This script will:
+  1. Analyze commits since the last tag.
+  2. Automatically generate `CHANGELOG.md`.
+  3. Bump the version number.
+  4. Create a new git tag and push it.
+  5. Publish the new version to NPM.
+
 ---
 
-## Commits
+## 🌿 Branch Naming Convention
 
-To automate the generation of CHANGELOG.md, we will use the standard-version tool (or similar). He does magic:
+Use the following format for branch names to keep the repository organized:
 
-1. Looks at your commits from the last release.
-2. Filters them (takes only feat, fix, etc.).
-3. Updates the CHANGELOG.md file.
-4. Raises the version in package.json.
-   But for this you have to write commits according to a certain standard.
+`<type>/<short-description-in-kebab-case>`
+
+**Branch Types:**
+
+- **`feature/`**: For developing new functionality (e.g., `feature/add-dark-mode`).
+- **`fix/`**: For fixing bugs (e.g., `fix/timezone-calculation-error`).
+- **`docs/`**: For working with documentation (e.g., `docs/update-readme`).
+- **`chore/`**: For maintenance tasks like updating dependencies or CI/CD setup (e.g., `chore/configure-husky`).
+- **`refactor/`**: For improving code without changing its behavior (e.g., `refactor/simplify-date-parser`).
 
 ---
 
-1. Conventional Commits specification (How to write commits)
+## ✍️ Commit Message Convention
 
-You need to follow a simple pattern: <type>: <short description>
+We use the **Conventional Commits** standard. This allows for automated versioning and changelog generation.
 
-Basic types (these go into the Changelog):
+**Format:**
+`<type>[optional scope]: <description>`
 
-• feat: (Feature) New functionality.
-◦ Example: feat: add dark mode support
-◦ Result: Will upgrade MINOR version (1.1.0 -> 1.2.0).
-• fix: Error correction.
-◦ Example: fix: correct timezone calculation for events
-◦ Result: Will upgrade PATCH version (1.1.0 -> 1.1.1).
+**Commit Types:**
 
-Helper types (usually not in the Changelog, but useful):
+- **`feat`**: A new feature. Triggers a `minor` version bump (e.g., 1.1.0 -> 1.2.0).
+  > `feat: add monthly calendar view`
+- **`fix`**: A bug fix. Triggers a `patch` version bump (e.g., 1.1.0 -> 1.1.1).
+  > `fix: correct timezone calculation for events`
+- **`docs`**: Documentation-only changes.
+- **`style`**: Code style changes (formatting, etc.).
+- **`refactor`**: Code changes that neither fix a bug nor add a feature.
+- **`test`**: Adding or fixing tests.
+- **`chore`**: Changes to the build process or auxiliary tools.
 
-• docs: Changes only in the documentation.
-◦ Example: docs: update installation guide in README
-• style: Formatting, spaces, commas (the code does not change logically).
-◦ Example: style: format code with prettier
-• refactor: Changing the code without fixing bugs or adding features.
-◦ Example: refactor: simplify date parsing logic
-• test: Adding or fixing tests.
-◦ Example: test: add unit tests for ICS parser
-• chore: Update build scripts, settings, etc.
-◦ Example: chore: update dependencies
-
-Breaking Changes (Important!):
-
-If you make changes that break compatibility, add BREAKING CHANGE: to the commit body or ! after the type.
-• Example: feat!: remove support for old Joplin versions
-• Result: Will upgrade the MAJOR version (1.0.0 -> 2.0.0).
+**Breaking Changes:**
+To indicate a change that breaks backward compatibility, add a `!` after the type or include `BREAKING CHANGE:` in the
+commit footer. This triggers a `major` version bump (e.g., 1.0.0 -> 2.0.0).
+> `feat!: remove support for old Joplin versions`
+>
+> `BREAKING CHANGE: This version requires Joplin v2.8 or higher.`
