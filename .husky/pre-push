@@ -1,0 +1,16 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Get the current branch name
+current_branch=$(git rev-parse --abbrev-ref HEAD)
+
+# Only check tests if pushing to main
+if [ "$current_branch" = "main" ]; then
+    echo "🚀 Pushing to main. Verifying tests..."
+    if ! bash scripts/check-tests.sh; then
+        echo "❌ Tests verification failed. Push to main aborted."
+        exit 1
+    fi
+fi
+
+exit 0

@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "Running pre-commit hook: Linting..."
+npm run lint -- --max-warnings=0
+if [ $? -ne 0 ]; then
+    echo "Lint failed. Aborting commit."
+    exit 1
+fi
+
+echo "Lint passed. Proceeding with commit."
