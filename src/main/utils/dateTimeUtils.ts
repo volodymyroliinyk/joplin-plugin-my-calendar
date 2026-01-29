@@ -98,3 +98,30 @@ export function computeAlarmWhen(alarm: { trigger: string; related?: 'START' | '
     const base = alarm.related === 'END' ? occ.end : occ.start;
     return new Date(base.getTime() + delta);
 }
+
+export function formatTriggerDescription(trigger: string): string {
+    const t = trigger.trim().toUpperCase();
+    if (t.startsWith('P') || t.startsWith('-P') || t.startsWith('+P')) {
+        const ms = parseIsoDurationToMs(t);
+        if (ms === null) return t;
+
+        const isBefore = ms < 0;
+        const absMs = Math.abs(ms);
+
+        const mins = Math.floor(absMs / 60000);
+        const hours = Math.floor(mins / 60);
+        const days = Math.floor(hours / 24);
+
+        let timeStr = '';
+        if (days > 0) {
+            timeStr = `${days} day${days > 1 ? 's' : ''}`;
+        } else if (hours > 0) {
+            timeStr = `${hours} hour${hours > 1 ? 's' : ''}`;
+        } else {
+            timeStr = `${mins} minute${mins !== 1 ? 's' : ''}`;
+        }
+
+        return isBefore ? `${timeStr} before` : (ms === 0 ? 'at time of event' : `${timeStr} after`);
+    }
+    return 'at specific time';
+}

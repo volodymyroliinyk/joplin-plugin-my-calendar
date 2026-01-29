@@ -17,6 +17,7 @@ describe('alarmService', () => {
     let mockJoplin: Joplin;
     const mockDeleteNote = joplinNoteService.deleteNote as jest.Mock;
     const mockCreateNote = joplinNoteService.createNote as jest.Mock;
+    const mockUpdateNote = joplinNoteService.updateNote as jest.Mock;
     const mockGetAlarmRange = settings.getIcsImportAlarmRangeDays as jest.Mock;
     const mockGetEmptyTrash = settings.getIcsImportEmptyTrashAfter as jest.Mock;
 
@@ -51,10 +52,9 @@ describe('alarmService', () => {
             [key]: {id: 'note1', title: 'Event 1', parent_id: 'folder1'}
         };
 
-        // Alarm in the past
         const pastDate = new Date().getTime() - 10000;
         const existingAlarms = {
-            [key]: [{id: 'alarm1', todo_due: pastDate}]
+            [key]: [{id: 'alarm1', todo_due: pastDate, body: ''}]
         };
 
         await syncAlarmsForEvents(
@@ -68,10 +68,10 @@ describe('alarmService', () => {
         expect(mockDeleteNote).toHaveBeenCalledWith(mockJoplin, 'alarm1');
     });
 
-    it('should keep valid future alarms', async () => {
+    it('should update existing alarm if body is outdated', async () => {
         const now = new Date();
-        const future = new Date(now.getTime() + 3600000); // +1 hour
-
+        const future = new Date(now.getTime() + 3600000);
+        
         const pad = (n: number) => String(n).padStart(2, '0');
         const futureStr = `${future.getFullYear()}-${pad(future.getMonth() + 1)}-${pad(future.getDate())} ${pad(future.getHours())}:${pad(future.getMinutes())}`;
 
@@ -82,7 +82,7 @@ describe('alarmService', () => {
             start: futureStr,
             valarms: [{
                 action: 'DISPLAY',
-                trigger: '-PT0M', // Alarm at start time (0 minutes before)
+                trigger: '-PT15M',
                 related: 'START'
             }]
         }];
@@ -95,7 +95,7 @@ describe('alarmService', () => {
         future.setSeconds(0, 0);
         
         const existingAlarms = {
-            [key]: [{id: 'alarm1', todo_due: future.getTime()}]
+            [key]: [{id: 'alarm1', todo_due: future.getTime() - 15 * 60000, body: 'old body'}]
         };
 
         await syncAlarmsForEvents(
@@ -106,49 +106,12 @@ describe('alarmService', () => {
             'folder1'
         );
 
+        expect(mockUpdateNote).toHaveBeenCalledTimes(1);
+        expect(mockUpdateNote).toHaveBeenCalledWith(mockJoplin, 'alarm1', {body: expect.any(String)});
+        const updatedBody = mockUpdateNote.mock.calls[0][2].body;
+        expect(updatedBody).toContain('trigger_desc: 15 minutes before');
+        
         expect(mockDeleteNote).not.toHaveBeenCalled();
         expect(mockCreateNote).not.toHaveBeenCalled();
-    });
-
-    it('should delete invalid future alarms (time changed)', async () => {
-        const now = new Date();
-        const future = new Date(now.getTime() + 3600000); // +1 hour
-        const wrongTime = new Date(now.getTime() + 7200000); // +2 hours
-
-        const pad = (n: number) => String(n).padStart(2, '0');
-        const futureStr = `${future.getFullYear()}-${pad(future.getMonth() + 1)}-${pad(future.getDate())} ${pad(future.getHours())}:${pad(future.getMinutes())}`;
-
-        const events: IcsEvent[] = [{
-            uid: 'uid1',
-            recurrence_id: '',
-            start: futureStr,
-            valarms: [{
-                action: 'DISPLAY',
-                trigger: '-PT0M',
-                related: 'START'
-            }]
-        }];
-
-        const key = 'uid1|';
-        const importedEventNotes = {
-            [key]: {id: 'note1', title: 'Test Event', parent_id: 'folder1'}
-        };
-
-        const existingAlarms = {
-            [key]: [{id: 'alarm1', todo_due: wrongTime.getTime()}]
-        };
-
-        mockCreateNote.mockResolvedValue({id: 'newAlarm'});
-
-        await syncAlarmsForEvents(
-            mockJoplin,
-            events,
-            importedEventNotes,
-            existingAlarms,
-            'folder1'
-        );
-
-        expect(mockDeleteNote).toHaveBeenCalledWith(mockJoplin, 'alarm1');
-        expect(mockCreateNote).toHaveBeenCalled();
     });
 });

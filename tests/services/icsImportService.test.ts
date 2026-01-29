@@ -1,4 +1,5 @@
 // tests/services/icsImportService.test.ts
+//
 // src/main/services/icsImportService.ts
 //
 // npx jest tests/services/icsImportService.test.ts --runInBand --no-cache;
@@ -127,7 +128,15 @@ describe('icsImportService.importIcsIntoNotes', () => {
         expect(noteBody.body).toContain('end: 2025-01-15 11:30:00+00:00');
         expect(noteBody.body).toContain('uid: u1');
 
-        expect(res).toEqual({added: 1, updated: 0, skipped: 0, errors: 0, alarmsCreated: 0, alarmsDeleted: 0});
+        expect(res).toEqual({
+            added: 1,
+            updated: 0,
+            skipped: 0,
+            errors: 0,
+            alarmsCreated: 0,
+            alarmsDeleted: 0,
+            alarmsUpdated: 0
+        });
     });
 
     test('imports VALARM as valarm: {json} lines inside mycalendar-event block (supports multiple VALARM)', async () => {
@@ -174,7 +183,15 @@ describe('icsImportService.importIcsIntoNotes', () => {
         expect(noteBody.body).toContain('valarm: {"trigger":"-PT1H","related":"START","action":"DISPLAY","description":"Reminder 1"}');
         expect(noteBody.body).toContain('valarm: {"trigger":"-P1D","action":"DISPLAY"}');
 
-        expect(res).toEqual({added: 1, updated: 0, skipped: 0, errors: 0, alarmsCreated: 0, alarmsDeleted: 0});
+        expect(res).toEqual({
+            added: 1,
+            updated: 0,
+            skipped: 0,
+            errors: 0,
+            alarmsCreated: 0,
+            alarmsDeleted: 0,
+            alarmsUpdated: 0
+        });
     });
 
     test('creates todo+alarm notes from VALARM (only future alarms, within 60 days)', async () => {
@@ -225,7 +242,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
         });
         expect(String(alarmNote.body)).toContain('```mycalendar-alarm');
         expect(String(alarmNote.body)).toContain('uid: u-valarm2');
-        expect(String(alarmNote.body)).toContain('[With alarm](:/event-note-id)');
+        expect(String(alarmNote.body)).toContain('[With alarm at 2025-01-15 10:00](:/event-note-id)');
 
         jest.useRealTimers();
     });
@@ -287,7 +304,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
             get: jest.fn()
                 .mockResolvedValueOnce({items: [existingEvent, existingAlarm], has_more: false}),
             post: jest.fn().mockResolvedValue({id: 'new-alarm-id'}), // only alarm created (event updated/skipped)
-            put: jest.fn(),
+            put: jest.fn().mockResolvedValue({}),
             delete: jest.fn().mockResolvedValue({}),
         });
 
@@ -300,6 +317,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
 
         expect(res.alarmsDeleted).toBe(0);
         expect(res.alarmsCreated).toBe(0);
+        expect(res.alarmsUpdated).toBe(1); // Updated because body format changed (added trigger_desc)
         expect(res.errors).toBe(0);
 
         jest.useRealTimers();
@@ -491,7 +509,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
 
         const joplin = mkJoplin({
             get: jest.fn().mockResolvedValue({items: [], has_more: false}),
-            post: jest.fn().mockResolvedValue({}),
+            post: jest.fn().mockResolvedValue({id: 'created'}),
         });
 
         const res = await importIcsIntoNotes(joplin as any, text);
@@ -521,7 +539,15 @@ describe('icsImportService.importIcsIntoNotes', () => {
 
         const res = await importIcsIntoNotes(joplin as any, text);
 
-        expect(res).toEqual({added: 0, updated: 0, skipped: 1, errors: 0, alarmsCreated: 0, alarmsDeleted: 0});
+        expect(res).toEqual({
+            added: 0,
+            updated: 0,
+            skipped: 1,
+            errors: 0,
+            alarmsCreated: 0,
+            alarmsDeleted: 0,
+            alarmsUpdated: 0
+        });
         expect(joplin.data.post).not.toHaveBeenCalled();
         expect(joplin.data.put).not.toHaveBeenCalled();
     });
@@ -744,7 +770,15 @@ describe('icsImportService.importIcsIntoNotes', () => {
 
         const res = await importIcsIntoNotes(joplin as any, ics, undefined, undefined, true);
 
-        expect(res).toEqual({added: 0, updated: 0, skipped: 1, errors: 0, alarmsCreated: 0, alarmsDeleted: 0});
+        expect(res).toEqual({
+            added: 0,
+            updated: 0,
+            skipped: 1,
+            errors: 0,
+            alarmsCreated: 0,
+            alarmsDeleted: 0,
+            alarmsUpdated: 0
+        });
         expect(joplin.data.put).not.toHaveBeenCalled();
     });
 
@@ -896,7 +930,15 @@ describe('icsImportService.importIcsIntoNotes', () => {
         const res = await importIcsIntoNotes(joplin as any, ics, onStatus);
 
         expect(onStatus).toHaveBeenCalledWith('[icsImportService] Parsed 0 VEVENT(s)');
-        expect(res).toEqual({added: 0, updated: 0, skipped: 0, errors: 0, alarmsCreated: 0, alarmsDeleted: 0});
+        expect(res).toEqual({
+            added: 0,
+            updated: 0,
+            skipped: 0,
+            errors: 0,
+            alarmsCreated: 0,
+            alarmsDeleted: 0,
+            alarmsUpdated: 0
+        });
         expect(joplin.data.put).not.toHaveBeenCalled();
         expect(joplin.data.post).not.toHaveBeenCalled();
 
