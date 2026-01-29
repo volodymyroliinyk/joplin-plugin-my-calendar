@@ -1,4 +1,7 @@
 // tests/parsers/icsParser.test.ts
+// src/main/parsers/icsParser.ts
+//
+// npx jest tests/parsers/icsParser.test.ts --runInBand --no-cache;
 
 import {
     parseIcs,

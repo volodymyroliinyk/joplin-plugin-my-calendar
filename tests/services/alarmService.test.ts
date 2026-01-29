@@ -1,3 +1,8 @@
+// tests/services/alarmService.test.ts
+// src/main/services/alarmService.ts
+//
+// npx jest tests/services/alarmService.test.ts --runInBand --no-cache;
+
 import {syncAlarmsForEvents} from '../../src/main/services/alarmService';
 import {Joplin} from '../../src/main/types/joplin.interface';
 import {IcsEvent} from '../../src/main/types/icsTypes';
