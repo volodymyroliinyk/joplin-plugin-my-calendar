@@ -180,10 +180,30 @@ This plugin is built with **modern TypeScript** and focused on high code quality
 
 ### Commands:
 
-- `npm run build`: Compile the project.
-- `npm run pack`: Create the `.jpl` distribution file.
-- `npm test`: Run the extensive test suite (250+ cases).
-- `npm run lint`: Check code style and common patterns.
+- `npm run build;`: Compile the project.
+- `npm run pack;`: Create the `.jpl` distribution file.
+- `npm test;`: Run the extensive test suite (250+ cases).
+- `npm run lint;`: Check code style and common patterns.
+
+### Automation Scripts
+
+The project includes helper scripts in the `scripts/` directory to streamline development and release processes.
+
+#### `scripts/pre-pack.sh`
+
+Ensures code quality before packaging. It runs the linter (failing on warnings) and the full test suite.
+
+```bash
+./scripts/pre-pack.sh
+```
+
+#### `scripts/release.sh`
+
+Automates the entire release workflow: bumps version, syncs manifest, tags, pushes, and publishes to NPM.
+
+```bash
+./scripts/release.sh [patch|minor|major]
+```
 
 ### Security First:
 
@@ -200,6 +220,10 @@ maintaining the project and adding new features.
 Every coffee counts. Thank you! ☕
 
 ---
+
+## 📜 Changelog
+
+Detailed changes for each release are documented in the [CHANGELOG](./CHANGELOG.md).
 
 ## 📄 License
 
