@@ -1,4 +1,4 @@
-/* src/ui/calendar.css */
+/* src/ui/mycalendar.css */
 
 html, body {
     height: 100%;
@@ -577,6 +577,86 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
     opacity: 0.65;
 }
 
+/* --- ICS Import Styles --- */
+#mc-imp-log {
+    margin-top: 8px;
+    padding: 6px;
+    border: 1px dashed var(--joplin-divider-color);
+    max-height: 220px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 12px;
+}
+
+.mc-import-section-header {
+    font-weight: 600;
+    margin-top: 10px;
+    margin-bottom: 6px;
+}
+
+.mc-import-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin: 8px 0;
+}
+
+.mc-import-row-label {
+    font-weight: 600;
+}
+
+.mc-import-options {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 8px 0;
+}
+
+.mc-import-option-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+}
+
+.mc-import-color-picker-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 24px;
+}
+
+.mc-import-color-picker-label {
+    opacity: 0.85;
+}
+
+#mc-ics-import-form {
+    margin: 0;
+    padding: 0;
+}
+
+#mc-ics-export-link {
+    margin-top: 10px;
+}
+
+.mc-export-link-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.mc-export-link-btn {
+    text-decoration: none;
+}
+
+.mc-flex-1 {
+    flex: 1;
+}
+
+.mc-w-100 {
+    width: 100%;
+}
+
+
 @media (pointer: coarse) and (hover: none) {
     #mc-import {
         display: none !important;
@@ -642,4 +722,3 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
         background: var(--mc-weekend-head-bg);
     }
 }
-

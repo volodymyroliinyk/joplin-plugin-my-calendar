@@ -219,22 +219,15 @@
         const root = document.getElementById(IDS.root);
         if (!root) return;
 
-        const logBox = el('div', {
-            id: IDS.logBox,
-            style:
-                'margin-top:8px; padding:6px; border:1px dashed var(--joplin-divider-color);' +
-                'max-height:220px; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size:12px;',
-        });
-
+        const logBox = el('div', {id: IDS.logBox});
         uiLogger.setOutputBox(logBox);
 
-        const debugHeader = el('div', {style: 'font-weight:600;margin-top:10px'}, ['Debug log']);
-        const exportLinkBox = el('div', {id: IDS.exportLinkBox, style: 'margin-top:10px'});
+        const debugHeader = el('div', {class: 'mc-import-section-header'}, ['Debug log']);
+        const exportLinkBox = el('div', {id: IDS.exportLinkBox});
 
         function renderExportLinks() {
             exportLinkBox.textContent = '';
 
-            // Normalize incoming settings (support both new and legacy field)
             const rawLinks = Array.isArray(uiSettings.icsExportLinks) ? uiSettings.icsExportLinks : [];
             const links = [];
 
@@ -248,20 +241,18 @@
 
             if (!links.length) return;
 
-            const label = el('div', {style: 'font-weight:600;margin-bottom:6px'}, ['ICS export links']);
-            const btnRow = el('div', {style: 'display:flex; gap:6px; flex-wrap:wrap;'}, []);
+            const label = el('div', {class: 'mc-import-section-header'}, ['ICS export links']);
+            const btnRow = el('div', {class: 'mc-export-link-row'}, []);
 
             links.forEach((l, idx) => {
                 const text = (l.title || '').trim() || `Link ${idx + 1}`;
-                // Use <a> styled as a button (more reliable inside webviews)
                 const a = el(
                     'a',
                     {
                         href: l.url,
                         target: '_blank',
                         rel: 'noopener noreferrer',
-                        class: 'mc-setting-btn',
-                        style: 'text-decoration:none;',
+                        class: 'mc-setting-btn mc-export-link-btn',
                     },
                     [text],
                 );
@@ -273,7 +264,6 @@
         }
 
         function applyDebugUI() {
-            // Keep export link near bottom (above Debug log when enabled)
             if (exportLinkBox.parentNode) root.removeChild(exportLinkBox);
             renderExportLinks();
             if (exportLinkBox.childNodes.length) root.appendChild(exportLinkBox);
@@ -287,49 +277,38 @@
             }
         }
 
-        // ---- Notebook selector (dropdown) ----
         const folderSelect = el('select', {
             id: IDS.targetFolder,
-            class: 'mc-setting-select-control',
-            style: 'flex:1;width:100%;',
+            class: 'mc-setting-select-control mc-flex-1 mc-w-100',
         });
 
-        // Render
         root.innerHTML = '';
 
-        // Wrap import controls in a <form> so this section is semantically a form,
-// BUT keep it AJAX-only: never allow a real submit/navigation.
         const importForm = el('form', {
             id: 'mc-ics-import-form',
-            style: 'margin:0; padding:0;',
             onsubmit: (e) => {
-                // Critical for Joplin webviews: prevent full iframe reload
                 e.preventDefault();
                 e.stopPropagation();
-                // void doImportFromPicker();
             },
         });
 
-        // Full-cover overlay loader (same look as the calendar grid loader)
         const importLoader = el('div', {class: 'mc-grid-loader', 'aria-hidden': 'true'}, [
             el('div', {class: 'mc-grid-spinner'}),
         ]);
         importForm.appendChild(importLoader);
 
-        // Reload button MUST be type="button"
         const btnReloadFolders = el(
             'button',
             {
                 type: 'button',
-                style: 'padding:6px 10px;',
                 class: 'mc-setting-btn',
                 onclick: () => window.webviewApi?.postMessage?.({name: 'requestFolders'}),
             },
             ['Reload'],
         );
 
-        const folderRow = el('div', {style: 'display:flex; gap:8px; align-items:center; margin:8px 0;'}, [
-            el('div', {style: 'font-weight:600;'}, ['Target notebook']),
+        const folderRow = el('div', {class: 'mc-import-row'}, [
+            el('div', {class: 'mc-import-row-label'}, ['Target notebook']),
             folderSelect,
             btnReloadFolders,
         ]);
@@ -340,10 +319,7 @@
 
         function populateFolders(list) {
             const desired = safeGetLS(LS.targetFolderId, '');
-
             folderSelect.innerHTML = '';
-
-            // Placeholder
             folderSelect.appendChild(el('option', {value: '', disabled: true}, ['Select a notebook…']));
 
             for (const f of list || []) {
@@ -358,18 +334,14 @@
             if (!folderSelect.value && folderSelect.options.length > 1) folderSelect.selectedIndex = 1;
         }
 
-        // 2) File picker
         const fileInput = el('input', {
             id: IDS.fileInput,
             type: 'file',
             accept: '.ics,text/calendar',
-            style: 'flex:1;',
+            class: 'mc-flex-1',
         });
 
-        // Preserve local color (default ON)
         let preserveLocalColor = safeGetLS(LS.preserveLocalColor, '1') !== '0';
-
-        // Default import color (default OFF)
         let importColorEnabled = safeGetLS(LS.importColorEnabled, '0') === '1';
         let importColorValue = safeGetLS(LS.importColorValue, '#1470d9');
         if (!/^#[0-9a-fA-F]{6}$/.test(importColorValue)) importColorValue = '#1470d9';
@@ -440,13 +412,7 @@
                         preserveLocalColor,
                         importDefaultColor: importColorEnabled ? importColorValue : undefined,
                     });
-
-                    // Re-enable right after posting (AJAX-only; backend reports progress via messages)
                     finish();
-                    // IMPORTANT:
-                    // Do NOT reset UI here. Backend import can take tens of seconds.
-                    // We keep the overlay loader until importDone/importError arrives.
-
                 };
 
                 reader.readAsText(f);
@@ -457,21 +423,18 @@
             }
         }
 
-        // Import button MUST be type="button"
         const btnImportFile = el(
             'button',
             {
                 type: 'button',
-                style: 'padding:6px 10px;',
                 class: 'mc-setting-btn',
                 onclick: () => void doImportFromPicker(),
             },
             ['Import'],
         );
 
-
-        const rowFile = el('div', {style: 'display:flex; gap:8px; align-items:center; margin:8px 0;'}, [
-            el('div', {style: 'font-weight:600;'}, ['.ics file']),
+        const rowFile = el('div', {class: 'mc-import-row'}, [
+            el('div', {class: 'mc-import-row-label'}, ['.ics file']),
             fileInput,
             btnImportFile,
         ]);
@@ -495,22 +458,21 @@
             },
         });
 
-        const optionsRow = el('div', {style: 'display:flex; flex-direction:column; gap:6px; margin:8px 0;'}, [
-            el('div', {style: 'font-weight:600;'}, ['Options']),
-            el('label', {style: 'display:flex; align-items:center; gap:8px; cursor:pointer;'}, [
+        const optionsRow = el('div', {class: 'mc-import-options'}, [
+            el('div', {class: 'mc-import-section-header'}, ['Options']),
+            el('label', {class: 'mc-import-option-label'}, [
                 preserveColorInput,
                 el('span', {}, ['Preserve local color on re-import']),
             ]),
-            el('label', {style: 'display:flex; align-items:center; gap:8px; cursor:pointer;'}, [
+            el('label', {class: 'mc-import-option-label'}, [
                 importColorEnabledInput,
                 el('span', {}, ['Set default color for imported events without color']),
             ]),
-            el('div', {style: 'display:flex; align-items:center; gap:8px; margin-left:24px;'}, [
+            el('div', {class: 'mc-import-color-picker-row'}, [
                 importColorPicker,
-                el('span', {style: 'opacity:0.85;'}, ['Default import color']),
+                el('span', {class: 'mc-import-color-picker-label'}, ['Default import color']),
             ]),
         ]);
-
 
         importForm.appendChild(folderRow);
         importForm.appendChild(rowFile);
@@ -519,7 +481,6 @@
 
         applyDebugUI();
 
-        // Messages from backend
         mcRegisterOnMessage((msg) => {
             if (!msg || !msg.name) return;
 
@@ -530,11 +491,9 @@
                     applyDebugUI();
                     return;
                 }
-
                 case 'importStatus':
                     uiLogger.log('[STATUS]', msg.text);
                     return;
-
                 case 'importDone':
                     uiLogger.log(
                         '[DONE]',
@@ -546,7 +505,6 @@
                     folderSelect.disabled = false;
                     setImportLoading(false);
                     return;
-
                 case 'importError':
                     uiLogger.log('[ERROR]', msg.error || 'unknown');
                     importInProgress = false;
@@ -555,17 +513,14 @@
                     folderSelect.disabled = false;
                     setImportLoading(false);
                     return;
-
                 case 'folders':
                     populateFolders(msg.folders);
                     return;
-
                 default:
                     return;
             }
         });
 
-        // Ask plugin for settings + folder tree (send AFTER handler is installed)
         window.webviewApi?.postMessage?.({name: 'uiReady'});
         window.webviewApi?.postMessage?.({name: 'requestFolders'});
 
