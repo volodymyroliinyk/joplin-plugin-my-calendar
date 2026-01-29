@@ -5,7 +5,7 @@ import {expandOccurrences} from './occurrenceService';
 import {computeAlarmWhen, formatAlarmTitleTime, formatDateForAlarm, addDays} from '../utils/dateTimeUtils';
 import {sanitizeForMarkdownBlock} from './noteBuilder';
 import {makeEventKey} from '../utils/joplinUtils';
-import {getIcsImportAlarmRangeDays} from '../settings/settings';
+import {getIcsImportAlarmRangeDays, getIcsImportEmptyTrashAfter} from '../settings/settings';
 import {Joplin} from '../types/joplin.interface';
 import {createNote, deleteNote, updateNote} from './joplinNoteService';
 
@@ -35,6 +35,8 @@ export async function syncAlarmsForEvents(
         Number.isFinite(importAlarmRangeDays) && (importAlarmRangeDays as number) > 0
             ? Math.round(importAlarmRangeDays as number)
             : await getIcsImportAlarmRangeDays(joplin);
+
+    const emptyTrashAfter = await getIcsImportEmptyTrashAfter(joplin);
 
     const windowEnd = addDays(now, alarmRangeDays);
 
@@ -113,6 +115,20 @@ export async function syncAlarmsForEvents(
                     await say(`ERROR create alarm: ${key} - ${String((e as any)?.message || e)}`);
                 }
             }
+        }
+    }
+
+    // 3) Clean trash if enabled and alarms were deleted
+    if (alarmsDeleted > 0 && emptyTrashAfter) {
+        try {
+            // There is no direct API to empty trash via joplin.data.
+            // We must use the command.
+            // Note: This empties the WHOLE trash, not just our alarms.
+            // The user should be aware of this via the setting description.
+            await joplin.commands.execute('emptyTrash');
+            await say('Trash emptied.');
+        } catch (e) {
+            await say(`WARNING: Failed to empty trash: ${String((e as any)?.message || e)}`);
         }
     }
 
