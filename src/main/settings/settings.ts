@@ -16,6 +16,7 @@ export const SETTING_ICS_EXPORT_LINK4_TITLE = 'mycalendar.icsExportLink4Title';
 export const SETTING_ICS_EXPORT_LINK4_URL = 'mycalendar.icsExportLink4Url';
 export const SETTING_DAY_EVENTS_REFRESH_MINUTES = 'mycalendar.dayEventsRefreshMinutes';
 export const SETTING_ICS_IMPORT_ALARM_RANGE_DAYS = 'mycalendar.icsImportAlarmRangeDays';
+export const SETTING_ICS_IMPORT_EMPTY_TRASH_AFTER = 'mycalendar.icsImportEmptyTrashAfter';
 
 export type WeekStart = 'monday' | 'sunday';
 
@@ -102,6 +103,14 @@ export async function registerSettings(joplin: any) {
             public: !mobile,
             label: 'ICS import alarm range (days)',
             description: 'ICS import section: Import events alarms from now up to N days ahead. Default 30. During reimport all alarms will regenerated.',
+        },
+        [SETTING_ICS_IMPORT_EMPTY_TRASH_AFTER]: {
+            value: false,
+            type: 3, // bool
+            section: 'mycalendar',
+            public: !mobile,
+            label: 'Empty trash after alarm cleanup',
+            description: 'ICS import section: If enabled, the plugin will empty the trash after deleting old alarms. WARNING: This deletes ALL items in the trash.',
         },
         // 8) ICS export links (up to 4)
         [SETTING_ICS_EXPORT_LINK1_TITLE]: {
@@ -199,6 +208,11 @@ export async function registerSettings(joplin: any) {
 
                 const maybeFixTitle = async (key: string) => {
                     const raw = await joplin.settings.value(key);
+                    const sanitizeTitle = (input: unknown): string => {
+                        const s = String(input ?? '').trim();
+                        if (!s) return '';
+                        return s.length > 60 ? s.slice(0, 60) : s;
+                    };
                     const safe = sanitizeTitle(raw);
                     if (raw !== safe) await joplin.settings.setValue(key, safe);
                 };
@@ -289,4 +303,8 @@ export async function getIcsImportAlarmRangeDays(joplin: any): Promise<number> {
     // Guardrails: keep the import range reasonable.
     // If user entered 0, we clamp to 1.
     return Math.min(365, Math.max(1, Math.round(n)));
+}
+
+export async function getIcsImportEmptyTrashAfter(joplin: any): Promise<boolean> {
+    return !!(await joplin.settings.value(SETTING_ICS_IMPORT_EMPTY_TRASH_AFTER));
 }
