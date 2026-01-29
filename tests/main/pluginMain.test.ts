@@ -198,7 +198,7 @@ describe('pluginMain.runPlugin', () => {
         expect(commandsRegister).toHaveBeenCalledWith(
             expect.objectContaining({
                 name: 'mycalendar.togglePanel',
-                label: 'Hide My Calendar',
+                label: 'Toggle My Calendar',
                 iconName: 'fas fa-calendar-alt'
             })
         );
@@ -313,25 +313,25 @@ describe('pluginMain.runPlugin', () => {
         };
 
         const toggleCmd1 = getToggleCmd();
-        expect(toggleCmd1.label).toBe('Hide My Calendar');
+        expect(toggleCmd1.label).toBe('Toggle My Calendar');
 
         // initial state is visible=true -> first execute hides (if hide exists)
         await toggleCmd1.execute();
         expect(panels.hide).toHaveBeenCalledWith('panel-1');
         expect(logSpy).toHaveBeenCalledWith('toggle Hide');
 
-        // Label should have changed to 'Show My Calendar'
+        // Label should remain 'Toggle My Calendar'
         const toggleCmd2 = getToggleCmd();
-        expect(toggleCmd2.label).toBe('Show My Calendar');
+        expect(toggleCmd2.label).toBe('Toggle My Calendar');
 
         // second execute shows
         await toggleCmd2.execute();
         expect(panels.show).toHaveBeenCalledWith('panel-1');
         expect(logSpy).toHaveBeenCalledWith('toggle Show');
 
-        // Label should have changed back to 'Hide My Calendar'
+        // Label should remain 'Toggle My Calendar'
         const toggleCmd3 = getToggleCmd();
-        expect(toggleCmd3.label).toBe('Hide My Calendar');
+        expect(toggleCmd3.label).toBe('Toggle My Calendar');
 
         logSpy.mockRestore();
     });
@@ -349,9 +349,12 @@ describe('pluginMain.runPlugin', () => {
 
         await runPlugin(joplin as any);
 
-        // togglePanel command should NOT be registered
+        // togglePanel command IS registered now (because we register it unconditionally at start)
+        // but the menu item and toolbar button should NOT be created because registerDesktopToggle checks capabilities.
+
+        // Check that command IS registered (this changed from previous behavior)
         const toggleCall = (commandsRegister as jest.Mock).mock.calls.find(([arg]) => arg?.name === 'mycalendar.togglePanel');
-        expect(toggleCall).toBeUndefined();
+        expect(toggleCall).toBeDefined();
 
         // menu item should not be created
         expect(menuItems.create).not.toHaveBeenCalled();
