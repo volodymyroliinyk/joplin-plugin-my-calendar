@@ -110,7 +110,7 @@ export async function registerCalendarPanelController(
                 return;
             }
         } catch (e) {
-            err('onMessage error:', e);
+            err('panelController', 'onMessage error:', e);
         }
     });
 }

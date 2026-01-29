@@ -72,10 +72,6 @@ export async function syncAlarmsForEvents(
                     if (!when) continue;
 
                     const whenMs = when.getTime();
-                    // Only care about alarms in the future (or very recent past if we want to be safe, but usually future)
-                    // The requirement says: "delete outdated alarms".
-                    // "outdated" usually means < now.
-                    // So we only generate desired alarms >= now.
                     if (whenMs >= nowMs && whenMs <= windowEnd.getTime()) {
                         desiredAlarms.push(whenMs);
                     }
@@ -90,24 +86,19 @@ export async function syncAlarmsForEvents(
         for (const alarm of oldAlarms) {
             // A) Is it outdated?
             if (alarm.todo_due < nowMs) {
-                // Outdated -> Delete
                 try {
                     await deleteNote(joplin, alarm.id);
                     alarmsDeleted++;
                 } catch (e) {
-                    await say(`ERROR delete outdated alarm: ${key} - ${String((e as any)?.message || e)}`);
+                    await say(`[alarmService] ERROR deleting outdated alarm: ${key} - ${String((e as any)?.message || e)}`);
                 }
                 continue;
             }
 
             // B) Is it still valid (matches a desired alarm)?
-            // We look for a match in desiredAlarms that hasn't been matched yet.
-            // We allow a small tolerance? No, usually exact match is expected for computer generated times.
-            // But let's stick to exact match for simplicity.
             let matchIndex = -1;
             for (let i = 0; i < desiredAlarms.length; i++) {
                 if (!matchedDesiredIndices.has(i)) {
-                    // Check if timestamps match exactly
                     if (Math.abs(desiredAlarms[i] - alarm.todo_due) < 1000) { // 1 sec tolerance
                         matchIndex = i;
                         break;
@@ -116,17 +107,13 @@ export async function syncAlarmsForEvents(
             }
 
             if (matchIndex !== -1) {
-                // Found a match! Keep this alarm.
                 matchedDesiredIndices.add(matchIndex);
-                // We don't delete it.
             } else {
-                // Not outdated, but not in our desired list (e.g. event time changed, or alarm removed from event)
-                // -> Delete
                 try {
                     await deleteNote(joplin, alarm.id);
                     alarmsDeleted++;
                 } catch (e) {
-                    await say(`ERROR delete invalid alarm: ${key} - ${String((e as any)?.message || e)}`);
+                    await say(`[alarmService] ERROR deleting invalid alarm: ${key} - ${String((e as any)?.message || e)}`);
                 }
             }
         }
@@ -166,12 +153,11 @@ export async function syncAlarmsForEvents(
 
                 const created = await createNote(joplin, noteBody);
                 if (created?.id) {
-                    // Reliability: PUT to ensure alarm fields are set
                     await updateNote(joplin, created.id, {todo_due: whenMs});
                 }
                 alarmsCreated++;
             } catch (e) {
-                await say(`ERROR create alarm: ${key} - ${String((e as any)?.message || e)}`);
+                await say(`[alarmService] ERROR creating alarm: ${key} - ${String((e as any)?.message || e)}`);
             }
         }
     }
@@ -180,14 +166,14 @@ export async function syncAlarmsForEvents(
     if (alarmsDeleted > 0 && emptyTrashAfter) {
         try {
             await joplin.commands.execute('emptyTrash');
-            await say('Trash emptied.');
+            await say('[alarmService] Trash emptied.');
         } catch (e) {
-            await say(`WARNING: Failed to empty trash: ${String((e as any)?.message || e)}`);
+            await say(`[alarmService] WARNING: Failed to empty trash: ${String((e as any)?.message || e)}`);
         }
     }
 
     if (alarmsDeleted || alarmsCreated) {
-        await say(`Alarms: deleted ${alarmsDeleted}, created ${alarmsCreated} (next ${alarmRangeDays} days)`);
+        await say(`[alarmService] Alarms sync summary: deleted ${alarmsDeleted}, created ${alarmsCreated} (next ${alarmRangeDays} days)`);
     }
 
     return {alarmsCreated, alarmsDeleted};

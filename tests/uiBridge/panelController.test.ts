@@ -507,7 +507,7 @@ describe('panelController', () => {
         await handler({name: 'requestRangeEvents', fromUtc: 1, toUtc: 2});
 
         // should not throw further, only log
-        expect(err).toHaveBeenCalledWith('onMessage error:', expect.any(Error));
+        expect(err).toHaveBeenCalledWith('panelController', 'onMessage error:', expect.any(Error));
         expect(postMessage).not.toHaveBeenCalled();
 
     });

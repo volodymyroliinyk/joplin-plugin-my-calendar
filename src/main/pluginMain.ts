@@ -24,7 +24,7 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
     const tz = ev.tz || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
     if (ev.repeat !== 'none' && !ev.tz) {
-        warn('recurring event has no tz; using device tz:', tz, ev.title, ev.id);
+        warn('occurrence', 'Recurring event has no timezone; using device timezone:', {tz, title: ev.title, id: ev.id});
     }
 
     const dur = (ev.endUtc ?? ev.startUtc) - ev.startUtc;
@@ -281,12 +281,12 @@ async function registerUiMessageHandlers(joplin: any, panelId: string) {
 
 export default async function runPlugin(joplin: any) {
 
-    log('pluginMain: start');
+    log('pluginMain', 'Plugin start');
 
     await registerSettings(joplin);
 
     const panel = await createCalendarPanel(joplin);
-    log('panel id:', panel);
+    log('pluginMain', 'Panel created:', panel);
     await registerUiMessageHandlers(joplin, panel);
 
     await registerCalendarPanelController(joplin, panel, {
@@ -298,9 +298,9 @@ export default async function runPlugin(joplin: any) {
     void (async () => {
         try {
             const all = await ensureAllEventsCache(joplin);
-            log('events cached:', all.length);
+            log('eventsCache', 'Events cached:', all.length);
         } catch (error) {
-            err('ensureAllEventsCache error:', error);
+            err('eventsCache', 'Error warming up cache:', error);
         }
     })();
 
@@ -322,12 +322,12 @@ export default async function runPlugin(joplin: any) {
                     toggleState.visible = !toggleState.visible;
                     if (toggleState.visible) {
                         await joplin.views.panels.show(panel);
-                        log('toggle Show');
+                        log('pluginMain', 'Toggle: Show');
                     } else {
                         if (joplin.views?.panels?.hide) {
                             await joplin.views.panels.hide(panel);
                         }
-                        log('toggle Hide');
+                        log('pluginMain', 'Toggle: Hide');
                     }
                     await toggleState.update();
                 },
@@ -356,7 +356,7 @@ export default async function runPlugin(joplin: any) {
                 }
             } catch {
                 // The mobile method is missing - it's expected
-                log('panels.focus not available on this platform');
+                log('pluginMain', 'panels.focus not available on this platform');
             }
 
             // Sync toggle state
@@ -390,12 +390,12 @@ export default async function runPlugin(joplin: any) {
             toggleState.visible = !toggleState.visible;
             if (toggleState.visible) {
                 await joplin.views.panels.show(panel);
-                log('toggle Show');
+                log('pluginMain', 'Toggle: Show');
             } else {
                 if (joplin.views?.panels?.hide) {
                     await joplin.views.panels.hide(panel);
                 }
-                log('toggle Hide');
+                log('pluginMain', 'Toggle: Hide');
             }
             await toggleState.update();
         },
@@ -412,7 +412,7 @@ export default async function runPlugin(joplin: any) {
         }
     } catch {
         // On mobile this method may be missing - it's expected
-        log('panels.focus not available on this platform');
+        log('pluginMain', 'panels.focus not available on this platform');
     }
 }
 
@@ -423,10 +423,10 @@ async function registerDesktopToggle(joplin: any, panel: string, toggleState: an
         const canHide = !!joplin?.views?.panels?.hide;
         const canMenu = !!joplin?.views?.menuItems?.create;
 
-        info('toggle: capabilities', {canShow, canHide, canMenu, panel});
+        info('pluginMain', 'Toggle capabilities:', {canShow, canHide, canMenu, panel});
 
         if (!canShow || !canHide) {
-            info('toggle: panels.show/hide not available - skip');
+            info('pluginMain', 'Toggle: panels.show/hide not available - skip');
             return;
         }
 
@@ -441,9 +441,9 @@ async function registerDesktopToggle(joplin: any, panel: string, toggleState: an
                 'view',
                 {accelerator: 'Ctrl+Alt+C'}
             );
-            log('toggle menu item registered');
+            log('pluginMain', 'Toggle menu item registered');
         } catch (e) {
-            warn('menu create failed (non-fatal):', e);
+            warn('pluginMain', 'Menu create failed (non-fatal):', e);
         }
 
         try {
@@ -452,12 +452,12 @@ async function registerDesktopToggle(joplin: any, panel: string, toggleState: an
                 'mycalendar.togglePanel',
                 'noteToolbar'
             );
-            log('toolbar button registered');
+            log('pluginMain', 'Toolbar button registered');
         } catch (e) {
-            warn('toolbar button create failed (non-fatal):', e);
+            warn('pluginMain', 'Toolbar button create failed (non-fatal):', e);
         }
 
     } catch (e) {
-        warn('registerDesktopToggle failed (non-fatal):', e);
+        warn('pluginMain', 'registerDesktopToggle failed (non-fatal):', e);
     }
 }

@@ -37,7 +37,7 @@ export async function importIcsIntoNotes(
     };
 
     const events = parseImportText(ics);
-    await say(`Parsed ${events.length} VEVENT(s)`);
+    await say(`[icsImportService] Parsed ${events.length} VEVENT(s)`);
 
     const existing: Record<string, { id: string; title: string; body: string; parent_id?: string }> = {};
     const existingAlarms: Record<string, ExistingAlarm[]> = {};
@@ -134,7 +134,7 @@ export async function importIcsIntoNotes(
                 importedEventNotes[key] = {id, parent_id: (targetFolderId || parent_id), title: desiredTitle};
             } catch (e) {
                 errors++;
-                await say(`ERROR update: ${key} - ${String((e as any)?.message || e)}`);
+                await say(`[icsImportService] ERROR updating note: ${key} - ${String((e as any)?.message || e)}`);
             }
         } else {
             try {
@@ -146,7 +146,7 @@ export async function importIcsIntoNotes(
                 }
             } catch (e) {
                 errors++;
-                await say(`ERROR create: ${key} - ${String((e as any)?.message || e)}`);
+                await say(`[icsImportService] ERROR creating note: ${key} - ${String((e as any)?.message || e)}`);
             }
         }
     }

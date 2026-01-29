@@ -101,7 +101,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
 
         const res = await importIcsIntoNotes(joplin as any, ics, onStatus);
 
-        expect(onStatus).toHaveBeenCalledWith('Parsed 1 VEVENT(s)');
+        expect(onStatus).toHaveBeenCalledWith('[icsImportService] Parsed 1 VEVENT(s)');
 
         // existing scan paginates
         expect(joplin.data.get).toHaveBeenCalledTimes(2);
@@ -162,7 +162,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
 
         const res = await importIcsIntoNotes(joplin as any, ics, onStatus);
 
-        expect(onStatus).toHaveBeenCalledWith('Parsed 1 VEVENT(s)');
+        expect(onStatus).toHaveBeenCalledWith('[icsImportService] Parsed 1 VEVENT(s)');
         expect(joplin.data.post).toHaveBeenCalledTimes(1);
 
         const [, , noteBody] = (joplin.data.post as any).mock.calls[0];
@@ -896,7 +896,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
 
         const res = await importIcsIntoNotes(joplin as any, ics, onStatus);
 
-        expect(onStatus).toHaveBeenCalledWith('Parsed 0 VEVENT(s)');
+        expect(onStatus).toHaveBeenCalledWith('[icsImportService] Parsed 0 VEVENT(s)');
         expect(res).toEqual({added: 0, updated: 0, skipped: 0, errors: 0, alarmsCreated: 0, alarmsDeleted: 0});
         expect(joplin.data.put).not.toHaveBeenCalled();
         expect(joplin.data.post).not.toHaveBeenCalled();
@@ -1305,7 +1305,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
 
         const res = await importIcsIntoNotes(joplin as any, ics, onStatus, 'nb1');
         expect(joplin.data.delete).toHaveBeenCalledWith(['notes', 'a1']);
-        expect(onStatus).toHaveBeenCalledWith(expect.stringContaining('ERROR delete invalid alarm: u1| - delete fail'));
+        expect(onStatus).toHaveBeenCalledWith(expect.stringContaining('[alarmService] ERROR deleting invalid alarm: u1| - delete fail'));
         expect(res.alarmsCreated).toBe(1);
 
         jest.useRealTimers();

@@ -40,22 +40,23 @@ describe('logger', () => {
         setDebugEnabled(true);
         dbg('a', 1);
         expect(logSpy).toHaveBeenCalledTimes(1);
-        expect(logSpy).toHaveBeenCalledWith('[MyCalendar] a', 1);
+        // Updated expectation: [MyCalendar][source]
+        expect(logSpy).toHaveBeenCalledWith('[MyCalendar][a]', 1);
     });
 
     test('info always logs with prefix', () => {
         info('x');
-        expect(infoSpy).toHaveBeenCalledWith('[MyCalendar] x');
+        expect(infoSpy).toHaveBeenCalledWith('[MyCalendar][x]');
     });
 
     test('warn logs with prefix', () => {
         warn('w');
-        expect(warnSpy).toHaveBeenCalledWith('[MyCalendar] w');
+        expect(warnSpy).toHaveBeenCalledWith('[MyCalendar][w]');
     });
 
     test('err logs with prefix', () => {
         err('e');
-        expect(errorSpy).toHaveBeenCalledWith('[MyCalendar] e');
+        expect(errorSpy).toHaveBeenCalledWith('[MyCalendar][e]');
     });
 
     test('setDebugEnabled affects subsequent dbg calls', () => {
@@ -66,6 +67,6 @@ describe('logger', () => {
         dbg('no2');
 
         expect(logSpy).toHaveBeenCalledTimes(1);
-        expect(logSpy).toHaveBeenCalledWith('[MyCalendar] yes');
+        expect(logSpy).toHaveBeenCalledWith('[MyCalendar][yes]');
     });
 });
