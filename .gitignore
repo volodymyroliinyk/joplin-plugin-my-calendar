@@ -15,4 +15,7 @@ pnpm-debug.log*
 .vscode/
 .idea/
 *.iml
+
+#CI/CD
 .test-status
+/publish/com.volodymyroliinyk.joplin.plugin.my-calendar.jpl
