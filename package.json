@@ -15,9 +15,11 @@
     "build": "webpack",
     "pack": "npm run build && cd dist && tar --format=ustar -cf ../publish/com.volodymyroliinyk.joplin.plugin.my-calendar.jpl manifest.json index.js main ui",
     "dist": "npm run pack",
-    "test": "TZ=UTC jest",
+    "test": "(TZ=UTC jest && echo \"$(date +%s)|PASS\" > .test-status) || (echo \"$(date +%s)|FAIL\" > .test-status && exit 1)",
     "test:watch": "jest --watch",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "prepare": "husky",
+    "release": "standard-version"
   },
   "keywords": [
     "joplin-plugin"
@@ -29,8 +31,10 @@
     "eslint": "^9.39.2",
     "eslint-plugin-jest": "^29.12.1",
     "globals": "^17.1.0",
+    "husky": "^9.0.11",
     "jest": "^29.x",
     "jest-environment-jsdom": "^30.2.0",
+    "standard-version": "^9.5.0",
     "ts-jest": "^29.x",
     "ts-loader": "^9.5.1",
     "typescript": "^5.9.3",
