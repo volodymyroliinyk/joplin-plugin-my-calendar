@@ -2,7 +2,7 @@
 
 - [ ] Start of work (Start)
     - [ ] Creating a branch: Always create a new branch for a task. Do not work in main.
-        - [ ] git checkout -b feature/new-calendar-view або fix/timezone-bug
+        - [ ] git checkout -b feature/new-calendar-view OR fix/timezone-bug
 - [ ] Development (Development Loop)
     - [ ] Coding.
     - [x] Auto-Check (Husky): New. Configure husky (git hooks). When you do a git commit, it automatically starts lint.
@@ -17,12 +17,12 @@
 - [ ] Local inspection (Pre-Release)
     - [ ] Running pre-pack.sh: Your script. It ensures that everything goes together and tests pass.
     - [ ] Manual QA: Testing the .jpl file on Desktop and Mobile.
-- [ ] Злиття (Merge)
+- [ ] Merge
     - [ ] Pull Request: If you use GitHub, it's better to do PR in main.
     - [x] GitHub Actions (CI): New. Configure the .github/workflows/test.yml file. GitHub will automatically run your
       tests (npm run test) on the server with every push or PR. This is "insurance" if you forget to run the local
       tests.
-- [ ] Реліз (Release)
+- [ ] Release
     - [ ] Run release.sh:
         - [ ] The script must be updated to:
             - [ ] a. Analyze commits since the last tag.
@@ -34,69 +34,66 @@
 
 ## Branches
 
-Ось проста і ефективна специфікація, яку я рекомендую:
-<тип>/<короткий-опис-через-дефіс>
+Here is a simple and effective specification that I recommend:
+<type>/<hyphen-short-description>
 
-**Основні типи:**
+**The main types:**
 
-• feature/: Для розробки нового функціоналу.
+• feature/: To develop new functionality.
 ◦ feature/add-dark-mode
 ◦ feature/ics-import-system
-• fix/: Для виправлення помилок (багів).
+• fix/: To fix errors (bugs).
 ◦ fix/timezone-calculation-error
 ◦ fix/calendar-grid-display-bug
-• chore/: Для завдань, що не стосуються коду (оновлення залежностей, налаштування CI/CD).
+• chore/: For non-code related tasks (dependency updates, CI/CD setup).
 ◦ chore/update-dependencies
 ◦ chore/configure-husky
-• docs/: Для роботи з документацією (README.md, CHANGELOG.md тощо).
+• docs/: For working with documentation (README.md, CHANGELOG.md, etc.).
 ◦ docs/update-readme-with-scripts
-• refactor/: Для покращення коду без зміни його поведінки.
+• refactor/: To improve code without changing its behavior.
 ◦ refactor/simplify-date-parser
-
 ---
 
 ## Commits
 
-Так, це можна і варто автоматизувати!
+To automate the generation of CHANGELOG.md, we will use the standard-version tool (or similar). He does magic:
 
-Щоб автоматизувати генерацію CHANGELOG.md, ми використаємо інструмент standard-version (або аналог). Він робить магію:
-
-1. Дивиться на ваші коміти з останнього релізу.
-2. Фільтрує їх (бере тільки feat, fix тощо).
-3. Оновлює файл CHANGELOG.md.
-4. Піднімає версію в package.json.
-   Але для цього ви повинні писати коміти за певним стандартом.
+1. Looks at your commits from the last release.
+2. Filters them (takes only feat, fix, etc.).
+3. Updates the CHANGELOG.md file.
+4. Raises the version in package.json.
+   But for this you have to write commits according to a certain standard.
 
 ---
 
-1. Специфікація Conventional Commits (Як писати коміти)
+1. Conventional Commits specification (How to write commits)
 
-Вам потрібно дотримуватися простого шаблону: <тип>: <короткий опис>
+You need to follow a simple pattern: <type>: <short description>
 
-Основні типи (ці потрапляють у Changelog):
+Basic types (these go into the Changelog):
 
-• feat: (Feature) Новий функціонал.
-◦ Приклад: feat: add dark mode support
-◦ Результат: Підніме версію MINOR (1.1.0 -> 1.2.0).
-• fix: Виправлення помилки.
-◦ Приклад: fix: correct timezone calculation for events
-◦ Результат: Підніме версію PATCH (1.1.0 -> 1.1.1).
+• feat: (Feature) New functionality.
+◦ Example: feat: add dark mode support
+◦ Result: Will upgrade MINOR version (1.1.0 -> 1.2.0).
+• fix: Error correction.
+◦ Example: fix: correct timezone calculation for events
+◦ Result: Will upgrade PATCH version (1.1.0 -> 1.1.1).
 
-Допоміжні типи (зазвичай не потрапляють у Changelog, але корисні):
+Helper types (usually not in the Changelog, but useful):
 
-• docs: Зміни тільки в документації.
-◦ Приклад: docs: update installation guide in README
-• style: Форматування, пробіли, коми (код не змінюється логічно).
-◦ Приклад: style: format code with prettier
-• refactor: Зміна коду без виправлення багів чи додавання фіч.
-◦ Приклад: refactor: simplify date parsing logic
-• test: Додавання чи виправлення тестів.
-◦ Приклад: test: add unit tests for ICS parser
-• chore: Оновлення білд-скриптів, налаштувань тощо.
-◦ Приклад: chore: update dependencies
+• docs: Changes only in the documentation.
+◦ Example: docs: update installation guide in README
+• style: Formatting, spaces, commas (the code does not change logically).
+◦ Example: style: format code with prettier
+• refactor: Changing the code without fixing bugs or adding features.
+◦ Example: refactor: simplify date parsing logic
+• test: Adding or fixing tests.
+◦ Example: test: add unit tests for ICS parser
+• chore: Update build scripts, settings, etc.
+◦ Example: chore: update dependencies
 
-Breaking Changes (Важливо!):
+Breaking Changes (Important!):
 
-Якщо ви робите зміни, які ламають сумісність, додайте BREAKING CHANGE: в тіло коміту або ! після типу.
-• Приклад: feat!: remove support for old Joplin versions
-• Результат: Підніме версію MAJOR (1.0.0 -> 2.0.0).
+If you make changes that break compatibility, add BREAKING CHANGE: to the commit body or ! after the type.
+• Example: feat!: remove support for old Joplin versions
+• Result: Will upgrade the MAJOR version (1.0.0 -> 2.0.0).
