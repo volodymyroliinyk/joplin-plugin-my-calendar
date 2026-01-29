@@ -93,3 +93,27 @@ export function buildMyCalBlock(ev: IcsEvent): string {
     lines.push('```');
     return lines.join('\n');
 }
+
+export function buildAlarmBody(
+    eventTitle: string,
+    eventTimeStr: string,
+    eventNoteId: string,
+    todoTitle: string,
+    uid: string,
+    rid: string,
+    when: string,
+    triggerDesc: string
+): string {
+    return [
+        `[${eventTitle} at ${eventTimeStr}](:/${eventNoteId})`,
+        '',
+        '```mycalendar-alarm',
+        `title: ${sanitizeForMarkdownBlock(todoTitle).slice(0, 500)}`,
+        `trigger_desc: ${triggerDesc}`,
+        `when: ${when}`,
+        `uid: ${sanitizeForMarkdownBlock(uid)}`,
+        `recurrence_id: ${sanitizeForMarkdownBlock(rid)}`,
+        '```',
+        '',
+    ].join('\n');
+}

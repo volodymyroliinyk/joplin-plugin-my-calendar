@@ -9,7 +9,7 @@ import {
     addDays,
     formatTriggerDescription
 } from '../utils/dateTimeUtils';
-import {sanitizeForMarkdownBlock} from './noteBuilder';
+import {buildAlarmBody} from './noteBuilder';
 import {makeEventKey} from '../utils/joplinUtils';
 import {getIcsImportAlarmRangeDays, getIcsImportEmptyTrashAfter} from '../settings/settings';
 import {Joplin} from '../types/joplin.interface';
@@ -127,18 +127,16 @@ export async function syncAlarmsForEvents(
                 const eventTimeStr = formatAlarmTitleTime(eventTime);
                 const todoTitle = `${(ev.title || 'Event')} + ${eventTimeStr}`;
                 const triggerDesc = formatTriggerDescription(trigger);
-                const newBody = [
-                    `[${ev.title || 'Event'} at ${eventTimeStr}](:/${eventNote.id})`,
-                    '',
-                    '```mycalendar-alarm',
-                    `title: ${sanitizeForMarkdownBlock(todoTitle).slice(0, 500)}`,
-                    `uid: ${sanitizeForMarkdownBlock(uid)}`,
-                    `recurrence_id: ${sanitizeForMarkdownBlock(rid)}`,
-                    `when: ${formatDateForAlarm(new Date(alarmTime))}`,
-                    `trigger_desc: ${triggerDesc}`,
-                    '```',
-                    '',
-                ].join('\n');
+                const newBody = buildAlarmBody(
+                    ev.title || 'Event',
+                    eventTimeStr,
+                    eventNote.id,
+                    todoTitle,
+                    uid,
+                    rid,
+                    formatDateForAlarm(new Date(alarmTime)),
+                    triggerDesc
+                );
 
                 if (newBody !== alarm.body) {
                     try {
@@ -168,18 +166,16 @@ export async function syncAlarmsForEvents(
             const todoTitle = `${(ev.title || 'Event')} + ${eventTimeStr}`;
             const triggerDesc = formatTriggerDescription(trigger);
 
-            const body = [
-                `[${ev.title || 'Event'} at ${eventTimeStr}](:/${eventNote.id})`,
-                '',
-                '```mycalendar-alarm',
-                `title: ${sanitizeForMarkdownBlock(todoTitle).slice(0, 500)}`,
-                `uid: ${sanitizeForMarkdownBlock(uid)}`,
-                `recurrence_id: ${sanitizeForMarkdownBlock(rid)}`,
-                `when: ${formatDateForAlarm(when)}`,
-                `trigger_desc: ${triggerDesc}`,
-                '```',
-                '',
-            ].join('\n');
+            const body = buildAlarmBody(
+                ev.title || 'Event',
+                eventTimeStr,
+                eventNote.id,
+                todoTitle,
+                uid,
+                rid,
+                formatDateForAlarm(when),
+                triggerDesc
+            );
 
             try {
                 const noteBody = {
