@@ -67,7 +67,7 @@ describe('calendarView.createCalendarPanel', () => {
 
         // scripts added in order
         expect(panels.addScript).toHaveBeenCalledTimes(3);
-        expect(panels.addScript).toHaveBeenNthCalledWith(1, 'panel-123', './ui/calendar.css');
+        expect(panels.addScript).toHaveBeenNthCalledWith(1, 'panel-123', './ui/mycalendar.css');
         expect(panels.addScript).toHaveBeenNthCalledWith(2, 'panel-123', './ui/calendar.js');
         expect(panels.addScript).toHaveBeenNthCalledWith(3, 'panel-123', './ui/icsImport.js');
 
@@ -76,7 +76,7 @@ describe('calendarView.createCalendarPanel', () => {
 
         // log emitted
         // Updated expectation: [MyCalendar][calendarView created]
-        expect(logSpy).toHaveBeenCalledWith('[MyCalendar][calendarView created]');
+        expect(logSpy).toHaveBeenCalledWith('[MyCalendar][calendarView] Panel created');
 
         // optional: strict call order across methods
         expect(panels.create.mock.invocationCallOrder[0]).toBeLessThan(panels.setHtml.mock.invocationCallOrder[0]);
@@ -121,7 +121,7 @@ describe('calendarView.createCalendarPanel', () => {
         await expect(createCalendarPanel(joplin)).rejects.toThrow('add css failed');
 
         expect(panels.addScript).toHaveBeenCalledTimes(1);
-        expect(panels.addScript).toHaveBeenCalledWith('panel-123', './ui/calendar.css');
+        expect(panels.addScript).toHaveBeenCalledWith('panel-123', './ui/mycalendar.css');
         expect(panels.show).not.toHaveBeenCalled();
         expect(logSpy).not.toHaveBeenCalled();
     });
@@ -139,7 +139,7 @@ describe('calendarView.createCalendarPanel', () => {
         await expect(createCalendarPanel(joplin)).rejects.toThrow('add js failed');
 
         expect(panels.addScript).toHaveBeenCalledTimes(2);
-        expect(panels.addScript).toHaveBeenNthCalledWith(1, 'panel-123', './ui/calendar.css');
+        expect(panels.addScript).toHaveBeenNthCalledWith(1, 'panel-123', './ui/mycalendar.css');
         expect(panels.addScript).toHaveBeenNthCalledWith(2, 'panel-123', './ui/calendar.js');
         expect(panels.show).not.toHaveBeenCalled();
         expect(logSpy).not.toHaveBeenCalled();

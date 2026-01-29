@@ -31,12 +31,11 @@ export async function createCalendarPanel(joplin: any): Promise<string> {
 `);
 
 
-    await joplin.views.panels.addScript(panel, './ui/calendar.css');
+    await joplin.views.panels.addScript(panel, './ui/mycalendar.css');
     await joplin.views.panels.addScript(panel, './ui/calendar.js');
     await joplin.views.panels.addScript(panel, './ui/icsImport.js');
     await joplin.views.panels.show(panel);
-    log('calendarView created');
+    log('calendarView', 'Panel created');
 
     return panel;
 }
-
