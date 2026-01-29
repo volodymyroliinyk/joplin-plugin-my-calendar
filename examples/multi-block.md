@@ -4,7 +4,6 @@ You can have multiple `mycalendar-event` blocks in a single note. Each one will 
 calendar.
 
 ### Morning Task
-
 ```mycalendar-event
 title: Review Emails
 start: 2025-01-20 09:00
@@ -12,8 +11,9 @@ end: 2025-01-20 10:00
 color: #95a5a6
 ```
 
-### Afternoon Task
+Any text between the blocks will be preserved.
 
+### Afternoon Task
 ```mycalendar-event
 title: Client Call
 start: 2025-01-20 14:00
