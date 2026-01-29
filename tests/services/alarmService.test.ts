@@ -11,6 +11,7 @@ jest.mock('../../src/main/settings/settings');
 describe('alarmService', () => {
     let mockJoplin: Joplin;
     const mockDeleteNote = joplinNoteService.deleteNote as jest.Mock;
+    const mockCreateNote = joplinNoteService.createNote as jest.Mock;
     const mockGetAlarmRange = settings.getIcsImportAlarmRangeDays as jest.Mock;
     const mockGetEmptyTrash = settings.getIcsImportEmptyTrashAfter as jest.Mock;
 
@@ -32,24 +33,24 @@ describe('alarmService', () => {
         mockGetEmptyTrash.mockResolvedValue(false);
     });
 
-    it('should delete old alarms but NOT empty trash if setting is disabled', async () => {
+    it('should delete outdated alarms (< now)', async () => {
         const events: IcsEvent[] = [{
             uid: 'uid1',
             recurrence_id: '',
             start: '2025-01-01 10:00',
             valarms: []
         }];
-        // Key format is "uid|recurrence_id" -> "uid1|"
         const key = 'uid1|';
 
         const importedEventNotes = {
             [key]: {id: 'note1', title: 'Event 1', parent_id: 'folder1'}
         };
-        const existingAlarms = {
-            [key]: ['alarm1']
-        };
 
-        mockGetEmptyTrash.mockResolvedValue(false);
+        // Alarm in the past
+        const pastDate = new Date().getTime() - 10000;
+        const existingAlarms = {
+            [key]: [{id: 'alarm1', todo_due: pastDate}]
+        };
 
         await syncAlarmsForEvents(
             mockJoplin,
@@ -60,54 +61,37 @@ describe('alarmService', () => {
         );
 
         expect(mockDeleteNote).toHaveBeenCalledWith(mockJoplin, 'alarm1');
-        expect(mockJoplin.commands.execute).not.toHaveBeenCalledWith('emptyTrash');
     });
 
-    it('should delete old alarms AND empty trash if setting is enabled', async () => {
+    it('should keep valid future alarms', async () => {
+        const now = new Date();
+        const future = new Date(now.getTime() + 3600000); // +1 hour
+
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const futureStr = `${future.getFullYear()}-${pad(future.getMonth() + 1)}-${pad(future.getDate())} ${pad(future.getHours())}:${pad(future.getMinutes())}`;
+
         const events: IcsEvent[] = [{
             uid: 'uid1',
             recurrence_id: '',
-            start: '2025-01-01 10:00',
-            valarms: []
+            title: 'Test Event',
+            start: futureStr,
+            valarms: [{
+                action: 'DISPLAY',
+                trigger: '-PT0M', // Alarm at start time (0 minutes before)
+                related: 'START'
+            }]
         }];
-        const key = 'uid1|';
 
+        const key = 'uid1|';
         const importedEventNotes = {
-            [key]: {id: 'note1', title: 'Event 1', parent_id: 'folder1'}
+            [key]: {id: 'note1', title: 'Test Event', parent_id: 'folder1'}
         };
+
+        future.setSeconds(0, 0);
+        
         const existingAlarms = {
-            [key]: ['alarm1']
+            [key]: [{id: 'alarm1', todo_due: future.getTime()}]
         };
-
-        mockGetEmptyTrash.mockResolvedValue(true);
-
-        await syncAlarmsForEvents(
-            mockJoplin,
-            events,
-            importedEventNotes,
-            existingAlarms,
-            'folder1'
-        );
-
-        expect(mockDeleteNote).toHaveBeenCalledWith(mockJoplin, 'alarm1');
-        expect(mockJoplin.commands.execute).toHaveBeenCalledWith('emptyTrash');
-    });
-
-    it('should NOT empty trash if no alarms were deleted, even if setting is enabled', async () => {
-        const events: IcsEvent[] = [{
-            uid: 'uid1',
-            recurrence_id: '',
-            start: '2025-01-01 10:00',
-            valarms: []
-        }];
-        const key = 'uid1|';
-
-        const importedEventNotes = {
-            [key]: {id: 'note1', title: 'Event 1', parent_id: 'folder1'}
-        };
-        const existingAlarms = {}; // No existing alarms
-
-        mockGetEmptyTrash.mockResolvedValue(true);
 
         await syncAlarmsForEvents(
             mockJoplin,
@@ -118,6 +102,48 @@ describe('alarmService', () => {
         );
 
         expect(mockDeleteNote).not.toHaveBeenCalled();
-        expect(mockJoplin.commands.execute).not.toHaveBeenCalledWith('emptyTrash');
+        expect(mockCreateNote).not.toHaveBeenCalled();
+    });
+
+    it('should delete invalid future alarms (time changed)', async () => {
+        const now = new Date();
+        const future = new Date(now.getTime() + 3600000); // +1 hour
+        const wrongTime = new Date(now.getTime() + 7200000); // +2 hours
+
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const futureStr = `${future.getFullYear()}-${pad(future.getMonth() + 1)}-${pad(future.getDate())} ${pad(future.getHours())}:${pad(future.getMinutes())}`;
+
+        const events: IcsEvent[] = [{
+            uid: 'uid1',
+            recurrence_id: '',
+            start: futureStr,
+            valarms: [{
+                action: 'DISPLAY',
+                trigger: '-PT0M',
+                related: 'START'
+            }]
+        }];
+
+        const key = 'uid1|';
+        const importedEventNotes = {
+            [key]: {id: 'note1', title: 'Test Event', parent_id: 'folder1'}
+        };
+
+        const existingAlarms = {
+            [key]: [{id: 'alarm1', todo_due: wrongTime.getTime()}]
+        };
+
+        mockCreateNote.mockResolvedValue({id: 'newAlarm'});
+
+        await syncAlarmsForEvents(
+            mockJoplin,
+            events,
+            importedEventNotes,
+            existingAlarms,
+            'folder1'
+        );
+
+        expect(mockDeleteNote).toHaveBeenCalledWith(mockJoplin, 'alarm1');
+        expect(mockCreateNote).toHaveBeenCalled();
     });
 });

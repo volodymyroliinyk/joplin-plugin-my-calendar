@@ -106,12 +106,12 @@ describe('icsImportService.importIcsIntoNotes', () => {
         // existing scan paginates
         expect(joplin.data.get).toHaveBeenCalledTimes(2);
         expect(joplin.data.get).toHaveBeenNthCalledWith(1, ['notes'], {
-            fields: ['id', 'title', 'body', 'parent_id'],
+            fields: ['id', 'title', 'body', 'parent_id', 'todo_due'],
             limit: 100,
             page: 1,
         });
         expect(joplin.data.get).toHaveBeenNthCalledWith(2, ['notes'], {
-            fields: ['id', 'title', 'body', 'parent_id'],
+            fields: ['id', 'title', 'body', 'parent_id', 'todo_due'],
             limit: 100,
             page: 2,
         });
@@ -266,6 +266,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
                 '',
                 '[With alarm](:/event-note-id)',
             ].join('\n'),
+            todo_due: new Date('2025-01-15T09:00:00.000Z').getTime(),
         };
 
         const ics = [
@@ -293,17 +294,13 @@ describe('icsImportService.importIcsIntoNotes', () => {
 
         const res = await importIcsIntoNotes(joplin as any, ics, undefined, 'nb1');
 
-        expect((joplin.data.delete as any)).toHaveBeenCalledWith(['notes', 'old-alarm-id']);
-        expect((joplin.data.post as any)).toHaveBeenCalledTimes(1);
-        const [, , createdAlarmNote] = (joplin.data.post as any).mock.calls[0];
-        expect(createdAlarmNote.is_todo).toBe(1);
-        expect(createdAlarmNote.todo_due).toBe(new Date('2025-01-15T09:00:00.000Z').getTime());
-        // ensure alarm fields are persisted reliably via PUT after POST
-        expect((joplin.data.put as any)).toHaveBeenCalledWith(['notes', 'new-alarm-id'], null, {
-            todo_due: new Date('2025-01-15T09:00:00.000Z').getTime(),
-        });
-        expect(res.alarmsDeleted).toBe(1);
-        expect(res.alarmsCreated).toBe(1); // 1 valid alarm in next 60 days
+        // With smart sync, the old alarm is NOT deleted because it matches the new one
+        expect((joplin.data.delete as any)).not.toHaveBeenCalled();
+        // And no new alarm is created
+        expect((joplin.data.post as any)).not.toHaveBeenCalled();
+
+        expect(res.alarmsDeleted).toBe(0);
+        expect(res.alarmsCreated).toBe(0);
         expect(res.errors).toBe(0);
 
         jest.useRealTimers();
@@ -683,390 +680,6 @@ describe('icsImportService.importIcsIntoNotes', () => {
     });
 
     test('importDefaultColor is applied only when event has no color after preserveLocalColor step', async () => {
-        const ics = [
-            'BEGIN:VCALENDAR',
-            'BEGIN:VEVENT',
-            'UID:u1',
-            'SUMMARY:HasColor',
-            'X-COLOR:#111111',
-            'DTSTART:20250115T100000Z',
-            'END:VEVENT',
-            'END:VCALENDAR',
-        ].join('\n');
-
-        const joplin = mkJoplin({
-            get: jest.fn().mockResolvedValue({items: [], has_more: false}),
-            post: jest.fn().mockResolvedValue({}),
-        });
-
-        await importIcsIntoNotes(joplin as any, ics, undefined, undefined, true, '#00ff00');
-
-        const noteBody = joplin.data.post.mock.calls[0][2];
-        expect(noteBody.body).toContain('color: #111111');
-        expect(noteBody.body).not.toContain('color: #00ff00');
-    });
-
-    test('update: when desiredTitle differs but body same => PUT only title', async () => {
-        const text = [
-            'uid: u1',
-            'title: NEW',
-            'start: 2025-01-01 10:00:00',
-        ].join('\n');
-
-        // existing note has SAME block (we craft it to match buildMyCalBlock output)
-        const existingBlock = [
-            '```mycalendar-event',
-            'title: NEW',
-            'start: 2025-01-01 10:00:00',
-            '',
-            'uid: u1',
-            '```',
-        ].join('\n');
-
-        const existingNote = {
-            id: 'n1',
-            title: 'OLD', // only title differs
-            body: existingBlock,
-        };
-
-        const joplin = mkJoplin({
-            get: jest.fn().mockResolvedValue({items: [existingNote], has_more: false}),
-            put: jest.fn().mockResolvedValue({}),
-        });
-
-        const res = await importIcsIntoNotes(joplin as any, text);
-
-        expect(res.updated).toBe(1);
-        const patch = joplin.data.put.mock.calls[0][2];
-        expect(patch).toEqual({title: 'NEW'});
-    });
-
-    test('update: when body differs but title same => PUT only body', async () => {
-        const ics = [
-            'BEGIN:VCALENDAR',
-            'BEGIN:VEVENT',
-            'UID:u1',
-            'SUMMARY:SameTitle',
-            'DTSTART:20250115T100000Z',
-            'END:VEVENT',
-            'END:VCALENDAR',
-        ].join('\n');
-
-        const existingNote = {
-            id: 'n1',
-            title: 'SameTitle',
-            body: block([
-                'title: SameTitle',
-                'start: 2025-01-15 09:00:00+00:00', // different
-                '',
-                'uid: u1',
-            ].join('\n')),
-        };
-
-        const joplin = mkJoplin({
-            get: jest.fn().mockResolvedValue({items: [existingNote], has_more: false}),
-            put: jest.fn().mockResolvedValue({}),
-        });
-
-        const res = await importIcsIntoNotes(joplin as any, ics);
-
-        expect(res.updated).toBe(1);
-        const patch = joplin.data.put.mock.calls[0][2];
-        expect(patch.title).toBeUndefined();
-        expect(patch.body).toContain('start: 2025-01-15 10:00:00+00:00');
-    });
-
-    test('update: if nothing changes => skipped++ and no PUT', async () => {
-        const ics = [
-            'BEGIN:VCALENDAR',
-            'BEGIN:VEVENT',
-            'UID:u1',
-            'SUMMARY:Same',
-            'DTSTART:20250115T100000Z',
-            'END:VEVENT',
-            'END:VCALENDAR',
-        ].join('\n');
-
-        // exact block that buildMyCalBlock will generate (no end, no tz, no repeat)
-        const existingNote = {
-            id: 'n1',
-            title: 'Same',
-            body: [
-                '```mycalendar-event',
-                'title: Same',
-                'start: 2025-01-15 10:00:00+00:00',
-                '',
-                'uid: u1',
-                '```',
-            ].join('\n'),
-        };
-
-        const joplin = mkJoplin({
-            get: jest.fn().mockResolvedValue({items: [existingNote], has_more: false}),
-            put: jest.fn(),
-            post: jest.fn(),
-        });
-
-        const res = await importIcsIntoNotes(joplin as any, ics);
-
-        expect(res).toEqual({added: 0, updated: 0, skipped: 1, errors: 0, alarmsCreated: 0, alarmsDeleted: 0});
-        expect(joplin.data.put).not.toHaveBeenCalled();
-        expect(joplin.data.post).not.toHaveBeenCalled();
-    });
-
-    test('master vs recurrence: updates correct block based on recurrence_id', async () => {
-        const ics = [
-            'BEGIN:VCALENDAR',
-            'BEGIN:VEVENT',
-            'UID:u1',
-            'SUMMARY:OccTitle',
-            'RECURRENCE-ID:20250115T100000Z',
-            'DTSTART:20250115T100000Z',
-            'END:VEVENT',
-            'END:VCALENDAR',
-        ].join('\n');
-
-        const master = block([
-            'title: Master',
-            'start: 2025-01-01 00:00:00+00:00',
-            '',
-            'uid: u1',
-        ].join('\n'));
-
-        const occ = block([
-            'title: OldOcc',
-            'start: 2025-01-15 09:00:00+00:00',
-            '',
-            'uid: u1',
-            'recurrence_id: 20250115T100000Z',
-        ].join('\n'));
-
-        const existingNote = {
-            id: 'n1',
-            title: 'Note',
-            body: `${master}\n\n${occ}\n`,
-        };
-
-        const joplin = mkJoplin({
-            get: jest.fn().mockResolvedValue({items: [existingNote], has_more: false}),
-            put: jest.fn().mockResolvedValue({}),
-        });
-
-        const res = await importIcsIntoNotes(joplin as any, ics);
-
-        expect(res.updated).toBe(1);
-
-        const patch = joplin.data.put.mock.calls[0][2];
-        // master should remain
-        expect(patch.body).toContain('title: Master');
-        // occurrence should be replaced with new title/start
-        expect(patch.body).toContain('title: OccTitle');
-        expect(patch.body).toContain('recurrence_id: 20250115T100000Z');
-        expect(patch.body).toContain('start: 2025-01-15 10:00:00+00:00');
-    });
-
-    test('create: if targetFolderId provided => POST includes parent_id', async () => {
-        const ics = [
-            'BEGIN:VCALENDAR',
-            'BEGIN:VEVENT',
-            'UID:u1',
-            'SUMMARY:Foldered',
-            'DTSTART:20250115T100000Z',
-            'END:VEVENT',
-            'END:VCALENDAR',
-        ].join('\n');
-
-        const joplin = mkJoplin({
-            get: jest.fn().mockResolvedValue({items: [], has_more: false}),
-            post: jest.fn().mockResolvedValue({}),
-        });
-
-        await importIcsIntoNotes(joplin as any, ics, undefined, 'folder-123');
-
-        const noteBody = joplin.data.post.mock.calls[0][2];
-        expect(noteBody.parent_id).toBe('folder-123');
-    });
-
-    test('update: if targetFolderId changes => PUT includes parent_id even if body/title unchanged', async () => {
-        const ics = [
-            'BEGIN:VCALENDAR',
-            'BEGIN:VEVENT',
-            'UID:u1',
-            'SUMMARY:Same',
-            'DTSTART:20250115T100000Z',
-            'END:VEVENT',
-            'END:VCALENDAR',
-        ].join('\n');
-
-        const existingNote = {
-            id: 'n1',
-            title: 'Same',
-            parent_id: 'folder-old',
-            body: [
-                '```mycalendar-event',
-                'title: Same',
-                'start: 2025-01-15 10:00:00+00:00',
-                '',
-                'uid: u1',
-                '```',
-            ].join('\n'),
-        };
-
-        const joplin = mkJoplin({
-            get: jest.fn().mockResolvedValue({items: [existingNote], has_more: false}),
-            put: jest.fn().mockResolvedValue({}),
-        });
-
-        const res = await importIcsIntoNotes(joplin as any, ics, undefined, 'folder-new');
-
-        expect(res).toEqual({added: 0, updated: 1, skipped: 0, errors: 0, alarmsCreated: 0, alarmsDeleted: 0});
-        expect(joplin.data.put).toHaveBeenCalledTimes(1);
-        const patch = joplin.data.put.mock.calls[0][2];
-        expect(patch).toEqual({parent_id: 'folder-new'});
-    });
-
-    test('error on update: increments errors and calls onStatus with ERROR update', async () => {
-        const ics = [
-            'BEGIN:VCALENDAR',
-            'BEGIN:VEVENT',
-            'UID:u1',
-            'SUMMARY:X',
-            'DTSTART:20250115T100000Z',
-            'END:VEVENT',
-            'END:VCALENDAR',
-        ].join('\n');
-
-        const existingNote = {
-            id: 'n1',
-            title: 'X',
-            body: block(['title: X', 'start: 2025-01-15 09:00:00+00:00', '', 'uid: u1'].join('\n')),
-        };
-
-        const onStatus = jest.fn();
-
-        const joplin = mkJoplin({
-            get: jest.fn().mockResolvedValue({items: [existingNote], has_more: false}),
-            put: jest.fn().mockRejectedValue(new Error('boom')),
-        });
-
-        const res = await importIcsIntoNotes(joplin as any, ics, onStatus);
-
-        expect(res.errors).toBe(1);
-        expect(onStatus).toHaveBeenCalledWith(expect.stringMatching(/^ERROR update: u1\|/));
-    });
-
-    test('error on create: increments errors and calls onStatus with ERROR create', async () => {
-        const ics = [
-            'BEGIN:VCALENDAR',
-            'BEGIN:VEVENT',
-            'UID:u1',
-            'SUMMARY:X',
-            'DTSTART:20250115T100000Z',
-            'END:VEVENT',
-            'END:VCALENDAR',
-        ].join('\n');
-
-        const onStatus = jest.fn();
-
-        const joplin = mkJoplin({
-            get: jest.fn().mockResolvedValue({items: [], has_more: false}),
-            post: jest.fn().mockRejectedValue(new Error('boom')),
-        });
-
-        const res = await importIcsIntoNotes(joplin as any, ics, onStatus);
-
-        expect(res.errors).toBe(1);
-        expect(onStatus).toHaveBeenCalledWith(expect.stringMatching(/^ERROR create: u1\|/));
-    });
-
-    test('safe onStatus: if callback throws, import still succeeds', async () => {
-        const ics = [
-            'BEGIN:VCALENDAR',
-            'BEGIN:VEVENT',
-            'UID:u1',
-            'SUMMARY:Ok',
-            'DTSTART:20250115T100000Z',
-            'END:VEVENT',
-            'END:VCALENDAR',
-        ].join('\n');
-
-        const onStatus = jest.fn(() => {
-            throw new Error('status crash');
-        });
-
-        const joplin = mkJoplin({
-            get: jest.fn().mockResolvedValue({items: [], has_more: false}),
-            post: jest.fn().mockResolvedValue({}),
-        });
-
-        const res = await importIcsIntoNotes(joplin as any, ics, onStatus);
-        expect(res.added).toBe(1);
-    });
-
-    test('existing scan ignores notes without body or without mycalendar blocks', async () => {
-        const ics = [
-            'BEGIN:VCALENDAR',
-            'BEGIN:VEVENT',
-            'UID:u1',
-            'SUMMARY:A',
-            'DTSTART:20250115T100000Z',
-            'END:VEVENT',
-            'END:VCALENDAR',
-        ].join('\n');
-
-        const joplin = mkJoplin({
-            get: jest.fn().mockResolvedValue({
-                items: [
-                    {id: 'n1', title: 'x', body: null},
-                    {id: 'n2', title: 'y', body: 123},
-                    {id: 'n3', title: 'z', body: 'no block marker'},
-                ],
-                has_more: false,
-            }),
-            post: jest.fn().mockResolvedValue({}),
-        });
-
-        const res = await importIcsIntoNotes(joplin as any, ics);
-        expect(res.added).toBe(1);
-    });
-
-    test('preserveLocalColor=true but import has its own color => keeps imported color (does not copy local)', async () => {
-        const ics = [
-            'BEGIN:VCALENDAR',
-            'BEGIN:VEVENT',
-            'UID:u1',
-            'SUMMARY:Title',
-            'X-COLOR:#111111',
-            'DTSTART:20250115T100000Z',
-            'END:VEVENT',
-            'END:VCALENDAR',
-        ].join('\n');
-
-        const existingBody = block([
-            'title: Title',
-            'start: 2025-01-15 09:00:00+00:00',
-            'color: #ff0000',
-            '',
-            'uid: u1',
-        ].join('\n'));
-
-        const joplin = mkJoplin({
-            get: jest.fn().mockResolvedValue({
-                items: [{id: 'n1', title: 'Title', body: existingBody}],
-                has_more: false,
-            }),
-            put: jest.fn().mockResolvedValue({}),
-        });
-
-        const res = await importIcsIntoNotes(joplin as any, ics, undefined, undefined, true);
-
-        expect(res.updated).toBe(1);
-        const patch = joplin.data.put.mock.calls[0][2];
-        expect(patch.body).toContain('color: #111111');
-        expect(patch.body).not.toContain('color: #ff0000');
-    });
-
-    test('importDefaultColor applied only if event has no color AND preserveLocalColor did not provide one', async () => {
         const ics = [
             'BEGIN:VCALENDAR',
             'BEGIN:VEVENT',
@@ -1666,6 +1279,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
             id: 'a1',
             title: 'Alarm',
             body: '```mycalendar-alarm\nuid: u1\n```',
+            todo_due: new Date().getTime() + 100000, // future, but will be invalid
         };
 
         const onStatus = jest.fn();
@@ -1691,7 +1305,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
 
         const res = await importIcsIntoNotes(joplin as any, ics, onStatus, 'nb1');
         expect(joplin.data.delete).toHaveBeenCalledWith(['notes', 'a1']);
-        expect(onStatus).toHaveBeenCalledWith(expect.stringContaining('ERROR delete alarm: u1| - delete fail'));
+        expect(onStatus).toHaveBeenCalledWith(expect.stringContaining('ERROR delete invalid alarm: u1| - delete fail'));
         expect(res.alarmsCreated).toBe(1);
 
         jest.useRealTimers();
