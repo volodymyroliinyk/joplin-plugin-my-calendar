@@ -75,7 +75,8 @@ describe('calendarView.createCalendarPanel', () => {
         expect(panels.show).toHaveBeenCalledWith('panel-123');
 
         // log emitted
-        expect(logSpy).toHaveBeenCalledWith('[MyCalendar] calendarView created');
+        // Updated expectation: [MyCalendar][calendarView created]
+        expect(logSpy).toHaveBeenCalledWith('[MyCalendar][calendarView created]');
 
         // optional: strict call order across methods
         expect(panels.create.mock.invocationCallOrder[0]).toBeLessThan(panels.setHtml.mock.invocationCallOrder[0]);

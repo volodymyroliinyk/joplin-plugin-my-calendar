@@ -18,41 +18,40 @@ export function setDebugEnabled(v: boolean): void {
 
 type ConsoleFn = (...args: unknown[]) => void;
 
-function buildArgs(args: readonly unknown[]): unknown[] {
+function buildArgs(source: string, args: readonly unknown[]): unknown[] {
+    const sourcePrefix = source ? `[${source}]` : '';
+
     if (args.length > 0 && typeof args[0] === 'string') {
         const [msg, ...rest] = args as readonly [string, ...unknown[]];
-        // Keep single-string prefix for string-first logs (tests assert this shape).
-        return [`${PREFIX} ${msg}`, ...rest];
+        return [`${PREFIX}${sourcePrefix} ${msg}`, ...rest];
     }
 
-    // Non-string first arg: keep prefix as a separate argument.
-    return [PREFIX, ...args];
+    return [PREFIX + sourcePrefix, ...args];
 }
 
-function write(consoleFn: ConsoleFn, args: readonly unknown[]): void {
-    consoleFn(...buildArgs(args));
+function write(consoleFn: ConsoleFn, source: string, args: readonly unknown[]): void {
+    consoleFn(...buildArgs(source, args));
 }
 
-export function log(...args: unknown[]): void {
-    write(console.log, args);
+export function log(source: string, ...args: unknown[]): void {
+    write(console.log, source, args);
 }
 
-export function info(...args: unknown[]): void {
-    write(console.info, args);
+export function info(source: string, ...args: unknown[]): void {
+    write(console.info, source, args);
 }
 
-export function warn(...args: unknown[]): void {
-    write(console.warn, args);
+export function warn(source: string, ...args: unknown[]): void {
+    write(console.warn, source, args);
 }
 
 /** Prefer `err` for backward-compatibility with existing code. */
-export function err(...args: unknown[]): void {
-    write(console.error, args);
+export function err(source: string, ...args: unknown[]): void {
+    write(console.error, source, args);
 }
 
 /** Debug log (enabled via `setDebugEnabled(true)`). */
-export function dbg(...args: unknown[]): void {
+export function dbg(source: string, ...args: unknown[]): void {
     if (!debugEnabled) return;
-    // Keep console.log to preserve existing behavior/tests.
-    write(console.log, args);
+    write(console.log, source, args);
 }

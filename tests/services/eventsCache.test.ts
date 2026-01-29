@@ -229,7 +229,7 @@ describe('eventsCache.ts', () => {
         await expect(mod.rebuildAllEventsCache(joplin)).resolves.toBeUndefined();
 
         // 3) assert: the error was logged
-        expect(errSpy).toHaveBeenCalledWith('rebuildAllEventsCache: error', expect.any(Error));
+        expect(errSpy).toHaveBeenCalledWith('eventsCache', 'Error rebuilding events cache:', expect.any(Error));
 
         // 4) act + assert: after an error, the cache does not "break" - ensure returns []
         // (in your code allEventsCache becomes allEventsCache || [] in catch)

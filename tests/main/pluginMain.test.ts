@@ -218,7 +218,7 @@ describe('pluginMain.runPlugin', () => {
         expect(panels.focus).toHaveBeenCalledWith('panel-1');
 
         // basic logs
-        expect(logSpy).toHaveBeenCalledWith('pluginMain: start');
+        expect(logSpy).toHaveBeenCalledWith('pluginMain', 'Plugin start');
         expect(infoSpy).toHaveBeenCalled(); // capabilities info
 
         logSpy.mockRestore();
@@ -255,7 +255,7 @@ describe('pluginMain.runPlugin', () => {
         await openCmd.execute();
 
         expect(panels.show).toHaveBeenCalledWith('panel-1');
-        expect(logSpy).toHaveBeenCalledWith('panels.focus not available on this platform');
+        expect(logSpy).toHaveBeenCalledWith('pluginMain', 'panels.focus not available on this platform');
 
         logSpy.mockRestore();
     });
@@ -270,7 +270,7 @@ describe('pluginMain.runPlugin', () => {
 
         await runPlugin(joplin as any);
 
-        expect(errSpy).toHaveBeenCalledWith('ensureAllEventsCache error:', expect.any(Error));
+        expect(errSpy).toHaveBeenCalledWith('eventsCache', 'Error warming up cache:', expect.any(Error));
 
         errSpy.mockRestore();
     });
@@ -318,7 +318,7 @@ describe('pluginMain.runPlugin', () => {
         // initial state is visible=true -> first execute hides (if hide exists)
         await toggleCmd1.execute();
         expect(panels.hide).toHaveBeenCalledWith('panel-1');
-        expect(logSpy).toHaveBeenCalledWith('toggle Hide');
+        expect(logSpy).toHaveBeenCalledWith('pluginMain', 'Toggle: Hide');
 
         // Label should remain 'Toggle My Calendar'
         const toggleCmd2 = getToggleCmd();
@@ -327,7 +327,7 @@ describe('pluginMain.runPlugin', () => {
         // second execute shows
         await toggleCmd2.execute();
         expect(panels.show).toHaveBeenCalledWith('panel-1');
-        expect(logSpy).toHaveBeenCalledWith('toggle Show');
+        expect(logSpy).toHaveBeenCalledWith('pluginMain', 'Toggle: Show');
 
         // Label should remain 'Toggle My Calendar'
         const toggleCmd3 = getToggleCmd();
@@ -363,7 +363,7 @@ describe('pluginMain.runPlugin', () => {
         expect(toolbarButtons.create).not.toHaveBeenCalled();
 
         // info about skipping
-        expect(infoSpy).toHaveBeenCalledWith('toggle: panels.show/hide not available - skip');
+        expect(infoSpy).toHaveBeenCalledWith('pluginMain', 'Toggle: panels.show/hide not available - skip');
 
         infoSpy.mockRestore();
     });

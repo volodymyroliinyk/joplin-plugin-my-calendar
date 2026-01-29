@@ -75,7 +75,7 @@ export async function rebuildAllEventsCache(joplin: JoplinLike): Promise<void> {
 
     rebuildPromise = (async () => {
         try {
-            log('rebuildAllEventsCache: start');
+            log('eventsCache', 'Rebuilding all events cache...');
 
             eventCacheByNote.clear();
             const notes = await fetchAllNotes(joplin);
@@ -91,9 +91,9 @@ export async function rebuildAllEventsCache(joplin: JoplinLike): Promise<void> {
             }
 
             allEventsCache = all;
-            log('rebuildAllEventsCache: done events=', allEventsCache.length);
+            log('eventsCache', 'Rebuild complete. Events found:', allEventsCache.length);
         } catch (error) {
-            err('rebuildAllEventsCache: error', error);
+            err('eventsCache', 'Error rebuilding events cache:', error);
             // Keep cache usable + avoid "stuck" state
             allEventsCache = allEventsCache || [];
         }
