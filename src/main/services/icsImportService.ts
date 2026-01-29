@@ -8,7 +8,7 @@ import {
     extractAllAlarmKeysFromBody,
     replaceEventBlockByKey
 } from '../utils/joplinUtils';
-import {syncAlarmsForEvents} from './alarmService';
+import {syncAlarmsForEvents, ExistingAlarm} from './alarmService';
 import {buildMyCalBlock} from './noteBuilder';
 import {Joplin} from '../types/joplin.interface';
 import {createNote, getAllNotesPaged, updateNote} from './joplinNoteService';
@@ -40,9 +40,10 @@ export async function importIcsIntoNotes(
     await say(`Parsed ${events.length} VEVENT(s)`);
 
     const existing: Record<string, { id: string; title: string; body: string; parent_id?: string }> = {};
-    const existingAlarms: Record<string, string[]> = {};
+    const existingAlarms: Record<string, ExistingAlarm[]> = {};
 
-    const allNotes = await getAllNotesPaged(joplin);
+    // Request todo_due to optimize alarm syncing
+    const allNotes = await getAllNotesPaged(joplin, ['id', 'title', 'body', 'parent_id', 'todo_due']);
 
     for (const n of allNotes) {
         if (typeof n.body !== 'string' || !n.body) continue;
@@ -55,7 +56,10 @@ export async function importIcsIntoNotes(
         if (n.body.includes('```mycalendar-alarm')) {
             const metas = extractAllAlarmKeysFromBody(n.body);
             for (const meta of metas) {
-                (existingAlarms[meta.key] ??= []).push(n.id);
+                (existingAlarms[meta.key] ??= []).push({
+                    id: n.id,
+                    todo_due: n.todo_due || 0
+                });
             }
         }
     }
