@@ -25,6 +25,13 @@ NC='\033[0m' # No Color
 TYPE=${1:-patch}
 JPL_FILE="publish/com.volodymyroliinyk.joplin.plugin.my-calendar.jpl"
 
+# Cache cleaning
+pkill -f jest || true;
+pkill -f node || true;
+rm -rf node_modules/.cache;
+rm -rf ~/.cache/jest;
+npx jest --clearCache;
+
 # 1. Check for clean working directory
 if [ -z "$(git status --porcelain)" ]; then
     echo -e "${GREEN}Working directory is clean. Proceeding...${NC}"

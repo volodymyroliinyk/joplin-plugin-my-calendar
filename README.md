@@ -187,6 +187,8 @@ This plugin is built with **modern TypeScript** and focused on high code quality
 - `npm run pack;`: Create the `.jpl` distribution file.
 - `npm test;`: Run the extensive test suite (250+ cases).
 - `npm run lint;`: Check code style and common patterns.
+- `pkill -f jest || true;pkill -f node || true;rm -rf node_modules/.cache;rm -rf ~/.cache/jest;npx jest --clearCache;`:
+  Cache cleaning.
 
 ### Automation Scripts
 
