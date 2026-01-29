@@ -16,7 +16,6 @@ joplin-plugin-my-calendar/
 │   ├── recurring-weekly.md
 │   └── timezone-handling.md
 ├── publish/
-│   └── com.volodymyroliinyk.joplin.plugin.my-calendar.jpl
 ├── scripts/
 │   ├── check-tests.sh
 │   ├── pre-pack.sh
@@ -91,6 +90,7 @@ joplin-plugin-my-calendar/
 │   │   └── toast.test.ts
 │   ├── views/
 │       └── calendarView.test.ts
+├── -_changelog_-_husky_-_sh_-_tests_-_fixes_-_doc.patch
 ├── CHANGELOG.md
 ├── LICENSE
 ├── README.md

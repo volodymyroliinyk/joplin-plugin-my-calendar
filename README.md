@@ -22,8 +22,9 @@ note-taking app.
 - **Notes as Events**: Any note can become a calendar event simply by adding a small Markdown block.
 - **ICS Import**: Import standard `*.ics` files (from Google Calendar, Outlook, Apple, etc.) directly into your Joplin
   notebooks.
-- **Automatic Alarms**: The plugin automatically creates "Todo" notes with reminders based on your calendar alarms (
-  `VALARM`).
+- **Optimized Automatic Alarms**: The plugin automatically creates "Todo" notes with reminders based on your calendar
+  alarms (
+  `VALARM`). The sync process is optimized to only update what's necessary, reducing sync traffic.
 - **Recurrence Support**: Full support for daily, weekly, monthly, and yearly recurring events.
 - **High Security**: Built-in protection against Markdown and CSS injections.
 - **Universal Sync**: Works with Joplin's built-in synchronization across all your devices.
@@ -93,8 +94,10 @@ The plugin features a robust import system designed for performance and reliabil
   changed events or skip unchanged ones.
 - **Local Color Preservation**: By default, if you manually change the color of an imported event in Joplin, subsequent
   imports will preserve your custom color.
-- **Automatic Alarms**: If an ICS event has a reminder, the plugin creates a linked "Todo" note in Joplin. These todos
-  appear in your standard Joplin tasks and trigger native notifications.
+- **Optimized Automatic Alarms**: If an ICS event has a reminder, the plugin creates a linked "Todo" note in Joplin.
+  These todos
+  appear in your standard Joplin tasks and trigger native notifications. The sync process is smart: it only deletes
+  outdated alarms and creates new ones, minimizing sync traffic.
 
 ---
 
@@ -204,6 +207,11 @@ Automates the entire release workflow: bumps version, syncs manifest, tags, push
 ```bash
 ./scripts/release.sh [patch|minor|major]
 ```
+
+### Development Workflow
+
+For a detailed guide on branch naming, commit message formats, and the release process, please see the *
+*[Development Workflow Guide](./WORKFLOW.md)**.
 
 ### Security First:
 
