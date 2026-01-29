@@ -17,6 +17,13 @@ RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
+# Cache cleaning
+pkill -f jest || true;
+pkill -f node || true;
+rm -rf node_modules/.cache;
+rm -rf ~/.cache/jest;
+npx jest --clearCache;
+
 echo -e "${YELLOW}🔍 Running Lint...${NC}"
 
 # Run eslint with --max-warnings=0 to ensure strict code quality
