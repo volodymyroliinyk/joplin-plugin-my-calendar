@@ -1,4 +1,5 @@
 // tests/main/weekStartFlow.test.ts
+// src/main/pluginMain.ts
 //
 // npx jest tests/main/weekStartFlow.test.ts --runInBand --no-cache;
 //

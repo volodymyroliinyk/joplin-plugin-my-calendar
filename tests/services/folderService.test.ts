@@ -1,5 +1,7 @@
 // tests/services/folderService.test.ts
-
+// src/main/services/folderService.ts
+//
+// npx jest tests/services/folderService.test.ts --runInBand --no-cache;
 import {
     flattenFolderTree,
     FolderRow

@@ -1,3 +1,9 @@
+// tests/utils/dateUtils.test.ts
+// src/main/utils/dateUtils.ts
+//
+// npx jest tests/utils/dateUtils.test.ts --runInBand --no-cache;
+//
+
 import {
     parseYmdHmsLocal,
     addDaysYMD,
@@ -6,7 +12,7 @@ import {
     zonedTimeToUtcMs
 } from '../../src/main/utils/dateUtils';
 
-describe('pluginMain helpers (dateUtils)', () => {
+describe('dateUtils (recurrence helpers)', () => {
 
     test('parseYmdHmsLocal parses various formats', () => {
         expect(parseYmdHmsLocal('2025-01-15 10:00:00')).toEqual({Y: 2025, M: 1, D: 15, h: 10, m: 0, sec: 0});

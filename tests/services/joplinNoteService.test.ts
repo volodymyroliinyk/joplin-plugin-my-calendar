@@ -1,3 +1,8 @@
+// tests/services/joplinNoteService.test.ts
+// src/main/services/joplinNoteService.ts
+//
+// npx jest tests/services/joplinNoteService.test.ts --runInBand --no-cache;
+//
 import {deleteNote} from '../../src/main/services/joplinNoteService';
 import {Joplin} from '../../src/main/types/joplin.interface';
 

@@ -1,3 +1,8 @@
+// tests/settings/settings.test.ts
+// src/main/settings/settings.ts
+//
+// npx jest tests/settings/settings.test.ts --runInBand --no-cache;
+
 import * as settings from '../../src/main/settings/settings';
 
 describe('settings.ts logic', () => {
