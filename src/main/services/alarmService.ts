@@ -2,7 +2,13 @@
 
 import {IcsEvent} from '../types/icsTypes';
 import {expandOccurrences} from './occurrenceService';
-import {computeAlarmWhen, formatAlarmTitleTime, formatDateForAlarm, addDays} from '../utils/dateTimeUtils';
+import {
+    computeAlarmWhen,
+    formatAlarmTitleTime,
+    formatDateForAlarm,
+    addDays,
+    formatTriggerDescription
+} from '../utils/dateTimeUtils';
 import {sanitizeForMarkdownBlock} from './noteBuilder';
 import {makeEventKey} from '../utils/joplinUtils';
 import {getIcsImportAlarmRangeDays, getIcsImportEmptyTrashAfter} from '../settings/settings';
@@ -12,11 +18,19 @@ import {createNote, deleteNote, updateNote} from './joplinNoteService';
 export type AlarmSyncResult = {
     alarmsCreated: number;
     alarmsDeleted: number;
+    alarmsUpdated: number;
 };
 
 export type ExistingAlarm = {
     id: string;
     todo_due: number;
+    body: string;
+};
+
+type DesiredAlarm = {
+    alarmTime: number;
+    eventTime: Date;
+    trigger: string;
 };
 
 export async function syncAlarmsForEvents(
@@ -48,6 +62,7 @@ export async function syncAlarmsForEvents(
 
     let alarmsDeleted = 0;
     let alarmsCreated = 0;
+    let alarmsUpdated = 0;
 
     for (const ev of events) {
         const uid = (ev.uid || '').trim();
@@ -61,8 +76,7 @@ export async function syncAlarmsForEvents(
         const notebookId = targetFolderId || eventNote.parent_id;
         if (!notebookId) continue;
 
-        // --- Step 1: Calculate all DESIRED alarms for this event in the future window ---
-        const desiredAlarms: number[] = []; // list of timestamps (ms)
+        const desiredAlarms: DesiredAlarm[] = [];
 
         if (ev.valarms && ev.valarms.length > 0) {
             const occs = expandOccurrences(ev, now, windowEnd);
@@ -73,18 +87,20 @@ export async function syncAlarmsForEvents(
 
                     const whenMs = when.getTime();
                     if (whenMs >= nowMs && whenMs <= windowEnd.getTime()) {
-                        desiredAlarms.push(whenMs);
+                        desiredAlarms.push({
+                            alarmTime: whenMs,
+                            eventTime: occ.start,
+                            trigger: a.trigger
+                        });
                     }
                 }
             }
         }
 
-        // --- Step 2: Process existing alarms ---
         const oldAlarms = existingAlarms[key] || [];
         const matchedDesiredIndices = new Set<number>();
 
         for (const alarm of oldAlarms) {
-            // A) Is it outdated?
             if (alarm.todo_due < nowMs) {
                 try {
                     await deleteNote(joplin, alarm.id);
@@ -95,11 +111,10 @@ export async function syncAlarmsForEvents(
                 continue;
             }
 
-            // B) Is it still valid (matches a desired alarm)?
             let matchIndex = -1;
             for (let i = 0; i < desiredAlarms.length; i++) {
                 if (!matchedDesiredIndices.has(i)) {
-                    if (Math.abs(desiredAlarms[i] - alarm.todo_due) < 1000) { // 1 sec tolerance
+                    if (Math.abs(desiredAlarms[i].alarmTime - alarm.todo_due) < 1000) {
                         matchIndex = i;
                         break;
                     }
@@ -108,6 +123,31 @@ export async function syncAlarmsForEvents(
 
             if (matchIndex !== -1) {
                 matchedDesiredIndices.add(matchIndex);
+                const {alarmTime, eventTime, trigger} = desiredAlarms[matchIndex];
+                const eventTimeStr = formatAlarmTitleTime(eventTime);
+                const todoTitle = `${(ev.title || 'Event')} + ${eventTimeStr}`;
+                const triggerDesc = formatTriggerDescription(trigger);
+                const newBody = [
+                    `[${ev.title || 'Event'} at ${eventTimeStr}](:/${eventNote.id})`,
+                    '',
+                    '```mycalendar-alarm',
+                    `title: ${sanitizeForMarkdownBlock(todoTitle).slice(0, 500)}`,
+                    `uid: ${sanitizeForMarkdownBlock(uid)}`,
+                    `recurrence_id: ${sanitizeForMarkdownBlock(rid)}`,
+                    `when: ${formatDateForAlarm(new Date(alarmTime))}`,
+                    `trigger_desc: ${triggerDesc}`,
+                    '```',
+                    '',
+                ].join('\n');
+
+                if (newBody !== alarm.body) {
+                    try {
+                        await updateNote(joplin, alarm.id, {body: newBody});
+                        alarmsUpdated++;
+                    } catch (e) {
+                        await say(`[alarmService] ERROR updating alarm body: ${key} - ${String((e as any)?.message || e)}`);
+                    }
+                }
             } else {
                 try {
                     await deleteNote(joplin, alarm.id);
@@ -118,27 +158,26 @@ export async function syncAlarmsForEvents(
             }
         }
 
-        // --- Step 3: Create missing alarms ---
         for (let i = 0; i < desiredAlarms.length; i++) {
-            if (matchedDesiredIndices.has(i)) continue; // Already exists
+            if (matchedDesiredIndices.has(i)) continue;
 
-            const whenMs = desiredAlarms[i];
-            const when = new Date(whenMs);
+            const {alarmTime, eventTime, trigger} = desiredAlarms[i];
+            const when = new Date(alarmTime);
 
-            const titleTime = formatAlarmTitleTime(when);
-            const todoTitle = `${(ev.title || 'Event')} + ${titleTime}`;
+            const eventTimeStr = formatAlarmTitleTime(eventTime);
+            const todoTitle = `${(ev.title || 'Event')} + ${eventTimeStr}`;
+            const triggerDesc = formatTriggerDescription(trigger);
 
             const body = [
+                `[${ev.title || 'Event'} at ${eventTimeStr}](:/${eventNote.id})`,
+                '',
                 '```mycalendar-alarm',
                 `title: ${sanitizeForMarkdownBlock(todoTitle).slice(0, 500)}`,
                 `uid: ${sanitizeForMarkdownBlock(uid)}`,
                 `recurrence_id: ${sanitizeForMarkdownBlock(rid)}`,
                 `when: ${formatDateForAlarm(when)}`,
+                `trigger_desc: ${triggerDesc}`,
                 '```',
-                '',
-                '---',
-                '',
-                `[${ev.title || 'Event'}](:/${eventNote.id})`,
                 '',
             ].join('\n');
 
@@ -148,12 +187,12 @@ export async function syncAlarmsForEvents(
                     body,
                     parent_id: notebookId,
                     is_todo: 1,
-                    todo_due: whenMs,
+                    todo_due: alarmTime,
                 };
 
                 const created = await createNote(joplin, noteBody);
                 if (created?.id) {
-                    await updateNote(joplin, created.id, {todo_due: whenMs});
+                    await updateNote(joplin, created.id, {todo_due: alarmTime});
                 }
                 alarmsCreated++;
             } catch (e) {
@@ -162,7 +201,6 @@ export async function syncAlarmsForEvents(
         }
     }
 
-    // Clean trash if enabled and alarms were deleted
     if (alarmsDeleted > 0 && emptyTrashAfter) {
         try {
             await joplin.commands.execute('emptyTrash');
@@ -172,9 +210,9 @@ export async function syncAlarmsForEvents(
         }
     }
 
-    if (alarmsDeleted || alarmsCreated) {
-        await say(`[alarmService] Alarms sync summary: deleted ${alarmsDeleted}, created ${alarmsCreated} (next ${alarmRangeDays} days)`);
+    if (alarmsDeleted || alarmsCreated || alarmsUpdated) {
+        await say(`[alarmService] Alarms sync summary: deleted ${alarmsDeleted}, created ${alarmsCreated}, updated ${alarmsUpdated} (next ${alarmRangeDays} days)`);
     }
 
-    return {alarmsCreated, alarmsDeleted};
+    return {alarmsCreated, alarmsDeleted, alarmsUpdated};
 }

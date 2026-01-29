@@ -27,7 +27,8 @@ export async function importIcsIntoNotes(
     skipped: number;
     errors: number;
     alarmsCreated: number;
-    alarmsDeleted: number
+    alarmsDeleted: number;
+    alarmsUpdated: number;
 }> {
     const say = async (t: string) => {
         try {
@@ -58,7 +59,8 @@ export async function importIcsIntoNotes(
             for (const meta of metas) {
                 (existingAlarms[meta.key] ??= []).push({
                     id: n.id,
-                    todo_due: n.todo_due || 0
+                    todo_due: n.todo_due || 0,
+                    body: n.body
                 });
             }
         }
