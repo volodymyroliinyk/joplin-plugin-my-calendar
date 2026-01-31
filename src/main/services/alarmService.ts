@@ -46,10 +46,15 @@ export type AlarmSyncOptions = {
      * Overrides settings.getIcsImportEmptyTrashAfter().
      */
     emptyTrashAfter?: boolean;
+    /**
+     * If false, no new alarms will be created, and existing ones will be deleted.
+     * Defaults to true.
+     */
+    alarmsEnabled?: boolean;
 };
 
-function isPositiveFiniteNumber(v: unknown): v is number {
-    return typeof v === 'number' && Number.isFinite(v) && v > 0;
+function isNonNegativeFiniteNumber(v: unknown): v is number {
+    return typeof v === 'number' && Number.isFinite(v) && v >= 0;
 }
 
 function buildDesiredAlarmsForEvent(ev: IcsEvent, now: Date, windowEnd: Date): DesiredAlarm[] {
@@ -106,7 +111,9 @@ export async function syncAlarmsForEvents(
     existingAlarms: Record<string, ExistingAlarm[]>,
     targetFolderId?: string,
     onStatus?: (text: string) => Promise<void>,
-    options?: number | AlarmSyncOptions
+    options?: number | AlarmSyncOptions,
+    // Legacy argument support (if needed, though we prefer options object)
+    legacyAlarmsEnabled?: boolean
 ): Promise<AlarmSyncResult> {
     const say = async (t: string) => {
         try {
@@ -117,11 +124,19 @@ export async function syncAlarmsForEvents(
 
     const resolvedOptions: AlarmSyncOptions = typeof options === 'number' ? {alarmRangeDays: options} : (options ?? {});
 
+    // Handle legacy argument if provided and options didn't specify it
+    if (legacyAlarmsEnabled !== undefined && resolvedOptions.alarmsEnabled === undefined) {
+        resolvedOptions.alarmsEnabled = legacyAlarmsEnabled;
+    }
+
     const now = resolvedOptions.now ?? new Date();
     const nowMs = now.getTime();
-    const alarmRangeDays = isPositiveFiniteNumber(resolvedOptions.alarmRangeDays) ? Math.round(resolvedOptions.alarmRangeDays) : await getIcsImportAlarmRangeDays(joplin);
+    const alarmRangeDays = isNonNegativeFiniteNumber(resolvedOptions.alarmRangeDays) ? Math.trunc(resolvedOptions.alarmRangeDays) : await getIcsImportAlarmRangeDays(joplin);
+
 
     const emptyTrashAfter = typeof resolvedOptions.emptyTrashAfter === 'boolean' ? resolvedOptions.emptyTrashAfter : await getIcsImportEmptyTrashAfter(joplin);
+
+    const alarmsEnabled = resolvedOptions.alarmsEnabled !== false; // Default true
 
     const windowEnd = addDays(now, alarmRangeDays);
 
@@ -141,7 +156,8 @@ export async function syncAlarmsForEvents(
         const notebookId = targetFolderId || eventNote.parent_id;
         if (!notebookId) continue;
 
-        const desiredAlarms = buildDesiredAlarmsForEvent(ev, now, windowEnd);
+        // If alarms are disabled, desiredAlarms is empty -> all existing will be deleted
+        const desiredAlarms = alarmsEnabled ? buildDesiredAlarmsForEvent(ev, now, windowEnd) : [];
 
         const oldAlarms = existingAlarms[key] || [];
         const matchedDesiredIndices = new Set<number>();
@@ -242,14 +258,14 @@ export async function syncAlarmsForEvents(
     if (alarmsDeleted > 0 && emptyTrashAfter) {
         try {
             await joplin.commands.execute('emptyTrash');
-            await say('[alarmService] Trash emptied.');
+            await say('Trash emptied.');
         } catch (e) {
             await say(`[alarmService] WARNING: Failed to empty trash: ${String((e as any)?.message || e)}`);
         }
     }
 
     if (alarmsDeleted || alarmsCreated || alarmsUpdated) {
-        await say(`[alarmService] Alarms sync summary: deleted ${alarmsDeleted}, created ${alarmsCreated}, updated ${alarmsUpdated} (next ${alarmRangeDays} days)`);
+        await say(`Alarms sync summary: deleted ${alarmsDeleted}, created ${alarmsCreated}, updated ${alarmsUpdated} (next ${alarmRangeDays} days)`);
     }
 
     return {alarmsCreated, alarmsDeleted, alarmsUpdated};
