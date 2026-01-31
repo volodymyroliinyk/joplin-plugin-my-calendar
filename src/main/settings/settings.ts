@@ -2,8 +2,22 @@
 
 import {setDebugEnabled} from '../utils/logger';
 
+// Common
 export const SETTING_DEBUG = 'mycalendar.debug';
+
+// Calendar
 export const SETTING_WEEK_START = 'mycalendar.weekStart';
+
+// Day events
+export const SETTING_SHOW_EVENT_TIMELINE = 'mycalendar.showEventTimeline';
+export const SETTING_DAY_EVENTS_REFRESH_MINUTES = 'mycalendar.dayEventsRefreshMinutes';
+
+// ICS Import
+export const SETTING_ICS_IMPORT_ALARMS_ENABLED = 'mycalendar.icsImportAlarmsEnabled';
+export const SETTING_ICS_IMPORT_ALARM_RANGE_DAYS = 'mycalendar.icsImportAlarmRangeDays';
+export const SETTING_ICS_IMPORT_EMPTY_TRASH_AFTER = 'mycalendar.icsImportEmptyTrashAfter';
+
+// Export links
 
 // New multi-link settings (up to 4). Titles are optional.
 export const SETTING_ICS_EXPORT_LINK1_TITLE = 'mycalendar.icsExportLink1Title';
@@ -14,10 +28,7 @@ export const SETTING_ICS_EXPORT_LINK3_TITLE = 'mycalendar.icsExportLink3Title';
 export const SETTING_ICS_EXPORT_LINK3_URL = 'mycalendar.icsExportLink3Url';
 export const SETTING_ICS_EXPORT_LINK4_TITLE = 'mycalendar.icsExportLink4Title';
 export const SETTING_ICS_EXPORT_LINK4_URL = 'mycalendar.icsExportLink4Url';
-export const SETTING_DAY_EVENTS_REFRESH_MINUTES = 'mycalendar.dayEventsRefreshMinutes';
-export const SETTING_ICS_IMPORT_ALARM_RANGE_DAYS = 'mycalendar.icsImportAlarmRangeDays';
-export const SETTING_ICS_IMPORT_EMPTY_TRASH_AFTER = 'mycalendar.icsImportEmptyTrashAfter';
-export const SETTING_ICS_IMPORT_ALARMS_ENABLED = 'mycalendar.icsImportAlarmsEnabled';
+
 
 export type WeekStart = 'monday' | 'sunday';
 
@@ -102,6 +113,14 @@ export async function registerSettings(joplin: any) {
         },
 
         // 4) Day events
+        [SETTING_SHOW_EVENT_TIMELINE]: {
+            value: true,
+            type: SETTING_TYPE_BOOL, // bool
+            section: 'mycalendar',
+            public: true,
+            label: 'Show event timeline',
+            description: 'Day events section: Show a visual timeline bar under each event in the day list. Disabling this also stops related UI update timers (now dot / past status refresh).',
+        },
         // 5) Day events auto-refresh (minutes)
         [SETTING_DAY_EVENTS_REFRESH_MINUTES]: {
             value: 1,
@@ -137,6 +156,7 @@ export async function registerSettings(joplin: any) {
             label: 'Empty trash after alarm cleanup',
             description: 'ICS import section: If enabled, the plugin will empty the trash after deleting old alarms. WARNING: This deletes ALL items in the trash.',
         },
+
         // 8) ICS export links (up to 4)
         [SETTING_ICS_EXPORT_LINK1_TITLE]: {
             value: '',
@@ -262,32 +282,24 @@ export async function registerSettings(joplin: any) {
     setDebugEnabled(!!v);
 }
 
+// Common
+export async function getDebugEnabled(joplin: any): Promise<boolean> {
+    return !!(await joplin.settings.value(SETTING_DEBUG));
+}
+
+// Calendar
 export async function getWeekStart(joplin: any): Promise<WeekStart> {
     const raw = await joplin.settings.value(SETTING_WEEK_START);
     const v = String(raw ?? '').toLowerCase().trim();
     return (v === 'sunday' || v === 'monday') ? (v as WeekStart) : 'monday';
 }
 
-export async function getDebugEnabled(joplin: any): Promise<boolean> {
-    return !!(await joplin.settings.value(SETTING_DEBUG));
-}
-
-export async function getIcsExportLinks(joplin: any): Promise<IcsExportLink[]> {
-
-    const out: IcsExportLink[] = [];
-
-    for (const p of ICS_EXPORT_LINK_PAIRS) {
-        const rawTitle = await joplin.settings.value(p.titleKey);
-        const rawUrl = await joplin.settings.value(p.urlKey);
-
-        const title = sanitizeTitle(rawTitle);
-        const url = sanitizeExternalUrl(rawUrl);
-
-        if (!url) continue;
-        out.push({title, url});
-    }
-
-    return out;
+// Day events
+export async function getShowEventTimeline(joplin: any): Promise<boolean> {
+    const raw = await joplin.settings.value(SETTING_SHOW_EVENT_TIMELINE);
+    // Default should be true even if the setting is missing/undefined (older installs / migrations)
+    if (raw === null || raw === undefined) return true;
+    return Boolean(raw);
 }
 
 export async function getDayEventsRefreshMinutes(joplin: any): Promise<number> {
@@ -295,6 +307,11 @@ export async function getDayEventsRefreshMinutes(joplin: any): Promise<number> {
     const n = Number(raw);
     if (!Number.isFinite(n)) return 1;
     return Math.min(60, Math.max(1, Math.round(n)));
+}
+
+// ICS import
+export async function getIcsImportAlarmsEnabled(joplin: any): Promise<boolean> {
+    return !!(await joplin.settings.value(SETTING_ICS_IMPORT_ALARMS_ENABLED));
 }
 
 export async function getIcsImportAlarmRangeDays(joplin: any): Promise<number> {
@@ -315,6 +332,20 @@ export async function getIcsImportEmptyTrashAfter(joplin: any): Promise<boolean>
     return !!(await joplin.settings.value(SETTING_ICS_IMPORT_EMPTY_TRASH_AFTER));
 }
 
-export async function getIcsImportAlarmsEnabled(joplin: any): Promise<boolean> {
-    return !!(await joplin.settings.value(SETTING_ICS_IMPORT_ALARMS_ENABLED));
+export async function getIcsExportLinks(joplin: any): Promise<IcsExportLink[]> {
+
+    const out: IcsExportLink[] = [];
+
+    for (const p of ICS_EXPORT_LINK_PAIRS) {
+        const rawTitle = await joplin.settings.value(p.titleKey);
+        const rawUrl = await joplin.settings.value(p.urlKey);
+
+        const title = sanitizeTitle(rawTitle);
+        const url = sanitizeExternalUrl(rawUrl);
+
+        if (!url) continue;
+        out.push({title, url});
+    }
+
+    return out;
 }

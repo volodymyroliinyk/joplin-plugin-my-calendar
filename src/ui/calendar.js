@@ -6,6 +6,7 @@
         weekStart: undefined,
         debug: undefined,
         dayEventsRefreshMinutes: undefined,
+        showEventTimeline: true,
     };
 
     const uiSettings = window.__mcUiSettings;
@@ -261,6 +262,19 @@
                 }
             }
 
+            function applyDayTimelineVisibility() {
+                const ul = document.getElementById('mc-events-list');
+                if (!ul) return;
+
+                const hidden = uiSettings.showEventTimeline === false;
+                ul.classList.toggle('mc-hide-timeline', hidden);
+
+                // Ensure immediate behavior on settings toggle without requiring a full re-render.
+                if (hidden) {
+                    ul.querySelectorAll('.mc-event-timeline').forEach((el) => el.remove());
+                }
+            }
+            
             function markPastDayEvents() {
                 const ul = document.getElementById('mc-events-list');
                 if (!ul) return;
@@ -276,6 +290,12 @@
             function scheduleDayEventsRefresh() {
                 clearDayEventsRefreshTimer();
                 if (document.hidden) return;
+
+                // When event timeline is hidden, skip scheduling these UI update timers.
+                // They depend on dayEventsRefreshMinutes and are only useful when timeline markers are shown.
+                if (uiSettings.showEventTimeline === false) {
+                    return;
+                }
 
                 const ul = document.getElementById('mc-events-list');
                 if (!ul) return;
@@ -324,10 +344,13 @@
             }
 
             function updateDayNowTimelineDot() {
+                if (uiSettings.showEventTimeline === false) return;
+
                 const ul = document.getElementById('mc-events-list');
                 if (!ul) return;
 
                 const dayStartUtc = Number(ul.dataset.dayStartUtc || '');
+                applyDayTimelineVisibility();
                 if (!Number.isFinite(dayStartUtc)) return;
 
                 const now = Date.now();
@@ -348,6 +371,8 @@
             function scheduleDayNowTimelineTick() {
                 clearDayNowTimelineTimer();
                 if (document.hidden) return;
+
+                if (uiSettings.showEventTimeline === false) return;
 
                 const delay = Math.max(1000, getDayEventsRefreshMs());
 
@@ -500,6 +525,8 @@
                     [MSG.UI_SETTINGS]: () => {
                         const prevWeekStart = uiSettings.weekStart;
 
+                        const prevShowEventTimeline = uiSettings.showEventTimeline;
+
                         if (msg.weekStart === 'monday' || msg.weekStart === 'sunday') {
                             uiSettings.weekStart = msg.weekStart;
                         }
@@ -516,7 +543,21 @@
                             }
                         }
 
+                        if (typeof msg.showEventTimeline === 'boolean') {
+                            uiSettings.showEventTimeline = msg.showEventTimeline;
+                        }
+
+                        // Apply immediately (no re-render required)
+                        if (prevShowEventTimeline !== uiSettings.showEventTimeline) {
+                            applyDayTimelineVisibility();
+                        }
+
+                        // Recompute day-list UI markers and timers according to new settings
+                        clearDayEventsRefreshTimer();
+                        clearDayNowTimelineTimer();
                         markPastDayEvents();
+                        updateDayNowTimelineDot();
+                        scheduleDayNowTimelineTick();
                         scheduleDayEventsRefresh();
 
                         const weekStartChanged = prevWeekStart !== uiSettings.weekStart;
@@ -915,27 +956,29 @@
                     li.appendChild(t);
 
                     // 24h timeline under the event (segment = event slice, dot = current time in day)
-                    const timeline = document.createElement('div');
-                    timeline.className = 'mc-event-timeline';
+                    if (uiSettings.showEventTimeline !== false) {
+                        const timeline = document.createElement('div');
+                        timeline.className = 'mc-event-timeline';
 
-                    const seg = document.createElement('div');
-                    seg.className = 'mc-event-timeline-seg';
-                    seg.style.background = ev.color || 'var(--mc-default-event-color)';
+                        const seg = document.createElement('div');
+                        seg.className = 'mc-event-timeline-seg';
+                        seg.style.background = ev.color || 'var(--mc-default-event-color)';
 
-                    const startPct = clampPct(((slice.startUtc - dayStartUtc) / DAY) * 100);
-                    const endPct = clampPct(((slice.endUtc - dayStartUtc) / DAY) * 100);
-                    const left = Math.min(startPct, endPct);
-                    const right = Math.max(startPct, endPct);
+                        const startPct = clampPct(((slice.startUtc - dayStartUtc) / DAY) * 100);
+                        const endPct = clampPct(((slice.endUtc - dayStartUtc) / DAY) * 100);
+                        const left = Math.min(startPct, endPct);
+                        const right = Math.max(startPct, endPct);
 
-                    seg.style.left = left + '%';
-                    seg.style.width = Math.max(0, (right - left)) + '%';
+                        seg.style.left = left + '%';
+                        seg.style.width = Math.max(0, (right - left)) + '%';
 
-                    const nowDot = document.createElement('div');
-                    nowDot.className = 'mc-event-timeline-now';
+                        const nowDot = document.createElement('div');
+                        nowDot.className = 'mc-event-timeline-now';
 
-                    timeline.appendChild(seg);
-                    timeline.appendChild(nowDot);
-                    li.appendChild(timeline);
+                        timeline.appendChild(seg);
+                        timeline.appendChild(nowDot);
+                        li.appendChild(timeline);
+                    }
 
                     li.addEventListener('click', () => {
                         window.webviewApi?.postMessage?.({name: 'openNote', id: ev.id});

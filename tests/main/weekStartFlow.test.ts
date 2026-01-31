@@ -28,6 +28,7 @@ jest.mock('../../src/main/settings/settings', () => ({
     getWeekStart: jest.fn(),
     getDebugEnabled: jest.fn().mockResolvedValue(false),
     getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(1),
+    getShowEventTimeline: jest.fn().mockResolvedValue(true),
 }));
 
 import {createCalendarPanel} from '../../src/main/views/calendarView';

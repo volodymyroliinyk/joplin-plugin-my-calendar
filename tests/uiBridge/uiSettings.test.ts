@@ -9,6 +9,7 @@ type SettingsMock = {
     getWeekStart: jest.Mock<any, any>;
     getDebugEnabled: jest.Mock<any, any>;
     getDayEventsRefreshMinutes: jest.Mock<any, any>;
+    getShowEventTimeline: jest.Mock<any, any>;
     // can be function or any other value to test compat branch
     getIcsExportLinks?: any;
 };
@@ -29,6 +30,7 @@ const loadModuleWithMocks = async (
         getWeekStart: settingsMock.getWeekStart,
         getDebugEnabled: settingsMock.getDebugEnabled,
         getDayEventsRefreshMinutes: settingsMock.getDayEventsRefreshMinutes,
+        getShowEventTimeline: settingsMock.getShowEventTimeline,
         ...(settingsMock.getIcsExportLinks ? {getIcsExportLinks: settingsMock.getIcsExportLinks} : {}),
     };
     // Important: include getIcsExportLinks even if it is NOT a function
@@ -56,6 +58,7 @@ describe('uiSettings.buildUiSettingsMessage', () => {
             getWeekStart: jest.fn().mockResolvedValue('monday'),
             getDebugEnabled: jest.fn().mockResolvedValue(true),
             getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(getDayEventsRefreshMinutes_DEFAULT),
+            getShowEventTimeline: jest.fn().mockResolvedValue(true),
         };
         const loggerMock: LoggerMock = {
             setDebugEnabled: jest.fn(),
@@ -74,14 +77,37 @@ describe('uiSettings.buildUiSettingsMessage', () => {
             debug: true,
             icsExportLinks: [],
             dayEventsRefreshMinutes: getDayEventsRefreshMinutes_DEFAULT,
+            showEventTimeline: true,
         });
     });
 
-    test('propagates settings errors (getWeekStart) and does not change logger', async () => {
+    test('supports showEventTimeline=false', async () => {
+        const settingsMock: SettingsMock = {
+            getWeekStart: jest.fn().mockResolvedValue('monday'),
+            getDebugEnabled: jest.fn().mockResolvedValue(false),
+            getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(getDayEventsRefreshMinutes_DEFAULT),
+            getShowEventTimeline: jest.fn().mockResolvedValue(false),
+        };
+        const loggerMock: LoggerMock = {
+            setDebugEnabled: jest.fn(),
+        };
+
+        const mod = await loadModuleWithMocks(settingsMock, loggerMock);
+
+        const msg = await mod.buildUiSettingsMessage({});
+
+        expect(msg).toEqual(expect.objectContaining({
+            name: 'uiSettings',
+            showEventTimeline: false,
+        }));
+    });
+
+    test('propaga settings errors (getWeekStart) and does not change logger', async () => {
         const settingsMock: SettingsMock = {
             getWeekStart: jest.fn().mockRejectedValue(new Error('weekStart failed')),
             getDebugEnabled: jest.fn().mockResolvedValue(true),
             getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(getDayEventsRefreshMinutes_DEFAULT),
+            getShowEventTimeline: jest.fn().mockResolvedValue(true),
         };
         const loggerMock: LoggerMock = {
             setDebugEnabled: jest.fn(),
@@ -104,6 +130,7 @@ describe('uiSettings.pushUiSettings', () => {
             getWeekStart: jest.fn().mockResolvedValue('monday'),
             getDebugEnabled: jest.fn().mockResolvedValue(true),
             getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(getDayEventsRefreshMinutes_DEFAULT),
+            getShowEventTimeline: jest.fn().mockResolvedValue(true),
         };
         const loggerMock: LoggerMock = {
             setDebugEnabled: jest.fn(),
@@ -122,6 +149,8 @@ describe('uiSettings.pushUiSettings', () => {
         expect(settingsMock.getDebugEnabled).toHaveBeenCalledWith(joplin);
         expect(settingsMock.getDayEventsRefreshMinutes).toHaveBeenCalledTimes(1);
         expect(settingsMock.getDayEventsRefreshMinutes).toHaveBeenCalledWith(joplin);
+        expect(settingsMock.getShowEventTimeline).toHaveBeenCalledTimes(1);
+        expect(settingsMock.getShowEventTimeline).toHaveBeenCalledWith(joplin);
 
 
         expect(loggerMock.setDebugEnabled).toHaveBeenCalledWith(true);
@@ -133,6 +162,7 @@ describe('uiSettings.pushUiSettings', () => {
             debug: true,
             icsExportLinks: [],
             dayEventsRefreshMinutes: getDayEventsRefreshMinutes_DEFAULT,
+            showEventTimeline: true,
         });
     });
 
@@ -144,6 +174,7 @@ describe('uiSettings.pushUiSettings', () => {
                 .fn()
                 .mockResolvedValue([{title: 'Work', url: 'https://example.test/work.ics'}]),
             getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(getDayEventsRefreshMinutes_DEFAULT),
+            getShowEventTimeline: jest.fn().mockResolvedValue(true),
         };
         const loggerMock: LoggerMock = {
             setDebugEnabled: jest.fn(),
@@ -164,6 +195,7 @@ describe('uiSettings.pushUiSettings', () => {
             debug: false,
             icsExportLinks: [{title: 'Work', url: 'https://example.test/work.ics'}],
             dayEventsRefreshMinutes: getDayEventsRefreshMinutes_DEFAULT,
+            showEventTimeline: true,
         });
 
         expect(settingsMock.getIcsExportLinks).toHaveBeenCalledTimes(1);
@@ -177,6 +209,7 @@ describe('uiSettings.pushUiSettings', () => {
             getDebugEnabled: jest.fn().mockResolvedValue(true),
             getIcsExportLinks: 123, // non-function
             getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(getDayEventsRefreshMinutes_DEFAULT),
+            getShowEventTimeline: jest.fn().mockResolvedValue(true),
         };
         const loggerMock: LoggerMock = {
             setDebugEnabled: jest.fn(),
@@ -197,6 +230,7 @@ describe('uiSettings.pushUiSettings', () => {
             getWeekStart: jest.fn().mockResolvedValue('monday'),
             getDebugEnabled: jest.fn().mockResolvedValue(0), // falsy
             getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(getDayEventsRefreshMinutes_DEFAULT),
+            getShowEventTimeline: jest.fn().mockResolvedValue(true),
         };
         const loggerMock: LoggerMock = {
             setDebugEnabled: jest.fn(),
@@ -222,6 +256,7 @@ describe('uiSettings.pushUiSettings', () => {
             getWeekStart: jest.fn().mockResolvedValue('monday'),
             getDebugEnabled: jest.fn().mockResolvedValue(true),
             getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(getDayEventsRefreshMinutes_DEFAULT),
+            getShowEventTimeline: jest.fn().mockResolvedValue(true),
         };
         const loggerMock: LoggerMock = {
             setDebugEnabled: jest.fn(),
@@ -242,6 +277,7 @@ describe('uiSettings.pushUiSettings', () => {
             getWeekStart: jest.fn().mockResolvedValue('monday'),
             getDebugEnabled: jest.fn().mockResolvedValue(true),
             getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(getDayEventsRefreshMinutes_DEFAULT),
+            getShowEventTimeline: jest.fn().mockResolvedValue(true),
         };
         const loggerMock: LoggerMock = {
             setDebugEnabled: jest.fn(),
@@ -260,6 +296,7 @@ describe('uiSettings.pushUiSettings', () => {
             getWeekStart: jest.fn().mockResolvedValue('monday'),
             getDebugEnabled: jest.fn().mockResolvedValue(true),
             getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(getDayEventsRefreshMinutes_DEFAULT),
+            getShowEventTimeline: jest.fn().mockResolvedValue(true),
         };
         const loggerMock: LoggerMock = {
             setDebugEnabled: jest.fn(),
@@ -280,6 +317,7 @@ describe('uiSettings.pushUiSettings', () => {
             getDebugEnabled: jest.fn().mockResolvedValue(true),
             getIcsExportLinks: jest.fn().mockRejectedValue(new Error('ics links failed')),
             getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(getDayEventsRefreshMinutes_DEFAULT),
+            getShowEventTimeline: jest.fn().mockResolvedValue(true),
         };
         const loggerMock: LoggerMock = {
             setDebugEnabled: jest.fn(),
