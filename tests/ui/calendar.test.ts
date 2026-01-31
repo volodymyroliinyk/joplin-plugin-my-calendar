@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 
 // tests/ui/calendar.test.ts
+//
 // src/ui/calendar.js
 //
 // npx jest tests/ui/calendar.test.ts --runInBand --no-cache;
@@ -39,7 +40,11 @@ function installWebviewApi() {
 
 function loadCalendarJsFresh() {
     jest.resetModules();
-    // important: require after setup Dom+install Webview Api
+    // Reset UI settings persisted on window between tests
+    delete (window as any).__mcUiSettings;
+    // (optional) if you store something else globally:
+    // delete (window as any).__mcTest;
+    (window as any).__mcTestMode = true;
     require('../../src/ui/calendar.js');
 }
 
@@ -260,6 +265,21 @@ describe('src/ui/calendar.js', () => {
 
         const items = document.querySelectorAll('#mc-events-list .mc-event');
         expect(items.length).toBe(1);
+    });
+
+    test('uiSettings: toggles debug UI visibility (mc-log)', () => {
+        const {getOnMessageCb} = installWebviewApi();
+        loadCalendarJsFresh();
+        const logBox = document.getElementById('mc-log') as HTMLElement;
+        expect(logBox).toBeTruthy();
+
+        // debug off
+        sendPluginMessage(getOnMessageCb, {name: 'uiSettings', debug: false});
+        expect(logBox.style.display).toBe('none');
+
+        // debug on
+        sendPluginMessage(getOnMessageCb, {name: 'uiSettings', debug: true});
+        expect(logBox.style.display).toBe('');
     });
 
     test('importDone/importError: clears gridEvents and triggers refresh (new requestRangeEvents)', () => {
@@ -537,7 +557,71 @@ describe('src/ui/calendar.js', () => {
 
         expect(errorSpy).toHaveBeenCalledWith('handler error', expect.any(Error));
     });
-});
 
-// tests/ui/calendar.test.ts
-// src/ui/calendar.js
+    test('uiSettings: accepts dayEventsRefreshMinutes as string and schedules local refresh (mc-event-past)', () => {
+        jest.useFakeTimers();
+        const {getOnMessageCb} = installWebviewApi();
+
+        // IMPORTANT: calendar.js computes selectedDayUtc at require-time using new Date()
+        // so we must set system time BEFORE loadCalendarJsFresh().
+        const dayStart = new Date(2025, 0, 15, 0, 0, 0, 0).getTime(); // local midnight
+        const now = dayStart + 10_000; // 00:00:10 local
+        jest.setSystemTime(new Date(now));
+
+        loadCalendarJsFresh();
+
+        // Refresh fallback = 1 min (as string); but the event ends earlier, so the timer will go to end-now (+1000)
+        sendPluginMessage(getOnMessageCb, {name: 'uiSettings', dayEventsRefreshMinutes: "1"});
+
+        // Event ends in 3 seconds from "now"
+        const endUtc = now + 3_000;
+        sendPluginMessage(getOnMessageCb, {
+            name: 'rangeEvents',
+            events: [
+                {id: '1', title: 'Soon ends', startUtc: now - 5_000, endUtc, tz: 'UTC', color: '#000'}
+            ],
+        });
+
+        // Before refresh: the event is not past
+        const liBefore = document.querySelector('.mc-event') as HTMLElement;
+        expect(liBefore).toBeTruthy();
+        expect(liBefore.classList.contains('mc-event-past')).toBe(false);
+
+        // Scroll the time so that scheduleDayEventsRefresh() works: (end-now)+1000 ≈ 4000
+        jest.advanceTimersByTime(5_000);
+
+        const liAfter = document.querySelector('.mc-event') as HTMLElement;
+        expect(liAfter.classList.contains('mc-event-past')).toBe(true);
+
+        (Date.now as any).mockRestore?.();
+    });
+
+    test('updateDayNowTimelineDot: positions now dot within day and hides outside day', () => {
+        loadCalendarJsFresh();
+        const hooks = (window as any).__mcTest;
+        expect(hooks).toBeTruthy();
+
+        const ul = document.getElementById('mc-events-list') as HTMLElement;
+        const dayStartUtc = Date.UTC(2025, 0, 15, 0, 0, 0, 0);
+        ul.dataset.dayStartUtc = String(dayStartUtc);
+
+        // Add one dot
+        const dot = document.createElement('div');
+        dot.className = 'mc-event-timeline-now';
+        ul.appendChild(dot);
+
+        // now in middle of day
+        jest.spyOn(Date, 'now').mockImplementation(() => dayStartUtc + (12 * 60 * 60 * 1000));
+        hooks.updateDayNowTimelineDot();
+        expect((dot as HTMLElement).style.display).toBe('');
+        expect((dot as HTMLElement).style.left).toBe('50%');
+
+        // now outside day
+        (Date.now as any).mockImplementation(() => dayStartUtc - 1000);
+        hooks.updateDayNowTimelineDot();
+        expect((dot as HTMLElement).style.display).toBe('none');
+
+        (Date.now as any).mockRestore?.();
+    });
+
+});

@@ -13,6 +13,83 @@ import {buildMyCalBlock} from './noteBuilder';
 import {Joplin} from '../types/joplin.interface';
 import {createNote, getAllNotesPaged, updateNote} from './joplinNoteService';
 
+type ExistingEventNote = { id: string; title: string; body: string; parent_id?: string };
+type ExistingEventNoteMap = Record<string, ExistingEventNote>;
+type ImportedEventNote = { id: string; parent_id?: string; title: string };
+type ImportedEventNotes = Record<string, ImportedEventNote>;
+type ExistingAlarmsMap = Record<string, ExistingAlarm[]>;
+type NoteIdToKeysMap = Record<string, string[]>;
+
+type ImportIcsResult = {
+    added: number;
+    updated: number;
+    skipped: number;
+    errors: number;
+    alarmsCreated: number;
+    alarmsDeleted: number;
+    alarmsUpdated: number;
+};
+
+function safeStatus(onStatus?: (text: string) => Promise<void>) {
+    return async (t: string) => {
+        try {
+            if (onStatus) await onStatus(t);
+        } catch { /* ignore */
+        }
+    };
+}
+
+function indexExistingNotes(allNotes: any[]): {
+    existingByKey: ExistingEventNoteMap;
+    existingAlarms: ExistingAlarmsMap;
+    noteIdToKeys: NoteIdToKeysMap;
+} {
+    const existingByKey: ExistingEventNoteMap = {};
+    const existingAlarms: ExistingAlarmsMap = {};
+    const noteIdToKeys: NoteIdToKeysMap = {};
+
+    for (const n of allNotes) {
+        if (typeof n.body !== 'string' || !n.body) continue;
+
+        if (n.body.includes('```mycalendar-event')) {
+            const keys = extractAllEventKeysFromBody(n.body);
+            if (keys.length) {
+                noteIdToKeys[n.id] = (noteIdToKeys[n.id] ?? []).concat(keys);
+            }
+            for (const k of keys) {
+                existingByKey[k] = {id: n.id, title: n.title || '', body: n.body, parent_id: n.parent_id};
+            }
+        }
+
+        if (n.body.includes('```mycalendar-alarm')) {
+            const metas = extractAllAlarmKeysFromBody(n.body);
+            for (const meta of metas) {
+                (existingAlarms[meta.key] ??= []).push({id: n.id, todo_due: n.todo_due || 0, body: n.body});
+            }
+        }
+    }
+
+    return {existingByKey, existingAlarms, noteIdToKeys};
+}
+
+function applyImportColors(
+    ev: any,
+    existing: ExistingEventNoteMap,
+    preserveLocalColor: boolean,
+    importDefaultColor?: string,
+) {
+    const uid = (ev.uid || '').trim();
+    const rid = (ev.recurrence_id || '').trim();
+    const key = makeEventKey(uid, rid);
+
+    if (preserveLocalColor && existing[key] && !ev.color) {
+        const existingColor = extractEventColorFromBody(existing[key].body, uid, rid);
+        if (existingColor) ev.color = existingColor;
+    }
+    if (!ev.color && importDefaultColor) ev.color = importDefaultColor;
+    return key;
+}
+
 export async function importIcsIntoNotes(
     joplin: Joplin,
     ics: string,
@@ -21,53 +98,20 @@ export async function importIcsIntoNotes(
     preserveLocalColor: boolean = true,
     importDefaultColor?: string,
     importAlarmRangeDays?: number,
-): Promise<{
-    added: number;
-    updated: number;
-    skipped: number;
-    errors: number;
-    alarmsCreated: number;
-    alarmsDeleted: number;
-    alarmsUpdated: number;
-}> {
-    const say = async (t: string) => {
-        try {
-            if (onStatus) await onStatus(t);
-        } catch { /* ignore */
-        }
-    };
+): Promise<ImportIcsResult> {
+    const say = safeStatus(onStatus);
 
-    const events = parseImportText(ics);
-    await say(`[icsImportService] Parsed ${events.length} VEVENT(s)`);
-
-    const existing: Record<string, { id: string; title: string; body: string; parent_id?: string }> = {};
-    const existingAlarms: Record<string, ExistingAlarm[]> = {};
+    const eventsRaw = parseImportText(ics);
+    const events = eventsRaw.map(e => ({...e})); // avoid mutating parser output
+    await say(`Parsed ${events.length} VEVENT(s)`);
 
     // Request todo_due to optimize alarm syncing
     const allNotes = await getAllNotesPaged(joplin, ['id', 'title', 'body', 'parent_id', 'todo_due']);
 
-    for (const n of allNotes) {
-        if (typeof n.body !== 'string' || !n.body) continue;
-        if (n.body.includes('```mycalendar-event')) {
-            const keys = extractAllEventKeysFromBody(n.body);
-            for (const k of keys) {
-                existing[k] = {id: n.id, title: n.title || '', body: n.body, parent_id: n.parent_id};
-            }
-        }
-        if (n.body.includes('```mycalendar-alarm')) {
-            const metas = extractAllAlarmKeysFromBody(n.body);
-            for (const meta of metas) {
-                (existingAlarms[meta.key] ??= []).push({
-                    id: n.id,
-                    todo_due: n.todo_due || 0,
-                    body: n.body
-                });
-            }
-        }
-    }
+    const {existingByKey: existing, existingAlarms, noteIdToKeys} = indexExistingNotes(allNotes);
 
     let added = 0, updated = 0, skipped = 0, errors = 0;
-    const importedEventNotes: Record<string, { id: string; parent_id?: string; title: string }> = {};
+    const importedEventNotes: ImportedEventNotes = {};
 
     for (const ev of events) {
         const uid = (ev.uid || '').trim();
@@ -77,13 +121,7 @@ export async function importIcsIntoNotes(
         }
 
         const rid = (ev.recurrence_id || '').trim();
-        const key = makeEventKey(uid, rid);
-
-        if (preserveLocalColor && existing[key] && !ev.color) {
-            const existingColor = extractEventColorFromBody(existing[key].body, uid, rid);
-            if (existingColor) ev.color = existingColor;
-        }
-        if (!ev.color && importDefaultColor) ev.color = importDefaultColor;
+        const key = applyImportColors(ev, existing, preserveLocalColor, importDefaultColor);
 
         const block = buildMyCalBlock(ev);
         const desiredTitle = ev.title || 'Event';
@@ -126,11 +164,10 @@ export async function importIcsIntoNotes(
                     skipped++;
                 }
 
-                // IMPORTANT: update the cache for ANY event that points to this same note
-                for (const k in existing) {
-                    if (existing[k].id === id) {
-                        existing[k].body = existing[key].body;
-                    }
+                // IMPORTANT: update cache for all keys in the same note (O(keysInNote) instead of O(allKeys))
+                const keysInSameNote = noteIdToKeys[id] ?? [];
+                for (const k of keysInSameNote) {
+                    if (existing[k]) existing[k].body = existing[key].body;
                 }
 
                 importedEventNotes[key] = {id, parent_id: (targetFolderId || parent_id), title: desiredTitle};

@@ -40,7 +40,6 @@ joplin-plugin-my-calendar/
 │   │   │   └── joplin.interface.ts
 │   │   ├── uiBridge/
 │   │   │   ├── panelController.ts
-│   │   │   ├── panelMessages.ts
 │   │   │   └── uiSettings.ts
 │   │   ├── utils/
 │   │   │   ├── dateTimeUtils.ts
@@ -55,14 +54,13 @@ joplin-plugin-my-calendar/
 │   │   ├── global-joplin.d.ts
 │   │   └── joplin-api.d.ts
 │   ├── ui/
-│   │   ├── calendar.css
 │   │   ├── calendar.js
-│   │   └── icsImport.js
+│   │   ├── icsImport.js
+│   │   └── mycalendar.css
 │   └── index.ts
 ├── tests/
 │   ├── main/
 │   │   ├── pluginMain.test.ts
-│   │   ├── pluginMainHelpers.test.ts
 │   │   └── weekStartFlow.test.ts
 │   ├── parsers/
 │   │   ├── eventParser.test.ts
@@ -73,10 +71,12 @@ joplin-plugin-my-calendar/
 │   │   ├── folderService.test.ts
 │   │   ├── icsImportService.test.ts
 │   │   ├── joplinNoteService.test.ts
-│   │   └── noteBuilder.test.ts
+│   │   ├── noteBuilder.test.ts
+│   │   └── occurrenceService.test.ts
 │   ├── settings/
 │   │   └── settings.test.ts
 │   ├── ui/
+│   │   ├── calendar.backendReady.test.ts
 │   │   ├── calendar.messages.test.ts
 │   │   ├── calendar.test.ts
 │   │   ├── calendar.weekStart.test.ts
@@ -86,16 +86,17 @@ joplin-plugin-my-calendar/
 │   │   └── uiSettings.test.ts
 │   ├── utils/
 │   │   ├── dateTimeUtils.test.ts
+│   │   ├── dateUtils.test.ts
+│   │   ├── joplinUtils.test.ts
 │   │   ├── logger.test.ts
 │   │   └── toast.test.ts
 │   ├── views/
 │       └── calendarView.test.ts
-├── -_changelog_-_husky_-_sh_-_tests_-_fixes_-_doc.patch
 ├── CHANGELOG.md
 ├── LICENSE
 ├── README.md
 ├── WORKFLOW.md
-├── antigravity
+├── directory-tree-codereview.txt
 ├── directory-tree.txt
 ├── eslint.config.js
 ├── jest.config.js

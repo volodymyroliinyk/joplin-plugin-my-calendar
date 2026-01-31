@@ -185,60 +185,53 @@ export function parseEventsFromBody(noteId: string, titleFallback: string, body:
     const out: EventInput[] = [];
     let m: RegExpExecArray | null;
 
+    // Defensive: avoid leaking RegExp.lastIndex across calls (EVENT_BLOCK_RE is /g)
+    EVENT_BLOCK_RE.lastIndex = 0;
+
     while ((m = EVENT_BLOCK_RE.exec(body)) !== null) {
         // IMPORTANT: reset per block (do not leak across blocks)
-        let allDay: boolean | undefined;
 
         const block = m[1];
         const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
 
-        // Ordinary Parsing
-        let title = titleFallback;
-        let description: string | undefined;
-        let location: string | undefined;
-        let color: string | undefined;
-        let startText: string | undefined;
-        let endText: string | undefined;
-        let tz: string | undefined;
+        type ParsedBlockFields = {
+            title?: string;
+            description?: string;
+            location?: string;
+            color?: string;
+            start?: string;
+            end?: string;
+            tz?: string;
+            repeat?: string;
+            repeat_interval?: string;
+            repeat_until?: string;
+            byweekday?: string;
+            bymonthday?: string;
+            all_day?: string;
+        };
 
-        let repeat: RepeatFreq = 'none';
-        let repeatInterval = 1;
-        let repeatUntilUtc: number | undefined;
-        let byWeekdays: number[] | undefined;
-        let byMonthDay: number | undefined;
-
+        const fields: ParsedBlockFields = {};
         for (const line of lines) {
             const kv = parseKeyVal(line);
             if (!kv) continue;
-
             const [k, v] = kv;
-
-            if (k === 'title') title = v.trim() || titleFallback;
-            else if (k === 'description') description = v;
-            else if (k === 'location') location = v;
-            else if (k === 'color') color = v;
-            else if (k === 'start') startText = v;
-            else if (k === 'end') endText = v;
-            else if (k === 'tz') tz = v.trim();
-            else if (k === 'repeat') {
-                const rf = parseRepeatFreq(v);
-                if (rf) repeat = rf;
-            } else if (k === 'repeat_interval') {
-                const n = parseIntSafe(v);
-                if (n) repeatInterval = n;
-            } else if (k === 'repeat_until') {
-                const u = parseDateTimeToUTC(v, tz);
-                if (u != null) repeatUntilUtc = u;
-            } else if (k === 'byweekday') {
-                byWeekdays = parseByWeekdays(v);
-            } else if (k === 'bymonthday') {
-                const n = parseByMonthDay(v);
-                if (n) byMonthDay = n;
-            } else if (k === 'all_day') {
-                const b = parseAllDayBool(v);
-                if (b !== undefined) allDay = b;
-            }
+            // store raw string values; interpret later (order-independent)
+            (fields as any)[k] = v;
         }
+
+        const title = (fields.title?.trim() ? fields.title.trim() : titleFallback);
+        const description = fields.description;
+        const location = fields.location;
+        const color = fields.color;
+        const startText = fields.start;
+        const endText = fields.end;
+        const tz = fields.tz?.trim();
+
+        const repeat = parseRepeatFreq(fields.repeat ?? '') ?? 'none';
+        const repeatInterval = parseIntSafe(fields.repeat_interval) ?? 1;
+        const byWeekdays = fields.byweekday ? parseByWeekdays(fields.byweekday) : undefined;
+        const byMonthDay = fields.bymonthday ? parseByMonthDay(fields.bymonthday) : undefined;
+        const allDay = fields.all_day ? parseAllDayBool(fields.all_day) : undefined;
 
         if (!startText) continue;
 
@@ -249,6 +242,13 @@ export function parseEventsFromBody(noteId: string, titleFallback: string, body:
         if (endText) {
             const e = parseDateTimeToUTC(endText, tz);
             if (e != null) endUtc = e;
+        }
+
+        // repeat_until parsed AFTER tz is known (order-independent)
+        let repeatUntilUtc: number | undefined;
+        if (fields.repeat_until) {
+            const u = parseDateTimeToUTC(fields.repeat_until, tz);
+            if (u != null) repeatUntilUtc = u;
         }
 
         if (allDay) {

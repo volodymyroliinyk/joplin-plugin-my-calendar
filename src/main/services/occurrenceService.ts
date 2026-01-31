@@ -1,7 +1,7 @@
 // src/main/services/occurrenceService.ts
 
 import {IcsEvent} from '../types/icsTypes';
-import {addDays, addMonths, addYears, parseMyCalDateToDate, weekdayToJs} from '../utils/dateTimeUtils';
+import {parseMyCalDateToDate, weekdayToJs} from '../utils/dateTimeUtils';
 
 export type Occurrence = { start: Date; end: Date; recurrence_id?: string };
 
@@ -10,6 +10,27 @@ export function expandOccurrences(ev: IcsEvent, windowStart: Date, windowEnd: Da
     if (!start) return [];
     const end = parseMyCalDateToDate(ev.end) ?? new Date(start.getTime());
     const durMs = end.getTime() - start.getTime();
+
+
+    // --- UTC helpers (avoid DST/local timezone shifts) ---
+    const addDaysUtc = (d: Date, days: number): Date => {
+        const out = new Date(d.getTime());
+        out.setUTCDate(out.getUTCDate() + days);
+        return out;
+    };
+    const addMonthsUtc = (d: Date, months: number): Date => {
+        const out = new Date(d.getTime());
+        out.setUTCMonth(out.getUTCMonth() + months);
+        return out;
+    };
+    // const addYearsUtc = (d: Date, years: number): Date => {
+    //     const out = new Date(d.getTime());
+    //     out.setUTCFullYear(out.getUTCFullYear() + years);
+    //     return out;
+    // };
+    const setTimeOfDayUtc = (d: Date, base: Date): void => {
+        d.setUTCHours(base.getUTCHours(), base.getUTCMinutes(), base.getUTCSeconds(), 0);
+    };
 
     const until = parseMyCalDateToDate(ev.repeat_until);
     const hardEnd = until && until.getTime() < windowEnd.getTime() ? until : windowEnd;
@@ -35,14 +56,14 @@ export function expandOccurrences(ev: IcsEvent, windowStart: Date, windowEnd: Da
         let cur = new Date(start.getTime());
         while (cur.getTime() <= hardEnd.getTime()) {
             pushIfInRange(cur);
-            cur = addDays(cur, interval);
+            cur = addDaysUtc(cur, interval);
         }
-        return occs;
+        return sortAndDedupe(occs);
     }
 
     if (ev.repeat === 'weekly') {
         const days = (ev.byweekday ? ev.byweekday.split(',') : []).map(d => d.trim()).filter(Boolean);
-        const jsDays = (days.length ? days : [['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][start.getDay()]])
+        const jsDays = (days.length ? days : [['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][start.getUTCDay()]])
             .map(weekdayToJs)
             .filter((n): n is number => n !== null)
             .sort((a, b) => a - b);
@@ -51,43 +72,80 @@ export function expandOccurrences(ev: IcsEvent, windowStart: Date, windowEnd: Da
         while (weekAnchor.getTime() <= hardEnd.getTime()) {
             for (const wd of jsDays) {
                 const s = new Date(weekAnchor.getTime());
-                const delta = wd - s.getDay();
-                s.setDate(s.getDate() + delta);
-                s.setHours(start.getHours(), start.getMinutes(), start.getSeconds(), 0);
-                if (s.getTime() < weekAnchor.getTime()) s.setDate(s.getDate() + 7);
+                const delta = wd - s.getUTCDay();
+                s.setUTCDate(s.getUTCDate() + delta);
+                setTimeOfDayUtc(s, start);
+                if (s.getTime() < weekAnchor.getTime()) s.setUTCDate(s.getUTCDate() + 7);
+
                 if (s.getTime() < start.getTime()) continue;
                 pushIfInRange(s);
             }
-            weekAnchor = addDays(weekAnchor, 7 * interval);
+            weekAnchor = addDaysUtc(weekAnchor, 7 * interval);
         }
-        return occs;
+        return sortAndDedupe(occs);
     }
 
     if (ev.repeat === 'monthly') {
-        let cur = new Date(start.getTime());
-        const day = ev.bymonthday ? parseInt(ev.bymonthday, 10) : start.getDate();
-        while (cur.getTime() <= hardEnd.getTime()) {
-            const s = new Date(cur.getTime());
-            s.setDate(day);
-            s.setHours(start.getHours(), start.getMinutes(), start.getSeconds(), 0);
-            if (s.getTime() < start.getTime()) {
-                cur = addMonths(cur, interval);
-                continue;
+        const day = ev.bymonthday ? parseInt(ev.bymonthday, 10) : start.getUTCDate();
+        // Anchor on the 1st of the month to avoid "rolling" when adding months
+        let anchor = new Date(start.getTime());
+        anchor.setUTCDate(1);
+        while (anchor.getTime() <= hardEnd.getTime()) {
+            const targetMonth = anchor.getUTCMonth();
+            const s = new Date(anchor.getTime());
+            s.setUTCDate(day);
+            setTimeOfDayUtc(s, start);
+            // If day does not exist in this month, JS will "roll" the date to another month.
+            // According to the expected behavior of the RRULE, such instances should be skipped.
+            if (s.getUTCMonth() === targetMonth) {
+                if (s.getTime() >= start.getTime()) pushIfInRange(s);
             }
-            pushIfInRange(s);
-            cur = addMonths(cur, interval);
+            anchor = addMonthsUtc(anchor, interval);
+            anchor.setUTCDate(1);
         }
-        return occs;
+        return sortAndDedupe(occs);
     }
 
     if (ev.repeat === 'yearly') {
-        let cur = new Date(start.getTime());
-        while (cur.getTime() <= hardEnd.getTime()) {
-            pushIfInRange(cur);
-            cur = addYears(cur, interval);
+        const baseMonth = start.getUTCMonth();
+        const baseDay = start.getUTCDate();
+        const h = start.getUTCHours();
+        const m = start.getUTCMinutes();
+        const sec = start.getUTCSeconds();
+
+        let year = start.getFullYear();
+        while (true) {
+            const s = new Date(start.getTime());
+            s.setFullYear(year);
+            s.setUTCHours(h, m, sec, 0);
+
+            // February 29 will "roll over" in a non-leap year - we skip such instances
+            if (s.getUTCMonth() === baseMonth && s.getUTCDate() === baseDay) {
+                if (s.getTime() > hardEnd.getTime()) break;
+                pushIfInRange(s);
+            } else {
+                // even if the date is invalid, a hardEnd stop is still required
+                // we make a conservative check: if we have already "jumped" far ahead
+                if (s.getTime() > hardEnd.getTime() && year !== start.getFullYear()) break;
+            }
+
+            year += interval;
         }
-        return occs;
+        return sortAndDedupe(occs);
     }
 
-    return occs;
+    return sortAndDedupe(occs);
+}
+
+function sortAndDedupe(list: Occurrence[]): Occurrence[] {
+    const sorted = [...list].sort((a, b) => a.start.getTime() - b.start.getTime());
+    const out: Occurrence[] = [];
+    let prev: number | null = null;
+    for (const o of sorted) {
+        const t = o.start.getTime();
+        if (prev === t) continue;
+        out.push(o);
+        prev = t;
+    }
+    return out;
 }

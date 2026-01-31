@@ -1,6 +1,7 @@
 /** @jest-environment jsdom */
 
 // tests/ui/calendar.messages.test.ts
+//
 // src/ui/calendar.js
 //
 // npx jest tests/ui/calendar.messages.test.ts --runInBand --no-cache;

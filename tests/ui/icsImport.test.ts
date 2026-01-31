@@ -1,11 +1,11 @@
 /** @jest-environment jsdom */
 
 // tests/ui/icsImport.test.ts
+//
 // src/ui/icsImport.js
 //
 // npx jest tests/ui/icsImport.test.ts --runInBand --no-cache;
 //
-// npx jest --clearCache;rm -rf node_modules/.cache/jest;npx jest tests/ui/icsImport.test.ts --runInBand --no-cache;
 
 export {};
 
@@ -657,6 +657,23 @@ describe('src/ui/icsImport.js', () => {
         // Now finish FileReader
         if (typeof fr.onload === 'function') fr.onload();
         expect(postMessage.mock.calls.filter(c => c[0]?.name === 'icsImport').length).toBe(1);
+
+        // After onload (icsImport sent), UI must still be locked until importDone/importError
+        const folderSel = qs('#mc-target-folder') as HTMLSelectElement;
+        expect(importBtn.disabled).toBe(true);
+        expect(fileInput.disabled).toBe(true);
+        expect(folderSel.disabled).toBe(true);
+
+        // Another click before importDone should do nothing
+        importBtn.click();
+        expect(fr.readAsText).toHaveBeenCalledTimes(1);
+        expect(postMessage.mock.calls.filter(c => c[0]?.name === 'icsImport').length).toBe(1);
+
+        // Now backend finishes -> UI unlocks
+        sendPluginMessage(getOnMessageCb, {name: 'importDone', added: 0, updated: 0, skipped: 0, errors: 0});
+        expect(importBtn.disabled).toBe(false);
+        expect(fileInput.disabled).toBe(false);
+        expect(folderSel.disabled).toBe(false);
     });
 
     test('FileReader error path: logs error, re-enables UI, and clears loading state (no icsImport message)', () => {
@@ -792,5 +809,47 @@ describe('src/ui/icsImport.js', () => {
         // restore
         (Storage.prototype as any).getItem = origGet;
         (Storage.prototype as any).setItem = origSet;
+    });
+
+    test('Import button: locks UI immediately after starting import (before FileReader finishes)', () => {
+        setupDom(true);
+        const {getOnMessageCb} = installWebviewApi();
+
+        // FileReader does not complete automatically
+        const fr: any = {
+            result: 'ICS',
+            onload: null,
+            onerror: null,
+            readAsText: jest.fn(),
+        };
+        (global as any).FileReader = function () {
+            return fr;
+        };
+
+        loadIcsImportFresh();
+
+        sendPluginMessage(getOnMessageCb, {
+            name: 'folders',
+            folders: [{id: 'f1', title: 'Folder1', depth: 0}],
+        });
+
+        const folderSel = qs('#mc-target-folder') as HTMLSelectElement;
+        const fileInput = qs('#ics-file') as HTMLInputElement;
+        const fileObj: any = {name: 'a.ics', size: 12};
+        Object.defineProperty(fileInput, 'files', {value: [fileObj], configurable: true});
+
+        const importBtn = Array.from(document.querySelectorAll('button'))
+            .find(b => (b.textContent || '').trim() === 'Import') as HTMLButtonElement;
+
+        importBtn.click();
+
+        // locked immediately
+        expect(importBtn.disabled).toBe(true);
+        expect(fileInput.disabled).toBe(true);
+        expect(folderSel.disabled).toBe(true);
+
+        const form = qs('#mc-ics-import-form') as HTMLFormElement;
+        expect(form.classList.contains('mc-loading')).toBe(true);
+        expect(form.getAttribute('aria-busy')).toBe('true');
     });
 });

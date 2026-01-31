@@ -1,4 +1,5 @@
 // tests/uiBridge/uiSettings.test.ts
+//
 // src/main/uiBridge/uiSettings.ts
 //
 // npx jest tests/uiBridge/uiSettings.test.ts --runInBand --no-cache;
@@ -44,6 +45,54 @@ const loadModuleWithMocks = async (
     // import after doMock
     return await import('../../src/main/uiBridge/uiSettings');
 };
+
+describe('uiSettings.buildUiSettingsMessage', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
+    });
+
+    test('returns message payload and syncs debug into logger', async () => {
+        const settingsMock: SettingsMock = {
+            getWeekStart: jest.fn().mockResolvedValue('monday'),
+            getDebugEnabled: jest.fn().mockResolvedValue(true),
+            getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(getDayEventsRefreshMinutes_DEFAULT),
+        };
+        const loggerMock: LoggerMock = {
+            setDebugEnabled: jest.fn(),
+        };
+
+        const mod = await loadModuleWithMocks(settingsMock, loggerMock);
+
+        const joplin = {any: 'shape'};
+
+        const msg = await mod.buildUiSettingsMessage(joplin);
+
+        expect(loggerMock.setDebugEnabled).toHaveBeenCalledWith(true);
+        expect(msg).toEqual({
+            name: 'uiSettings',
+            weekStart: 'monday',
+            debug: true,
+            icsExportLinks: [],
+            dayEventsRefreshMinutes: getDayEventsRefreshMinutes_DEFAULT,
+        });
+    });
+
+    test('propagates settings errors (getWeekStart) and does not change logger', async () => {
+        const settingsMock: SettingsMock = {
+            getWeekStart: jest.fn().mockRejectedValue(new Error('weekStart failed')),
+            getDebugEnabled: jest.fn().mockResolvedValue(true),
+            getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(getDayEventsRefreshMinutes_DEFAULT),
+        };
+        const loggerMock: LoggerMock = {
+            setDebugEnabled: jest.fn(),
+        };
+
+        const mod = await loadModuleWithMocks(settingsMock, loggerMock);
+
+        await expect(mod.buildUiSettingsMessage({})).rejects.toThrow('weekStart failed');
+        expect(loggerMock.setDebugEnabled).not.toHaveBeenCalled();
+    });
+});
 
 describe('uiSettings.pushUiSettings', () => {
     beforeEach(() => {

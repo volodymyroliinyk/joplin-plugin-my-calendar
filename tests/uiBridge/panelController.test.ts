@@ -1,4 +1,5 @@
 // tests/uiBridge/panelController.test.ts
+//
 // src/main/uiBridge/panelController.ts
 //
 // npx jest tests/uiBridge/panelController.test.ts --runInBand --no-cache;
@@ -135,21 +136,18 @@ describe('panelController', () => {
         });
     });
 
-    test('requestRangeEvents -> forwards missing from/to as-is (undefined) to helpers', async () => {
-        const {handler, postMessage, helpers} = await setup();
+    test('requestRangeEvents -> ignores when from/to are missing (no-op)', async () => {
+        const {handler, helpers, postMessage} = await setup();
 
         (ensureAllEventsCache as jest.Mock).mockResolvedValue([{id: 1}]);
-        helpers.expandAllInRange.mockReturnValue([{id: 1}]);
+        (helpers.expandAllInRange as jest.Mock).mockReturnValue([{id: 1}]);
 
-        await handler({name: 'requestRangeEvents'});
+        await handler({name: 'requestRangeEvents'} as any);
 
-        expect(helpers.expandAllInRange).toHaveBeenCalledWith([{id: 1}], undefined, undefined);
-        expect(postMessage).toHaveBeenCalledWith('panel-1', {
-            name: 'rangeEvents',
-            events: [{id: 1}],
-        });
+        expect(helpers.expandAllInRange).not.toHaveBeenCalled();
+        expect(postMessage).not.toHaveBeenCalled();
+        expect(ensureAllEventsCache).not.toHaveBeenCalled();
     });
-
     test('dateClick -> expands day range and filters by startUtc inside [dayStart..dayEnd]', async () => {
         const {handler, postMessage, helpers} = await setup();
 
@@ -179,6 +177,16 @@ describe('panelController', () => {
         });
     });
 
+    test('dateClick -> ignores when dateUtc is missing / invalid', async () => {
+        const {handler, postMessage} = await setup();
+
+        await handler({name: 'dateClick'} as any);
+        await handler({name: 'dateClick', dateUtc: 'x'} as any);
+
+        expect(postMessage).not.toHaveBeenCalled();
+        expect(ensureAllEventsCache).not.toHaveBeenCalled();
+    });
+
     test('openNote -> executes joplin command', async () => {
         const {handler, execute} = await setup();
 
@@ -186,6 +194,17 @@ describe('panelController', () => {
 
         expect(execute).toHaveBeenCalledTimes(1);
         expect(execute).toHaveBeenCalledWith('openNote', 'note-123');
+    });
+
+    test('icsImport -> missing ics posts importError and shows error toast', async () => {
+        const {handler, postMessage} = await setup();
+
+        await handler({name: 'icsImport'} as any);
+
+        expect(postMessage).toHaveBeenCalledWith('panel-1', {name: 'importError', error: 'Missing ICS content'});
+        expect(showToast).toHaveBeenCalledWith('error', 'ICS import failed: Missing ICS content', 5000);
+        expect(importIcsIntoNotes).not.toHaveBeenCalled();
+        expect(invalidateAllEventsCache).not.toHaveBeenCalled();
     });
 
     test('openNote -> ignores when id is missing', async () => {
@@ -511,4 +530,20 @@ describe('panelController', () => {
         expect(postMessage).not.toHaveBeenCalled();
 
     });
+
+    test('requestRangeEvents -> forwards range to helpers and posts events', async () => {
+        const {handler, helpers, postMessage} = await setup();
+
+        (ensureAllEventsCache as jest.Mock).mockResolvedValue([{id: 1}]);
+        (helpers.expandAllInRange as jest.Mock).mockReturnValue([{id: 1}]);
+
+        await handler({name: 'requestRangeEvents', fromUtc: 10, toUtc: 20} as any);
+
+        expect(helpers.expandAllInRange).toHaveBeenCalledWith([{id: 1}], 10, 20);
+        expect(postMessage).toHaveBeenCalledWith('panel-1', {
+            name: 'rangeEvents',
+            events: [{id: 1}],
+        });
+    });
+
 });

@@ -1,4 +1,5 @@
 // tests/services/eventsCache.test.ts
+//
 // src/main/services/eventsCache.ts
 //
 // npx jest tests/services/eventsCache.test.ts --runInBand --no-cache;

@@ -48,6 +48,235 @@ const mkJoplin = (impl?: Partial<JoplinMock['data']>): JoplinMock => ({
 const block = (inner: string) =>
     ['```mycalendar-event', inner.trim(), '```'].join('\n');
 
+type ExistingEventNoteOpts = {
+    uid?: string;
+    noteId?: string;
+    title?: string;
+    parent_id?: string;
+    start?: string;
+    extraBlockLines?: string;
+    getPages?: Array<{ items: any[]; has_more: boolean }>;
+    put?: jest.Mock<any, any>;
+    post?: jest.Mock<any, any>;
+};
+
+const makeJoplinMockWithExistingEventNote = (opts: ExistingEventNoteOpts = {}) => {
+    const uid = opts.uid ?? 'u1';
+    const noteId = opts.noteId ?? 'n-existing';
+    const title = opts.title ?? 'Existing note';
+    const parent_id = opts.parent_id ?? 'oldFolder';
+    const start = opts.start ?? '2025-01-01 00:00:00';
+
+    const body = block(
+        [
+            `uid: ${uid}`,
+            `start: ${start}`,
+            // We deliberately do NOT add recurrence_id: in your tests, existing notes are often without it,
+            // and the logic should interpret it as "master" (rid = '').
+            opts.extraBlockLines?.trim() ? opts.extraBlockLines.trim() : '',
+        ]
+            .filter(Boolean)
+            .join('\n'),
+    );
+
+    const existingNote = {
+        id: noteId,
+        title,
+        body,
+        parent_id,
+        todo_due: 0,
+    };
+
+    // By default, we simulate 1 page with existing note
+    const pages = opts.getPages ?? [{items: [existingNote], has_more: false}];
+
+    const get = jest.fn();
+    for (const p of pages) get.mockResolvedValueOnce(p);
+
+    const joplin = mkJoplin({
+        get,
+        put: opts.put ?? jest.fn().mockResolvedValue({}),
+        post: opts.post ?? jest.fn().mockResolvedValue({id: 'n-new'}),
+    });
+
+    return joplin;
+};
+
+type TwoEventsIcsOpts = {
+    existingUid?: string;
+    existingSummary?: string;
+    newUid?: string;
+    newSummary?: string;
+    dtStart1?: string; // example: 20250115T100000Z
+    dtEnd1?: string;
+    dtStart2?: string;
+    dtEnd2?: string;
+};
+
+const icsTwoEventsFirstExistingSecondNew = (opts: TwoEventsIcsOpts = {}) => {
+    const existingUid = opts.existingUid ?? 'u1';
+    const existingSummary = opts.existingSummary ?? 'Existing (from ICS)';
+    const newUid = opts.newUid ?? 'u2';
+    const newSummary = opts.newSummary ?? 'New event';
+
+    const dtStart1 = opts.dtStart1 ?? '20250115T100000Z';
+    const dtEnd1 = opts.dtEnd1 ?? '20250115T113000Z';
+    const dtStart2 = opts.dtStart2 ?? '20250116T120000Z';
+    const dtEnd2 = opts.dtEnd2 ?? '20250116T123000Z';
+
+    return [
+        'BEGIN:VCALENDAR',
+        'BEGIN:VEVENT',
+        `UID:${existingUid}`,
+        `SUMMARY:${existingSummary}`,
+        `DTSTART:${dtStart1}`,
+        `DTEND:${dtEnd1}`,
+        'END:VEVENT',
+        'BEGIN:VEVENT',
+        `UID:${newUid}`,
+        `SUMMARY:${newSummary}`,
+        `DTSTART:${dtStart2}`,
+        `DTEND:${dtEnd2}`,
+        'END:VEVENT',
+        'END:VCALENDAR',
+    ].join('\n');
+};
+
+const makeJoplinMockWithNoExistingNotes = (opts?: {
+    putImpl?: jest.Mock;
+    postImpl?: jest.Mock;
+    getPages?: Array<{ items: any[]; has_more: boolean }>;
+}) => {
+    const pages = opts?.getPages ?? [{items: [], has_more: false}];
+
+    const getMock = jest.fn();
+    for (const p of pages) getMock.mockResolvedValueOnce(p);
+
+    return mkJoplin({
+        get: getMock,
+        put: opts?.putImpl ?? jest.fn().mockResolvedValue({}),
+        post: opts?.postImpl ?? jest.fn().mockResolvedValue({id: 'new-note-id'}),
+    });
+};
+
+const icsTwoIndependentEvents = (opts?: {
+    uid1?: string;
+    summary1?: string;
+    start1?: string;
+    end1?: string;
+
+    uid2?: string;
+    summary2?: string;
+    start2?: string;
+    end2?: string;
+}) => {
+    const uid1 = opts?.uid1 ?? 'u-a';
+    const summary1 = opts?.summary1 ?? 'A';
+    const start1 = opts?.start1 ?? '20250115T100000Z';
+    const end1 = opts?.end1 ?? '20250115T113000Z';
+
+    const uid2 = opts?.uid2 ?? 'u-b';
+    const summary2 = opts?.summary2 ?? 'B';
+    const start2 = opts?.start2 ?? '20250116T120000Z';
+    const end2 = opts?.end2 ?? '20250116T123000Z';
+
+    return [
+        'BEGIN:VCALENDAR',
+        'BEGIN:VEVENT',
+        `UID:${uid1}`,
+        `SUMMARY:${summary1}`,
+        `DTSTART:${start1}`,
+        `DTEND:${end1}`,
+        'END:VEVENT',
+        'BEGIN:VEVENT',
+        `UID:${uid2}`,
+        `SUMMARY:${summary2}`,
+        `DTSTART:${start2}`,
+        `DTEND:${end2}`,
+        'END:VEVENT',
+        'END:VCALENDAR',
+    ].join('\n');
+};
+
+const minimalIcsOneEvent = (opts?: {
+    uid?: string;
+    summary?: string;
+    dtStart?: string; // e.g. 20250115T100000Z
+    dtEnd?: string;   // e.g. 20250115T113000Z
+}) => {
+    const uid = opts?.uid ?? 'u1';
+    const summary = opts?.summary ?? 'Hello';
+    const dtStart = opts?.dtStart ?? '20250115T100000Z';
+    const dtEnd = opts?.dtEnd ?? '20250115T113000Z';
+
+    return [
+        'BEGIN:VCALENDAR',
+        'BEGIN:VEVENT',
+        `UID:${uid}`,
+        `SUMMARY:${summary}`,
+        `DTSTART:${dtStart}`,
+        `DTEND:${dtEnd}`,
+        'END:VEVENT',
+        'END:VCALENDAR',
+    ].join('\n');
+};
+
+const minimalIcsOneEventMatchingExisting = (opts?: {
+    uid?: string;
+    summary?: string;
+    dtStart?: string;
+    dtEnd?: string;
+}) => {
+    // By default, it matches with existing note, which we create in makeJoplinMockWithExistingEventNoteInFolder
+    return minimalIcsOneEvent({
+        uid: opts?.uid ?? 'u1',
+        summary: opts?.summary ?? 'Existing note', // title can be any; parent_id change already gives updated=1
+        dtStart: opts?.dtStart ?? '20250115T100000Z',
+        dtEnd: opts?.dtEnd ?? '20250115T113000Z',
+    });
+};
+
+const makeJoplinMockWithExistingEventNoteInFolder = (folderId: string, opts?: {
+    uid?: string;
+    noteId?: string;
+    title?: string;
+    start?: string; // "2025-01-15 10:00:00+00:00" - as the import generates
+    end?: string;
+    putImpl?: jest.Mock;
+    postImpl?: jest.Mock;
+}) => {
+    const uid = opts?.uid ?? 'u1';
+    const noteId = opts?.noteId ?? 'n-existing';
+    const title = opts?.title ?? 'Existing note';
+    const start = opts?.start ?? '2025-01-15 10:00:00+00:00';
+    const end = opts?.end ?? '2025-01-15 11:30:00+00:00';
+
+    const existingNote = {
+        id: noteId,
+        title,
+        parent_id: folderId,
+        todo_due: 0,
+        body: block(
+            [
+                `title: ${title}`,
+                `uid: ${uid}`,
+                `start: ${start}`,
+                `end: ${end}`,
+            ].join('\n'),
+        ),
+    };
+
+    const getMock = jest.fn().mockResolvedValueOnce({items: [existingNote], has_more: false});
+
+    return mkJoplin({
+        get: getMock,
+        put: opts?.putImpl ?? jest.fn().mockResolvedValue({}),
+        post: opts?.postImpl ?? jest.fn().mockResolvedValue({id: 'new-note-id'}),
+    });
+};
+
+
+
 describe('icsImportService.importIcsIntoNotes', () => {
     beforeEach(() => {
         jest.spyOn(console, 'log').mockImplementation(() => {
@@ -60,6 +289,48 @@ describe('icsImportService.importIcsIntoNotes', () => {
         (console.log as any).mockRestore?.();
         (console.error as any).mockRestore?.();
     });
+
+    test('onStatus throwing is swallowed (import continues)', async () => {
+        const joplin = makeJoplinMockWithNoExistingNotes(); // use your existing helper/mock
+        const onStatus = jest.fn(async () => {
+            throw new Error('ui fail');
+        });
+
+        await expect(importIcsIntoNotes(joplin as any, minimalIcsOneEvent(), onStatus)).resolves.toMatchObject({
+            added: 1,
+            errors: 0,
+        });
+    });
+
+    test('updateNote failure increments errors and continues with next event', async () => {
+        const joplin = makeJoplinMockWithExistingEventNote(); // 1 existing note matching first UID
+        (joplin.data.put as any).mockRejectedValueOnce(new Error('put failed'));
+        const ics = icsTwoEventsFirstExistingSecondNew(); // helper: 1 event maps to existing, 2nd new
+        const res = await importIcsIntoNotes(joplin as any, ics);
+        expect(res.errors).toBe(1);
+        expect(res.added).toBe(1);   // second event created
+    });
+
+    test('createNote failure increments errors and continues', async () => {
+        const joplin = makeJoplinMockWithNoExistingNotes();
+        (joplin.data.post as any).mockRejectedValueOnce(new Error('post failed'));
+        const ics = icsTwoIndependentEvents(); // 2 events -> first create fails, second should still create
+        const res = await importIcsIntoNotes(joplin as any, ics);
+        expect(res.errors).toBe(1);
+        expect(res.added).toBe(1);
+    });
+
+    test('targetFolderId moves existing note (parent_id) when different', async () => {
+        const joplin = makeJoplinMockWithExistingEventNoteInFolder('oldFolder');
+        const targetFolderId = 'newFolder';
+        const res = await importIcsIntoNotes(joplin as any, minimalIcsOneEventMatchingExisting(), undefined, targetFolderId);
+        expect(res.updated).toBe(1);
+        expect(joplin.data.put).toHaveBeenCalled();
+        const putArgs = (joplin.data.put as any).mock.calls.find((c: any[]) => String(c[0]?.[0]) === 'notes');
+        expect(putArgs[2]).toMatchObject({parent_id: targetFolderId});
+    });
+
+
 
     test('parses ICS, reports Parsed N, scans existing notes with pagination, creates new note (POST)', async () => {
         const ics = [
@@ -101,7 +372,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
 
         const res = await importIcsIntoNotes(joplin as any, ics, onStatus);
 
-        expect(onStatus).toHaveBeenCalledWith('[icsImportService] Parsed 1 VEVENT(s)');
+        expect(onStatus).toHaveBeenCalledWith('Parsed 1 VEVENT(s)');
 
         // existing scan paginates
         expect(joplin.data.get).toHaveBeenCalledTimes(2);
@@ -170,7 +441,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
 
         const res = await importIcsIntoNotes(joplin as any, ics, onStatus);
 
-        expect(onStatus).toHaveBeenCalledWith('[icsImportService] Parsed 1 VEVENT(s)');
+        expect(onStatus).toHaveBeenCalledWith('Parsed 1 VEVENT(s)');
         expect(joplin.data.post).toHaveBeenCalledTimes(1);
 
         const [, , noteBody] = (joplin.data.post as any).mock.calls[0];
@@ -242,7 +513,15 @@ describe('icsImportService.importIcsIntoNotes', () => {
         });
         expect(String(alarmNote.body)).toContain('```mycalendar-alarm');
         expect(String(alarmNote.body)).toContain('uid: u-valarm2');
-        expect(String(alarmNote.body)).toContain('[With alarm at 2025-01-15 10:00](:/event-note-id)');
+        // DTSTART is Zulu (UTC). The alarm note link is rendered in local time (process TZ),
+        // so compute the expected label dynamically to keep the test stable across environments.
+        const pad2 = (n: number) => String(n).padStart(2, '0');
+        const dtStart = new Date('2025-01-15T10:00:00.000Z');
+        const expectedLocalStartLabel =
+            `${dtStart.getFullYear()}-${pad2(dtStart.getMonth() + 1)}-${pad2(dtStart.getDate())} ` +
+            `${pad2(dtStart.getHours())}:${pad2(dtStart.getMinutes())}`;
+        expect(String(alarmNote.body)).toContain(`[With alarm at ${expectedLocalStartLabel}](:/event-note-id)`);
+
 
         jest.useRealTimers();
     });
@@ -929,7 +1208,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
 
         const res = await importIcsIntoNotes(joplin as any, ics, onStatus);
 
-        expect(onStatus).toHaveBeenCalledWith('[icsImportService] Parsed 0 VEVENT(s)');
+        expect(onStatus).toHaveBeenCalledWith('Parsed 0 VEVENT(s)');
         expect(res).toEqual({
             added: 0,
             updated: 0,

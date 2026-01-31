@@ -363,6 +363,14 @@
             importForm.setAttribute('aria-busy', isLoading ? 'true' : 'false');
         }
 
+        function setImportState(isInProgress) {
+            importInProgress = !!isInProgress;
+            btnImportFile.disabled = importInProgress;
+            fileInput.disabled = importInProgress;
+            folderSelect.disabled = importInProgress;
+            setImportLoading(importInProgress);
+        }
+
         async function doImportFromPicker() {
             if (importInProgress) return;
 
@@ -372,54 +380,39 @@
             const targetFolderId = String(folderSelect.value || '').trim();
             if (!targetFolderId) return uiLogger.log('Select a target notebook first.');
 
-            importInProgress = true;
-            btnImportFile.disabled = true;
-            fileInput.disabled = true;
-            folderSelect.disabled = true;
-            setImportLoading(true);
-
-            const finish = () => {
-                importInProgress = false;
-                btnImportFile.disabled = false;
-                fileInput.disabled = false;
-                folderSelect.disabled = false;
-            };
-            const resetUi = () => {
-                importInProgress = false;
-                btnImportFile.disabled = false;
-                fileInput.disabled = false;
-                folderSelect.disabled = false;
-                setImportLoading(false);
-            };
+            setImportState(true);
 
             try {
                 const reader = new FileReader();
 
                 reader.onerror = () => {
                     uiLogger.error('FileReader error:', reader.error?.message || reader.error);
-                    finish();
-                    resetUi();
+                    setImportState(false);
                 };
 
                 reader.onload = () => {
                     const text = String(reader.result || '');
-                    window.webviewApi?.postMessage?.({
-                        name: 'icsImport',
-                        mode: 'text',
-                        ics: text,
-                        source: `filepicker:${f.name}`,
-                        targetFolderId,
-                        preserveLocalColor,
-                        importDefaultColor: importColorEnabled ? importColorValue : undefined,
-                    });
-                    finish();
+                    try {
+                        window.webviewApi?.postMessage?.({
+                            name: 'icsImport',
+                            mode: 'text',
+                            ics: text,
+                            source: `filepicker:${f.name}`,
+                            targetFolderId,
+                            preserveLocalColor,
+                            importDefaultColor: importColorEnabled ? importColorValue : undefined,
+                        });
+                        // IMPORTANT: keep import state until importDone/importError
+                    } catch (e) {
+                        uiLogger.error('postMessage failed:', e);
+                        setImportState(false);
+                    }
                 };
 
                 reader.readAsText(f);
             } catch (e) {
                 uiLogger.error('Import failed:', e);
-                finish();
-                resetUi();
+                setImportState(false);
             }
         }
 
@@ -499,19 +492,11 @@
                         '[DONE]',
                         `added=${msg.added} updated=${msg.updated} skipped=${msg.skipped} errors=${msg.errors}`,
                     );
-                    importInProgress = false;
-                    btnImportFile.disabled = false;
-                    fileInput.disabled = false;
-                    folderSelect.disabled = false;
-                    setImportLoading(false);
+                    setImportState(false);
                     return;
                 case 'importError':
                     uiLogger.log('[ERROR]', msg.error || 'unknown');
-                    importInProgress = false;
-                    btnImportFile.disabled = false;
-                    fileInput.disabled = false;
-                    folderSelect.disabled = false;
-                    setImportLoading(false);
+                    setImportState(false);
                     return;
                 case 'folders':
                     populateFolders(msg.folders);

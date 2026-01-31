@@ -459,6 +459,21 @@
                 }, 100);
             }
 
+            // ---- Test hooks (enabled only in Jest/jsdom) ----
+            // Must be inside init() because many helpers are function-scoped here.
+            try {
+                if (typeof window !== 'undefined' && window.__mcTestMode === true) {
+                    window.__mcTest = {
+                        ensureBackendReady,
+                        getDayEventsRefreshMs,
+                        updateDayNowTimelineDot,
+                    };
+                }
+            } catch (_e) {
+                // ignore
+            }
+
+
             function unwrapPluginMessage(msg) {
                 // Joplin sometimes wraps as { message: <payload> }
                 if (msg && typeof msg === 'object' && msg.message) return msg.message;
@@ -494,8 +509,11 @@
                             applyDebugUI();
                         }
 
-                        if (typeof msg.dayEventsRefreshMinutes === 'number' && isFinite(msg.dayEventsRefreshMinutes)) {
-                            uiSettings.dayEventsRefreshMinutes = msg.dayEventsRefreshMinutes;
+                        if (msg.dayEventsRefreshMinutes !== undefined) {
+                            const v = Number(msg.dayEventsRefreshMinutes);
+                            if (Number.isFinite(v) && v > 0) {
+                                uiSettings.dayEventsRefreshMinutes = v;
+                            }
                         }
 
                         markPastDayEvents();

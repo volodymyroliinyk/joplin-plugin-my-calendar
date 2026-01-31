@@ -306,34 +306,11 @@ export default async function runPlugin(joplin: any) {
 
     const toggleState = {
         visible: true,
+        // Indicates whether desktop menu/toolbar were registered successfully.
         active: false,
-        update: async () => {
-            if (!toggleState.active) return;
-
-            // We use a static label "Toggle My Calendar" because dynamic label updates
-            // are not reliably supported by Joplin's menu API.
-            const label = 'Toggle My Calendar';
-            
-            await joplin.commands.register({
-                name: 'mycalendar.togglePanel',
-                label: label,
-                iconName: 'fas fa-calendar-alt',
-                execute: async () => {
-                    toggleState.visible = !toggleState.visible;
-                    if (toggleState.visible) {
-                        await joplin.views.panels.show(panel);
-                        log('pluginMain', 'Toggle: Show');
-                    } else {
-                        if (joplin.views?.panels?.hide) {
-                            await joplin.views.panels.hide(panel);
-                        }
-                        log('pluginMain', 'Toggle: Hide');
-                    }
-                    await toggleState.update();
-                },
-            });
-        }
     };
+
+    await registerToggleCommand(joplin, panel, toggleState);
 
     await joplin.commands.register({
         name: 'mycalendar.open',
@@ -361,7 +338,7 @@ export default async function runPlugin(joplin: any) {
 
             // Sync toggle state
             toggleState.visible = true;
-            await toggleState.update();
+            // await toggleState.update();
         },
     });
 
@@ -381,26 +358,6 @@ export default async function runPlugin(joplin: any) {
         await pushUiSettings(joplin, panel);
     });
 
-    // Initial registration of the toggle command
-    await joplin.commands.register({
-        name: 'mycalendar.togglePanel',
-        label: 'Toggle My Calendar', // Static label
-        iconName: 'fas fa-calendar-alt',
-        execute: async () => {
-            toggleState.visible = !toggleState.visible;
-            if (toggleState.visible) {
-                await joplin.views.panels.show(panel);
-                log('pluginMain', 'Toggle: Show');
-            } else {
-                if (joplin.views?.panels?.hide) {
-                    await joplin.views.panels.hide(panel);
-                }
-                log('pluginMain', 'Toggle: Hide');
-            }
-            await toggleState.update();
-        },
-    });
-
     await registerDesktopToggle(joplin, panel, toggleState);
 
     // --- Create the import panel (desktop)
@@ -414,6 +371,28 @@ export default async function runPlugin(joplin: any) {
         // On mobile this method may be missing - it's expected
         log('pluginMain', 'panels.focus not available on this platform');
     }
+}
+
+// Register the toggle command once. The label is intentionally static because
+// dynamic label updates are not reliably supported by Joplin's menu API.
+async function registerToggleCommand(joplin: any, panel: string, toggleState: { visible: boolean }) {
+    await joplin.commands.register({
+        name: 'mycalendar.togglePanel',
+        label: 'Toggle My Calendar',
+        iconName: 'fas fa-calendar-alt',
+        execute: async () => {
+            toggleState.visible = !toggleState.visible;
+            if (toggleState.visible) {
+                await joplin.views.panels.show(panel);
+                log('pluginMain', 'Toggle: Show');
+            } else {
+                if (joplin.views?.panels?.hide) {
+                    await joplin.views.panels.hide(panel);
+                }
+                log('pluginMain', 'Toggle: Hide');
+            }
+        },
+    });
 }
 
 // === MyCalendar: safe desktop toggle helper ===
@@ -432,7 +411,7 @@ async function registerDesktopToggle(joplin: any, panel: string, toggleState: an
 
         toggleState.active = true;
         // Initial update to ensure label is correct
-        // await toggleState.update(); // This is now redundant as we registered the command above
+        // (no-op) label is intentionally static
 
         try {
             await joplin.views.menuItems.create(
