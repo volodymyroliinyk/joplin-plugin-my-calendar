@@ -222,4 +222,30 @@ describe('settings.ts logic', () => {
             expect(setDebugEnabled).toHaveBeenCalledWith(true);
         });
     });
+
+    describe('registerSettings', () => {
+        test('registers SETTING_ICS_IMPORT_ALARMS_ENABLED with default false and bool type', async () => {
+            const joplin = {
+                versionInfo: jest.fn().mockResolvedValue({platform: 'desktop'}),
+                settings: {
+                    registerSection: jest.fn().mockResolvedValue(undefined),
+                    registerSettings: jest.fn().mockResolvedValue(undefined),
+                    // registerSettings() reads SETTING_DEBUG at the end
+                    value: jest.fn().mockResolvedValue(false),
+
+                    // optional, but keep stable if future code checks these
+                    onChange: undefined,
+                    setValue: undefined,
+                },
+            };
+
+            await settings.registerSettings(joplin as any);
+
+            expect(joplin.settings.registerSettings).toHaveBeenCalledTimes(1);
+            const arg = joplin.settings.registerSettings.mock.calls[0][0];
+            expect(arg[settings.SETTING_ICS_IMPORT_ALARMS_ENABLED]).toBeDefined();
+            expect(arg[settings.SETTING_ICS_IMPORT_ALARMS_ENABLED].value).toBe(false);
+            expect(arg[settings.SETTING_ICS_IMPORT_ALARMS_ENABLED].type).toBe(3); // bool
+        });
+    });
 });

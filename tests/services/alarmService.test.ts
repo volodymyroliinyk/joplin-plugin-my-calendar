@@ -60,6 +60,10 @@ describe('alarmService', () => {
         (noteBuilder.buildAlarmBody as jest.Mock).mockReturnValue('BODY_V1');
     });
 
+    afterEach(() => {
+        jest.useRealTimers();
+    });
+
     it('should delete outdated alarms (< now)', async () => {
         const events: IcsEvent[] = [{
             uid: 'uid1',
@@ -90,6 +94,9 @@ describe('alarmService', () => {
     });
 
     it('should update existing alarm if body is outdated', async () => {
+        // Set "now" to be before the event/alarm so they are valid
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2026-01-30T10:00:00.000Z'));
 
         const events: IcsEvent[] = [{
             uid: 'uid1',
@@ -121,10 +128,8 @@ describe('alarmService', () => {
             existingAlarms,
             'folder1',
             undefined,
-            {
-                // Ensure the alarm is NOT considered outdated (< now)
-                now: new Date('2026-01-30T10:00:00.000Z')
-            } as any
+            undefined, // importAlarmRangeDays
+            true // alarmsEnabled
         );
 
         expect(mockUpdateNote).toHaveBeenCalledTimes(1);
@@ -137,6 +142,9 @@ describe('alarmService', () => {
     });
 
     it('should NOT update existing alarm if body is already up-to-date', async () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2026-01-30T10:00:00.000Z'));
+
         const events: IcsEvent[] = [{
             uid: 'uid1',
             recurrence_id: '',
@@ -152,9 +160,7 @@ describe('alarmService', () => {
             [key]: [{id: 'alarm1', todo_due: new Date('2026-01-30T11:45:00.000Z').getTime(), body: 'BODY_V1'}]
         };
 
-        await syncAlarmsForEvents(mockJoplin, events, importedEventNotes, existingAlarms, 'folder1', undefined, {
-            now: new Date('2026-01-30T10:00:00.000Z')
-        } as any);
+        await syncAlarmsForEvents(mockJoplin, events, importedEventNotes, existingAlarms, 'folder1', undefined, undefined, true);
 
         expect(mockUpdateNote).not.toHaveBeenCalled();
         expect(mockDeleteNote).not.toHaveBeenCalled();
@@ -162,6 +168,9 @@ describe('alarmService', () => {
     });
 
     it('should delete invalid alarms that do not match desired alarms', async () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2026-01-30T10:00:00.000Z'));
+
         (dateTimeUtils.computeAlarmWhen as jest.Mock).mockReturnValueOnce(new Date('2026-01-30T11:45:00.000Z'));
 
         const events: IcsEvent[] = [{
@@ -179,15 +188,16 @@ describe('alarmService', () => {
             [key]: [{id: 'alarm1', todo_due: new Date('2026-01-30T11:40:00.000Z').getTime(), body: 'old'}]
         };
 
-        await syncAlarmsForEvents(mockJoplin, events, importedEventNotes, existingAlarms, 'folder1', undefined, {
-            now: new Date('2026-01-30T10:00:00.000Z')
-        } as any);
+        await syncAlarmsForEvents(mockJoplin, events, importedEventNotes, existingAlarms, 'folder1', undefined, undefined, true);
 
         expect(mockDeleteNote).toHaveBeenCalledWith(mockJoplin, 'alarm1');
         expect(mockCreateNote).toHaveBeenCalledTimes(1);
     });
 
     it('should create missing alarms when none exist', async () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2026-01-30T10:00:00.000Z'));
+
         mockCreateNote.mockResolvedValue({id: 'newAlarm1'});
         const events: IcsEvent[] = [{
             uid: 'uid1',
@@ -200,9 +210,7 @@ describe('alarmService', () => {
         const importedEventNotes = {[key]: {id: 'note1', title: 'Test Event', parent_id: 'folder1'}};
         const existingAlarms = {[key]: []};
 
-        await syncAlarmsForEvents(mockJoplin, events, importedEventNotes, existingAlarms, 'folder1', undefined, {
-            now: new Date('2026-01-30T10:00:00.000Z')
-        } as any);
+        await syncAlarmsForEvents(mockJoplin, events, importedEventNotes, existingAlarms, 'folder1', undefined, undefined, true);
 
         expect(mockCreateNote).toHaveBeenCalledTimes(1);
         expect(mockCreateNote.mock.calls[0][1]).toMatchObject({
@@ -252,5 +260,109 @@ describe('alarmService', () => {
         expect(mockDeleteNote).not.toHaveBeenCalled();
         expect(mockUpdateNote).not.toHaveBeenCalled();
         expect(mockCreateNote).not.toHaveBeenCalled();
+    });
+
+    it('should delete existing alarms and NOT create new ones if alarmsEnabled is false', async () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2026-01-30T10:00:00.000Z'));
+
+        const events: IcsEvent[] = [{
+            uid: 'uid1',
+            recurrence_id: '',
+            title: 'Test Event',
+            start: '2026-01-30 12:00',
+            valarms: [{action: 'DISPLAY', trigger: '-PT15M', related: 'START'}]
+        }];
+        const key = 'uid1|';
+        const importedEventNotes = {[key]: {id: 'note1', title: 'Test Event', parent_id: 'folder1'}};
+
+        // Existing alarm matches the event
+        const existingAlarms = {
+            [key]: [{id: 'alarm1', todo_due: new Date('2026-01-30T11:45:00.000Z').getTime(), body: 'some body'}]
+        };
+
+        // Call with alarmsEnabled = false
+        await syncAlarmsForEvents(
+            mockJoplin,
+            events,
+            importedEventNotes,
+            existingAlarms,
+            'folder1',
+            undefined,
+            undefined,
+            false // alarmsEnabled
+        );
+
+        // Should delete the existing alarm because alarms are disabled
+        expect(mockDeleteNote).toHaveBeenCalledWith(mockJoplin, 'alarm1');
+
+        // Should NOT create any new alarms
+        expect(mockCreateNote).not.toHaveBeenCalled();
+        expect(mockUpdateNote).not.toHaveBeenCalled();
+    });
+
+    it('options object: alarmsEnabled=false takes precedence over legacy param and creates no alarms', async () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2026-01-30T10:00:00.000Z'));
+
+        const events: IcsEvent[] = [{
+            uid: 'uid1',
+            recurrence_id: '',
+            title: 'Test Event',
+            start: '2026-01-30 12:00',
+            valarms: [{action: 'DISPLAY', trigger: '-PT15M', related: 'START'}],
+        }];
+        const key = 'uid1|';
+        const importedEventNotes = {[key]: {id: 'note1', title: 'Test Event', parent_id: 'folder1'}};
+        const existingAlarms = {
+            [key]: [{id: 'alarm1', todo_due: new Date('2026-01-30T11:45:00.000Z').getTime(), body: 'old'}],
+        };
+
+        await syncAlarmsForEvents(
+            mockJoplin,
+            events,
+            importedEventNotes,
+            existingAlarms,
+            'folder1',
+            undefined,
+            {alarmsEnabled: false},
+            true // legacy param should be ignored because options specified alarmsEnabled
+        );
+
+        expect(mockDeleteNote).toHaveBeenCalledWith(mockJoplin, 'alarm1');
+        expect(mockCreateNote).not.toHaveBeenCalled();
+        expect(mockUpdateNote).not.toHaveBeenCalled();
+    });
+
+    it('accepts alarmRangeDays=0 (only alarms due now..today) without falling back to settings', async () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2026-01-30T10:00:00.000Z'));
+
+        const events: IcsEvent[] = [{
+            uid: 'uid1',
+            recurrence_id: '',
+            title: 'Test Event',
+            start: '2026-01-30 10:10',
+            valarms: [{action: 'DISPLAY', trigger: '-PT0M', related: 'START'}],
+        }];
+        const key = 'uid1|';
+        const importedEventNotes = {[key]: {id: 'note1', title: 'Test Event', parent_id: 'folder1'}};
+        const existingAlarms = {[key]: []};
+
+        // computeAlarmWhen mock returns start-15m by default; override to return exactly now (within window)
+        (dateTimeUtils.computeAlarmWhen as jest.Mock).mockReturnValueOnce(new Date('2026-01-30T10:00:00.000Z'));
+
+        await syncAlarmsForEvents(
+            mockJoplin,
+            events,
+            importedEventNotes,
+            existingAlarms,
+            'folder1',
+            undefined,
+            {alarmRangeDays: 0},
+        );
+
+        expect(mockGetAlarmRange).not.toHaveBeenCalled();
+        expect(mockCreateNote).toHaveBeenCalledTimes(1);
     });
 });

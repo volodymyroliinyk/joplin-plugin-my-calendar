@@ -12,6 +12,7 @@ import {syncAlarmsForEvents, ExistingAlarm} from './alarmService';
 import {buildMyCalBlock} from './noteBuilder';
 import {Joplin} from '../types/joplin.interface';
 import {createNote, getAllNotesPaged, updateNote} from './joplinNoteService';
+import {getIcsImportAlarmsEnabled} from '../settings/settings';
 
 type ExistingEventNote = { id: string; title: string; body: string; parent_id?: string };
 type ExistingEventNoteMap = Record<string, ExistingEventNote>;
@@ -190,8 +191,21 @@ export async function importIcsIntoNotes(
         }
     }
 
+    let alarmsEnabled = true;
+    try {
+        alarmsEnabled = await getIcsImportAlarmsEnabled(joplin);
+    } catch (e) {
+        // Backward compatibility: if setting read fails (old Joplin API / corrupted profile),
+        // keep previous behavior (alarms enabled).
+        await say(`[icsImportService] WARNING: Failed to read alarms setting; defaulting to enabled. ${String((e as any)?.message || e)}`);
+        alarmsEnabled = true;
+    }
+
     const alarmRes = await syncAlarmsForEvents(
-        joplin, events, importedEventNotes, existingAlarms, targetFolderId, onStatus, importAlarmRangeDays
+        joplin, events, importedEventNotes, existingAlarms, targetFolderId, onStatus, {
+            alarmRangeDays: importAlarmRangeDays,
+            alarmsEnabled
+        }
     );
 
     return {added, updated, skipped, errors, ...alarmRes};

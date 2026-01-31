@@ -17,6 +17,7 @@ export const SETTING_ICS_EXPORT_LINK4_URL = 'mycalendar.icsExportLink4Url';
 export const SETTING_DAY_EVENTS_REFRESH_MINUTES = 'mycalendar.dayEventsRefreshMinutes';
 export const SETTING_ICS_IMPORT_ALARM_RANGE_DAYS = 'mycalendar.icsImportAlarmRangeDays';
 export const SETTING_ICS_IMPORT_EMPTY_TRASH_AFTER = 'mycalendar.icsImportEmptyTrashAfter';
+export const SETTING_ICS_IMPORT_ALARMS_ENABLED = 'mycalendar.icsImportAlarmsEnabled';
 
 export type WeekStart = 'monday' | 'sunday';
 
@@ -112,7 +113,14 @@ export async function registerSettings(joplin: any) {
         },
 
         // 7) ICS Import
-
+        [SETTING_ICS_IMPORT_ALARMS_ENABLED]: {
+            value: false,
+            type: SETTING_TYPE_BOOL, // bool
+            section: 'mycalendar',
+            public: !mobile,
+            label: 'Enable ICS import alarms',
+            description: 'ICS import section: If enabled, alarms from ICS files will be imported as Todo notes. If disabled, existing alarms will be deleted on re-import.',
+        },
         [SETTING_ICS_IMPORT_ALARM_RANGE_DAYS]: {
             value: 30,
             type: SETTING_TYPE_INT, // int
@@ -305,4 +313,8 @@ export async function getIcsImportAlarmRangeDays(joplin: any): Promise<number> {
 
 export async function getIcsImportEmptyTrashAfter(joplin: any): Promise<boolean> {
     return !!(await joplin.settings.value(SETTING_ICS_IMPORT_EMPTY_TRASH_AFTER));
+}
+
+export async function getIcsImportAlarmsEnabled(joplin: any): Promise<boolean> {
+    return !!(await joplin.settings.value(SETTING_ICS_IMPORT_ALARMS_ENABLED));
 }
