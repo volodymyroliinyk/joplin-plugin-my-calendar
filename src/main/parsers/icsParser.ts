@@ -19,11 +19,14 @@ export function unfoldIcsLines(ics: string): string[] {
 }
 
 export function unescapeIcsText(s: string): string {
+    // Protect escaped backslashes first, so "\\\\n" becomes literal "\n" not newline.
+    const BS = '\u0000';
     return s
+        .replace(/\\\\/g, BS)
         .replace(/\\n/gi, '\n')
         .replace(/\\,/g, ',')
         .replace(/\\;/g, ';')
-        .replace(/\\\\/g, '\\');
+        .replace(new RegExp(BS, 'g'), '\\');
 }
 
 export function parseLineValue(line: string): { key: string; value: string; params: Record<string, string> } | null {
@@ -41,7 +44,9 @@ export function parseLineValue(line: string): { key: string; value: string; para
         const eq = p.indexOf('=');
         if (eq > 0) {
             const k = p.slice(0, eq).toUpperCase();
-            const v = p.slice(eq + 1);
+            let v = p.slice(eq + 1).trim();
+            // strip optional quotes: TZID="America/Toronto"
+            if (v.startsWith('"') && v.endsWith('"') && v.length >= 2) v = v.slice(1, -1);
             params[k] = v;
         }
     }
@@ -52,8 +57,26 @@ export function parseLineValue(line: string): { key: string; value: string; para
 export function normalizeRepeatFreq(freq?: string): 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly' | undefined {
     if (!freq) return undefined;
     const f = freq.toLowerCase();
+    if (f === 'none') return 'none';
     if (f === 'daily' || f === 'weekly' || f === 'monthly' || f === 'yearly') return f as any;
     return undefined;
+}
+
+function hasMeaningfulEvent(ev: IcsEvent): boolean {
+    return !!(
+        ev.uid ||
+        ev.title ||
+        ev.start ||
+        ev.end ||
+        ev.description ||
+        ev.location ||
+        ev.color ||
+        ev.repeat ||
+        ev.byweekday ||
+        ev.bymonthday ||
+        ev.repeat_until ||
+        (ev.valarms && ev.valarms.length)
+    );
 }
 
 export function parseRRule(rrule?: string): Partial<IcsEvent> {
@@ -173,7 +196,7 @@ export function parseIcs(ics: string): IcsEvent[] {
         }
         if (L === 'END:VEVENT') {
             curAlarm = null;
-            if (cur) events.push(cur);
+            if (cur && hasMeaningfulEvent(cur)) events.push(cur);
             cur = null;
             continue;
         }

@@ -33,6 +33,72 @@ type DesiredAlarm = {
     trigger: string;
 };
 
+export type AlarmSyncOptions = {
+    /**
+     * For deterministic testing. Defaults to new Date().
+     */
+    now?: Date;
+    /**
+     * Overrides settings.getIcsImportAlarmRangeDays().
+     */
+    alarmRangeDays?: number;
+    /**
+     * Overrides settings.getIcsImportEmptyTrashAfter().
+     */
+    emptyTrashAfter?: boolean;
+};
+
+function isPositiveFiniteNumber(v: unknown): v is number {
+    return typeof v === 'number' && Number.isFinite(v) && v > 0;
+}
+
+function buildDesiredAlarmsForEvent(ev: IcsEvent, now: Date, windowEnd: Date): DesiredAlarm[] {
+    const desired: DesiredAlarm[] = [];
+    const nowMs = now.getTime();
+    const windowEndMs = windowEnd.getTime();
+
+    if (!ev.valarms || ev.valarms.length === 0) return desired;
+
+    const occs = expandOccurrences(ev, now, windowEnd);
+    for (const occ of occs) {
+        for (const a of ev.valarms) {
+            const when = computeAlarmWhen(a, occ);
+            if (!when) continue;
+
+            const whenMs = when.getTime();
+            if (whenMs >= nowMs && whenMs <= windowEndMs) {
+                desired.push({alarmTime: whenMs, eventTime: occ.start, trigger: a.trigger});
+            }
+        }
+    }
+
+    return desired;
+}
+
+function buildAlarmNoteBody(args: {
+    eventTitle: string;
+    eventTime: Date;
+    eventNoteId: string;
+    todoTitle: string;
+    uid: string;
+    rid: string;
+    alarmTime: number;
+    trigger: string;
+}): string {
+    const eventTimeStr = formatAlarmTitleTime(args.eventTime);
+    const triggerDesc = formatTriggerDescription(args.trigger);
+    return buildAlarmBody(
+        args.eventTitle,
+        eventTimeStr,
+        args.eventNoteId,
+        args.todoTitle,
+        args.uid,
+        args.rid,
+        formatDateForAlarm(new Date(args.alarmTime)),
+        triggerDesc
+    );
+}
+
 export async function syncAlarmsForEvents(
     joplin: Joplin,
     events: IcsEvent[],
@@ -40,7 +106,7 @@ export async function syncAlarmsForEvents(
     existingAlarms: Record<string, ExistingAlarm[]>,
     targetFolderId?: string,
     onStatus?: (text: string) => Promise<void>,
-    importAlarmRangeDays?: number
+    options?: number | AlarmSyncOptions
 ): Promise<AlarmSyncResult> {
     const say = async (t: string) => {
         try {
@@ -49,14 +115,13 @@ export async function syncAlarmsForEvents(
         }
     };
 
-    const now = new Date();
-    const nowMs = now.getTime();
-    const alarmRangeDays =
-        Number.isFinite(importAlarmRangeDays) && (importAlarmRangeDays as number) > 0
-            ? Math.round(importAlarmRangeDays as number)
-            : await getIcsImportAlarmRangeDays(joplin);
+    const resolvedOptions: AlarmSyncOptions = typeof options === 'number' ? {alarmRangeDays: options} : (options ?? {});
 
-    const emptyTrashAfter = await getIcsImportEmptyTrashAfter(joplin);
+    const now = resolvedOptions.now ?? new Date();
+    const nowMs = now.getTime();
+    const alarmRangeDays = isPositiveFiniteNumber(resolvedOptions.alarmRangeDays) ? Math.round(resolvedOptions.alarmRangeDays) : await getIcsImportAlarmRangeDays(joplin);
+
+    const emptyTrashAfter = typeof resolvedOptions.emptyTrashAfter === 'boolean' ? resolvedOptions.emptyTrashAfter : await getIcsImportEmptyTrashAfter(joplin);
 
     const windowEnd = addDays(now, alarmRangeDays);
 
@@ -76,26 +141,7 @@ export async function syncAlarmsForEvents(
         const notebookId = targetFolderId || eventNote.parent_id;
         if (!notebookId) continue;
 
-        const desiredAlarms: DesiredAlarm[] = [];
-
-        if (ev.valarms && ev.valarms.length > 0) {
-            const occs = expandOccurrences(ev, now, windowEnd);
-            for (const occ of occs) {
-                for (const a of ev.valarms) {
-                    const when = computeAlarmWhen(a, occ);
-                    if (!when) continue;
-
-                    const whenMs = when.getTime();
-                    if (whenMs >= nowMs && whenMs <= windowEnd.getTime()) {
-                        desiredAlarms.push({
-                            alarmTime: whenMs,
-                            eventTime: occ.start,
-                            trigger: a.trigger
-                        });
-                    }
-                }
-            }
-        }
+        const desiredAlarms = buildDesiredAlarmsForEvent(ev, now, windowEnd);
 
         const oldAlarms = existingAlarms[key] || [];
         const matchedDesiredIndices = new Set<number>();
@@ -124,19 +170,18 @@ export async function syncAlarmsForEvents(
             if (matchIndex !== -1) {
                 matchedDesiredIndices.add(matchIndex);
                 const {alarmTime, eventTime, trigger} = desiredAlarms[matchIndex];
-                const eventTimeStr = formatAlarmTitleTime(eventTime);
-                const todoTitle = `${(ev.title || 'Event')} + ${eventTimeStr}`;
-                const triggerDesc = formatTriggerDescription(trigger);
-                const newBody = buildAlarmBody(
-                    ev.title || 'Event',
-                    eventTimeStr,
-                    eventNote.id,
+                const eventTitle = ev.title || 'Event';
+                const todoTitle = `${eventTitle} + ${formatAlarmTitleTime(eventTime)}`;
+                const newBody = buildAlarmNoteBody({
+                    eventTitle,
+                    eventTime,
+                    eventNoteId: eventNote.id,
                     todoTitle,
                     uid,
                     rid,
-                    formatDateForAlarm(new Date(alarmTime)),
-                    triggerDesc
-                );
+                    alarmTime,
+                    trigger
+                });
 
                 if (newBody !== alarm.body) {
                     try {
@@ -160,22 +205,18 @@ export async function syncAlarmsForEvents(
             if (matchedDesiredIndices.has(i)) continue;
 
             const {alarmTime, eventTime, trigger} = desiredAlarms[i];
-            const when = new Date(alarmTime);
-
-            const eventTimeStr = formatAlarmTitleTime(eventTime);
-            const todoTitle = `${(ev.title || 'Event')} + ${eventTimeStr}`;
-            const triggerDesc = formatTriggerDescription(trigger);
-
-            const body = buildAlarmBody(
-                ev.title || 'Event',
-                eventTimeStr,
-                eventNote.id,
+            const eventTitle = ev.title || 'Event';
+            const todoTitle = `${eventTitle} + ${formatAlarmTitleTime(eventTime)}`;
+            const body = buildAlarmNoteBody({
+                eventTitle,
+                eventTime,
+                eventNoteId: eventNote.id,
                 todoTitle,
                 uid,
                 rid,
-                formatDateForAlarm(when),
-                triggerDesc
-            );
+                alarmTime,
+                trigger
+            });
 
             try {
                 const noteBody = {
@@ -188,6 +229,7 @@ export async function syncAlarmsForEvents(
 
                 const created = await createNote(joplin, noteBody);
                 if (created?.id) {
+                    // NOTE: Keeping this as a safety measure in case Joplin doesn't persist todo_due on create reliably.
                     await updateNote(joplin, created.id, {todo_due: alarmTime});
                 }
                 alarmsCreated++;

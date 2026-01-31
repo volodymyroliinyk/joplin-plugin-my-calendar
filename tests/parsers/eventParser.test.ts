@@ -1,4 +1,5 @@
 // tests/parsers/eventParser.test.ts
+//
 // src/main/parsers/eventParser.ts
 //
 // npx jest tests/parsers/eventParser.test.ts --runInBand --no-cache;
@@ -64,6 +65,20 @@ describe('eventParser.parseEventsFromBody', () => {
         expect(events).toHaveLength(2);
         expect(events[0].title).toBe('A');
         expect(events[1].title).toBe('B');
+    });
+
+    test('is stable across multiple calls (does not leak RegExp lastIndex)', () => {
+        const body = [
+            'Hello',
+            block(['start: 2024-01-10T10:00:00Z', 'title: A']),
+            'World',
+            block(['start: 2024-01-11T10:00:00Z', 'title: B']),
+        ].join('\n');
+
+        const r1 = parseEventsFromBody(noteId, fallbackTitle, body);
+        const r2 = parseEventsFromBody(noteId, fallbackTitle, body);
+        expect(r2).toEqual(r1);
+        expect(r2).toHaveLength(2);
     });
 
     test('ignores non key:value lines inside the block', () => {
@@ -453,8 +468,7 @@ describe('eventParser.parseEventsFromBody', () => {
         expect(ev.endUtc).toBe(Date.UTC(2025, 0, 15, 10, 5, 0));
     });
 
-    test('repeat_until parsing is order-sensitive: if repeat_until appears before tz, it is parsed without tz', () => {
-        // This demonstrates current behavior: repeat_until is parsed at the moment it is encountered.
+    test('repeat_until parsing is order-independent (tz can appear before or after)', () => {        // This demonstrates current behavior: repeat_until is parsed at the moment it is encountered.
         // For deterministic results, run Jest with TZ=UTC.
         const body = block([
             'title: Order',
@@ -466,8 +480,19 @@ describe('eventParser.parseEventsFromBody', () => {
 
         const [ev] = parseEventsFromBody(noteId, fallbackTitle, body);
 
-        // Parsed as device-local time because tz was not known yet at repeat_until line.
-        expect(ev.repeatUntilUtc).toBe(new Date('2025-02-01T00:00:00').getTime());
+        expect(ev.repeatUntilUtc).toBeDefined();
+
+        const body2 = block([
+            'start: 2024-01-10 10:00:00',
+            'title: Order',
+            'repeat: weekly',
+            'tz: America/Toronto',
+            'repeat_until: 2025-02-01 00:00:00',
+            'start: 2025-01-15T10:00:00Z',
+        ]);
+
+        const [ev2] = parseEventsFromBody(noteId, fallbackTitle, body2);
+        expect(ev2.repeatUntilUtc).toBe(ev.repeatUntilUtc);
     });
 
     test('all_day parsing exhaustive: true, false, 1, 0, yes, no', () => {

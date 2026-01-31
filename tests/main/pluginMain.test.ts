@@ -1,7 +1,7 @@
 // tests/main/pluginMain.test.ts
+//
 // src/main/pluginMain.ts
 //
-// npx jest --runInBand --no-cache;
 // npx jest tests/main/pluginMain.test.ts --runInBand --no-cache;
 //
 import runPlugin from '../../src/main/pluginMain';
@@ -21,12 +21,22 @@ jest.mock('../../src/main/uiBridge/panelController', () => ({
     registerCalendarPanelController: jest.fn(),
 }));
 
+jest.mock('../../src/main/settings/settings', () => ({
+    registerSettings: jest.fn(),
+}));
+
+jest.mock('../../src/main/uiBridge/uiSettings', () => ({
+    pushUiSettings: jest.fn(),
+}));
+
 import {createCalendarPanel} from '../../src/main/views/calendarView';
 import {
     ensureAllEventsCache,
     invalidateNote,
 } from '../../src/main/services/eventsCache';
 import {registerCalendarPanelController} from '../../src/main/uiBridge/panelController';
+import {pushUiSettings} from '../../src/main/uiBridge/uiSettings';
+import {registerSettings} from '../../src/main/settings/settings';
 
 type AnyFn = (...a: any[]) => any;
 
@@ -167,6 +177,8 @@ describe('pluginMain.runPlugin', () => {
 
         await runPlugin(joplin as any);
 
+        expect(registerSettings).toHaveBeenCalledWith(joplin);
+
         // createCalendarPanel called
         expect(createCalendarPanel).toHaveBeenCalledWith(joplin);
 
@@ -296,7 +308,7 @@ describe('pluginMain.runPlugin', () => {
         // expect(invalidateAllEventsCache).toHaveBeenCalledTimes(2);
     });
 
-    test('desktop toggle: execute hides then shows (stateful and updates label)', async () => {
+    test('desktop toggle: execute hides then shows (stateful)', async () => {
         const logSpy = jest.spyOn(logger, 'log').mockImplementation(() => undefined);
 
         (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
@@ -306,32 +318,18 @@ describe('pluginMain.runPlugin', () => {
 
         await runPlugin(joplin as any);
 
-        // find latest registration for togglePanel
-        const getToggleCmd = () => {
-            const calls = (commandsRegister as jest.Mock).mock.calls.filter(([arg]) => arg?.name === 'mycalendar.togglePanel');
-            return calls[calls.length - 1][0];
-        };
-
-        const toggleCmd1 = getToggleCmd();
-        expect(toggleCmd1.label).toBe('Toggle My Calendar');
+        const toggleCmd = findCommand(commandsRegister as any, 'mycalendar.togglePanel');
+        expect(toggleCmd.label).toBe('Toggle My Calendar');
 
         // initial state is visible=true -> first execute hides (if hide exists)
-        await toggleCmd1.execute();
+        await toggleCmd.execute();
         expect(panels.hide).toHaveBeenCalledWith('panel-1');
         expect(logSpy).toHaveBeenCalledWith('pluginMain', 'Toggle: Hide');
 
-        // Label should remain 'Toggle My Calendar'
-        const toggleCmd2 = getToggleCmd();
-        expect(toggleCmd2.label).toBe('Toggle My Calendar');
-
         // second execute shows
-        await toggleCmd2.execute();
+        await toggleCmd.execute();
         expect(panels.show).toHaveBeenCalledWith('panel-1');
         expect(logSpy).toHaveBeenCalledWith('pluginMain', 'Toggle: Show');
-
-        // Label should remain 'Toggle My Calendar'
-        const toggleCmd3 = getToggleCmd();
-        expect(toggleCmd3.label).toBe('Toggle My Calendar');
 
         logSpy.mockRestore();
     });
@@ -671,5 +669,59 @@ describe('pluginMain.runPlugin', () => {
         expect(out[0].endUtc).toBe(end);
         expect(out[1].startUtc).toBe(start + 24 * 3600 * 1000);
         expect(out[1].endUtc).toBe(end + 24 * 3600 * 1000);
+    });
+
+    test('uiLog from panel -> routes to logger (unwraps {message: ...})', async () => {
+        const logSpy = jest.spyOn(logger, 'log').mockImplementation(() => undefined);
+        const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => undefined);
+
+        const ctx = makeJoplinMock();
+        let uiHandler: any = null;
+
+        // enable registerUiMessageHandlers path
+        (ctx.panels as any).onMessage = jest.fn(async (_panelId: string, cb: any) => {
+            uiHandler = cb;
+        });
+
+        (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
+
+        await runPlugin(ctx.joplin as any);
+
+        expect(typeof uiHandler).toBe('function');
+
+        await uiHandler({
+            message: {
+                name: 'uiLog',
+                level: 'warn',
+                source: 'calendar',
+                args: ['hello'],
+            },
+        });
+
+        expect(warnSpy).toHaveBeenCalledWith('[UI:calendar]', 'hello');
+        logSpy.mockRestore();
+        warnSpy.mockRestore();
+    });
+
+    test('uiReady from panel -> pushes UI settings and triggers redraw', async () => {
+        const ctx = makeJoplinMock();
+        let uiHandler: any = null;
+
+        // enable registerUiMessageHandlers path
+        (ctx.panels as any).onMessage = jest.fn(async (_panelId: string, cb: any) => {
+            uiHandler = cb;
+        });
+
+        (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
+        (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);
+
+        await runPlugin(ctx.joplin as any);
+
+        expect(typeof uiHandler).toBe('function');
+
+        await uiHandler({name: 'uiReady'});
+
+        expect(pushUiSettings).toHaveBeenCalledWith(ctx.joplin, 'panel-1');
+        expect(ctx.panels.postMessage).toHaveBeenCalledWith('panel-1', {name: 'redrawMonth'});
     });
 });

@@ -1,9 +1,19 @@
 // tests/views/calendarView.test.ts
+//
 // src/main/views/calendarView.ts
 //
 // npx jest tests/views/calendarView.test.ts --runInBand --no-cache;
 //
-import {createCalendarPanel} from '../../src/main/views/calendarView';
+jest.mock('../../src/main/utils/logger', () => ({
+    log: jest.fn(),
+}));
+
+import {log} from '../../src/main/utils/logger';
+import {
+    createCalendarPanel,
+    CALENDAR_PANEL_ID,
+    CALENDAR_PANEL_SCRIPTS,
+} from '../../src/main/views/calendarView';
 
 type MockedPanels = {
     create: jest.Mock;
@@ -30,14 +40,11 @@ function makeJoplinMock() {
 }
 
 describe('calendarView.createCalendarPanel', () => {
-    let logSpy: jest.SpyInstance;
-
     beforeEach(() => {
-        logSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
+        jest.clearAllMocks();
     });
 
     afterEach(() => {
-        logSpy.mockRestore();
         jest.clearAllMocks();
     });
 
@@ -54,7 +61,7 @@ describe('calendarView.createCalendarPanel', () => {
         expect(panel).toBe('panel-123');
 
         // create called with fixed id
-        expect(panels.create).toHaveBeenCalledWith('mycalendarPanel');
+        expect(panels.create).toHaveBeenCalledWith(CALENDAR_PANEL_ID);
 
         // setHtml called with string containing key container ids
         expect(panels.setHtml).toHaveBeenCalledTimes(1);
@@ -63,20 +70,24 @@ describe('calendarView.createCalendarPanel', () => {
         expect(html).toContain('id="mc-toolbar"');
         expect(html).toContain('id="mc-grid"');
         expect(html).toContain('id="mc-events"');
+        expect(html).toContain('id="mc-events-day-label"');
+        expect(html).toContain('id="mc-events-list"');
+        expect(html).toContain('id="mc-import"');
+        expect(html).toContain('id="ics-root"');
         expect(html).toContain('id="mc-log"');
 
         // scripts added in order
-        expect(panels.addScript).toHaveBeenCalledTimes(3);
-        expect(panels.addScript).toHaveBeenNthCalledWith(1, 'panel-123', './ui/mycalendar.css');
-        expect(panels.addScript).toHaveBeenNthCalledWith(2, 'panel-123', './ui/calendar.js');
-        expect(panels.addScript).toHaveBeenNthCalledWith(3, 'panel-123', './ui/icsImport.js');
+        expect(panels.addScript).toHaveBeenCalledTimes(CALENDAR_PANEL_SCRIPTS.length);
+        CALENDAR_PANEL_SCRIPTS.forEach((script, index) => {
+            expect(panels.addScript).toHaveBeenNthCalledWith(index + 1, 'panel-123', script);
+        });
 
         // show called once
         expect(panels.show).toHaveBeenCalledWith('panel-123');
 
         // log emitted
         // Updated expectation: [MyCalendar][calendarView created]
-        expect(logSpy).toHaveBeenCalledWith('[MyCalendar][calendarView] Panel created');
+        expect(log).toHaveBeenCalledWith('calendarView', 'Panel created');
 
         // optional: strict call order across methods
         expect(panels.create.mock.invocationCallOrder[0]).toBeLessThan(panels.setHtml.mock.invocationCallOrder[0]);
@@ -94,7 +105,7 @@ describe('calendarView.createCalendarPanel', () => {
         expect(panels.setHtml).not.toHaveBeenCalled();
         expect(panels.addScript).not.toHaveBeenCalled();
         expect(panels.show).not.toHaveBeenCalled();
-        expect(logSpy).not.toHaveBeenCalled();
+        expect(log).not.toHaveBeenCalled();
     });
 
     test('fails if panels.setHtml rejects; scripts/show not called', async () => {
@@ -107,7 +118,7 @@ describe('calendarView.createCalendarPanel', () => {
 
         expect(panels.addScript).not.toHaveBeenCalled();
         expect(panels.show).not.toHaveBeenCalled();
-        expect(logSpy).not.toHaveBeenCalled();
+        expect(log).not.toHaveBeenCalled();
     });
 
     test('fails if addScript(calendar.css) rejects; later scripts/show not called', async () => {
@@ -123,7 +134,7 @@ describe('calendarView.createCalendarPanel', () => {
         expect(panels.addScript).toHaveBeenCalledTimes(1);
         expect(panels.addScript).toHaveBeenCalledWith('panel-123', './ui/mycalendar.css');
         expect(panels.show).not.toHaveBeenCalled();
-        expect(logSpy).not.toHaveBeenCalled();
+        expect(log).not.toHaveBeenCalled();
     });
 
     test('fails if addScript(calendar.js) rejects; third script/show not called', async () => {
@@ -142,7 +153,7 @@ describe('calendarView.createCalendarPanel', () => {
         expect(panels.addScript).toHaveBeenNthCalledWith(1, 'panel-123', './ui/mycalendar.css');
         expect(panels.addScript).toHaveBeenNthCalledWith(2, 'panel-123', './ui/calendar.js');
         expect(panels.show).not.toHaveBeenCalled();
-        expect(logSpy).not.toHaveBeenCalled();
+        expect(log).not.toHaveBeenCalled();
     });
 
     test('fails if addScript(icsImport.js) rejects; show not called', async () => {
@@ -160,7 +171,7 @@ describe('calendarView.createCalendarPanel', () => {
 
         expect(panels.addScript).toHaveBeenCalledTimes(3);
         expect(panels.show).not.toHaveBeenCalled();
-        expect(logSpy).not.toHaveBeenCalled();
+        expect(log).not.toHaveBeenCalled();
     });
 
     test('fails if panels.show rejects; log not called', async () => {
@@ -173,6 +184,6 @@ describe('calendarView.createCalendarPanel', () => {
 
         await expect(createCalendarPanel(joplin)).rejects.toThrow('show failed');
 
-        expect(logSpy).not.toHaveBeenCalled();
+        expect(log).not.toHaveBeenCalled();
     });
 });

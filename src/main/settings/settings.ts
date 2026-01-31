@@ -25,6 +25,23 @@ export type IcsExportLink = {
     url: string;
 };
 
+const TITLE_MAX_LEN = 60;
+
+// Avoid magic numbers for setting item types (Joplin: int=1, string=2, bool=3)
+const SETTING_TYPE_INT = 1;
+const SETTING_TYPE_STRING = 2;
+const SETTING_TYPE_BOOL = 3;
+
+const ICS_EXPORT_LINK_PAIRS: Array<{ titleKey: string; urlKey: string }> = [
+    {titleKey: SETTING_ICS_EXPORT_LINK1_TITLE, urlKey: SETTING_ICS_EXPORT_LINK1_URL},
+    {titleKey: SETTING_ICS_EXPORT_LINK2_TITLE, urlKey: SETTING_ICS_EXPORT_LINK2_URL},
+    {titleKey: SETTING_ICS_EXPORT_LINK3_TITLE, urlKey: SETTING_ICS_EXPORT_LINK3_URL},
+    {titleKey: SETTING_ICS_EXPORT_LINK4_TITLE, urlKey: SETTING_ICS_EXPORT_LINK4_URL},
+];
+
+const ICS_EXPORT_URL_KEYS = ICS_EXPORT_LINK_PAIRS.map(p => p.urlKey);
+const ICS_EXPORT_TITLE_KEYS = ICS_EXPORT_LINK_PAIRS.map(p => p.titleKey);
+
 export function sanitizeExternalUrl(input: unknown): string {
     const s = String(input ?? '').trim();
     if (!s) return '';
@@ -43,7 +60,7 @@ export function sanitizeTitle(input: unknown): string {
     const s = String(input ?? '').trim();
     // Keep it short to avoid breaking the layout.
     if (!s) return '';
-    return s.length > 60 ? s.slice(0, 60) : s;
+    return s.length > TITLE_MAX_LEN ? s.slice(0, TITLE_MAX_LEN) : s;
 }
 
 async function isMobile(joplin: any): Promise<boolean> {
@@ -71,7 +88,7 @@ export async function registerSettings(joplin: any) {
         // 2) Week starts on
         [SETTING_WEEK_START]: {
             value: 'monday',
-            type: 2, // string
+            type: SETTING_TYPE_STRING, // string
             section: 'mycalendar',
             public: true,
             label: 'Week starts on',
@@ -87,7 +104,7 @@ export async function registerSettings(joplin: any) {
         // 5) Day events auto-refresh (minutes)
         [SETTING_DAY_EVENTS_REFRESH_MINUTES]: {
             value: 1,
-            type: 1, // int
+            type: SETTING_TYPE_INT, // int
             section: 'mycalendar',
             public: true,
             label: 'Day events auto-refresh (minutes)',
@@ -98,7 +115,7 @@ export async function registerSettings(joplin: any) {
 
         [SETTING_ICS_IMPORT_ALARM_RANGE_DAYS]: {
             value: 30,
-            type: 1, // int
+            type: SETTING_TYPE_INT, // int
             section: 'mycalendar',
             public: !mobile,
             label: 'ICS import alarm range (days)',
@@ -106,7 +123,7 @@ export async function registerSettings(joplin: any) {
         },
         [SETTING_ICS_IMPORT_EMPTY_TRASH_AFTER]: {
             value: false,
-            type: 3, // bool
+            type: SETTING_TYPE_BOOL, // bool
             section: 'mycalendar',
             public: !mobile,
             label: 'Empty trash after alarm cleanup',
@@ -115,7 +132,7 @@ export async function registerSettings(joplin: any) {
         // 8) ICS export links (up to 4)
         [SETTING_ICS_EXPORT_LINK1_TITLE]: {
             value: '',
-            type: 2, // string
+            type: SETTING_TYPE_STRING, // string
             section: 'mycalendar',
             public: !mobile,
             label: 'ICS export link 1 title',
@@ -123,7 +140,7 @@ export async function registerSettings(joplin: any) {
         },
         [SETTING_ICS_EXPORT_LINK1_URL]: {
             value: '',
-            type: 2, // string
+            type: SETTING_TYPE_STRING, // string
             section: 'mycalendar',
             public: !mobile,
             label: 'ICS export link 1 URL',
@@ -132,7 +149,7 @@ export async function registerSettings(joplin: any) {
 
         [SETTING_ICS_EXPORT_LINK2_TITLE]: {
             value: '',
-            type: 2,
+            type: SETTING_TYPE_STRING,
             section: 'mycalendar',
             public: !mobile,
             label: 'ICS export link 2 title',
@@ -140,7 +157,7 @@ export async function registerSettings(joplin: any) {
         },
         [SETTING_ICS_EXPORT_LINK2_URL]: {
             value: '',
-            type: 2,
+            type: SETTING_TYPE_STRING,
             section: 'mycalendar',
             public: !mobile,
             label: 'ICS export link 2 URL',
@@ -149,7 +166,7 @@ export async function registerSettings(joplin: any) {
 
         [SETTING_ICS_EXPORT_LINK3_TITLE]: {
             value: '',
-            type: 2,
+            type: SETTING_TYPE_STRING,
             section: 'mycalendar',
             public: !mobile,
             label: 'ICS export link 3 title',
@@ -157,7 +174,7 @@ export async function registerSettings(joplin: any) {
         },
         [SETTING_ICS_EXPORT_LINK3_URL]: {
             value: '',
-            type: 2,
+            type: SETTING_TYPE_STRING,
             section: 'mycalendar',
             public: !mobile,
             label: 'ICS export link 3 URL',
@@ -166,7 +183,7 @@ export async function registerSettings(joplin: any) {
 
         [SETTING_ICS_EXPORT_LINK4_TITLE]: {
             value: '',
-            type: 2,
+            type: SETTING_TYPE_STRING,
             section: 'mycalendar',
             public: !mobile,
             label: 'ICS export link 4 title',
@@ -174,7 +191,7 @@ export async function registerSettings(joplin: any) {
         },
         [SETTING_ICS_EXPORT_LINK4_URL]: {
             value: '',
-            type: 2,
+            type: SETTING_TYPE_STRING,
             section: 'mycalendar',
             public: !mobile,
             label: 'ICS export link 4 URL',
@@ -185,7 +202,7 @@ export async function registerSettings(joplin: any) {
         // 11) Enable debug logging
         [SETTING_DEBUG]: {
             value: false,
-            type: 3, // bool
+            type: SETTING_TYPE_BOOL, // bool
             section: 'mycalendar',
             public: true,
             label: 'Enable debug logging',
@@ -208,39 +225,24 @@ export async function registerSettings(joplin: any) {
 
                 const maybeFixTitle = async (key: string) => {
                     const raw = await joplin.settings.value(key);
-                    const sanitizeTitle = (input: unknown): string => {
-                        const s = String(input ?? '').trim();
-                        if (!s) return '';
-                        return s.length > 60 ? s.slice(0, 60) : s;
-                    };
                     const safe = sanitizeTitle(raw);
                     if (raw !== safe) await joplin.settings.setValue(key, safe);
                 };
 
-                const urlKeys = [
-                    SETTING_ICS_EXPORT_LINK1_URL,
-                    SETTING_ICS_EXPORT_LINK2_URL,
-                    SETTING_ICS_EXPORT_LINK3_URL,
-                    SETTING_ICS_EXPORT_LINK4_URL,
-                ];
 
-                const titleKeys = [
-                    SETTING_ICS_EXPORT_LINK1_TITLE,
-                    SETTING_ICS_EXPORT_LINK2_TITLE,
-                    SETTING_ICS_EXPORT_LINK3_TITLE,
-                    SETTING_ICS_EXPORT_LINK4_TITLE,
-                ];
-
-                const touchedUrl = urlKeys.some((k) => keys.includes(k));
-                const touchedTitle = titleKeys.some((k) => keys.includes(k));
-
-                if (!touchedUrl && !touchedTitle) return;
-
-                for (const k of urlKeys) {
+                const touchedUrl = ICS_EXPORT_URL_KEYS.some((k) => keys.includes(k));
+                const touchedTitle = ICS_EXPORT_TITLE_KEYS.some((k) => keys.includes(k));
+                const touchedDebug = keys.includes(SETTING_DEBUG);
+                if (!touchedUrl && !touchedTitle && !touchedDebug) return;
+                for (const k of ICS_EXPORT_URL_KEYS) {
                     if (keys.includes(k)) await maybeFixUrl(k);
                 }
-                for (const k of titleKeys) {
+                for (const k of ICS_EXPORT_TITLE_KEYS) {
                     if (keys.includes(k)) await maybeFixTitle(k);
+                }
+                if (touchedDebug) {
+                    const v = await joplin.settings.value(SETTING_DEBUG);
+                    setDebugEnabled(!!v);
                 }
             } catch {
                 // ignore
@@ -253,7 +255,9 @@ export async function registerSettings(joplin: any) {
 }
 
 export async function getWeekStart(joplin: any): Promise<WeekStart> {
-    return (await joplin.settings.value(SETTING_WEEK_START)) as WeekStart;
+    const raw = await joplin.settings.value(SETTING_WEEK_START);
+    const v = String(raw ?? '').toLowerCase().trim();
+    return (v === 'sunday' || v === 'monday') ? (v as WeekStart) : 'monday';
 }
 
 export async function getDebugEnabled(joplin: any): Promise<boolean> {
@@ -261,16 +265,10 @@ export async function getDebugEnabled(joplin: any): Promise<boolean> {
 }
 
 export async function getIcsExportLinks(joplin: any): Promise<IcsExportLink[]> {
-    const pairs: Array<{ titleKey: string; urlKey: string }> = [
-        {titleKey: SETTING_ICS_EXPORT_LINK1_TITLE, urlKey: SETTING_ICS_EXPORT_LINK1_URL},
-        {titleKey: SETTING_ICS_EXPORT_LINK2_TITLE, urlKey: SETTING_ICS_EXPORT_LINK2_URL},
-        {titleKey: SETTING_ICS_EXPORT_LINK3_TITLE, urlKey: SETTING_ICS_EXPORT_LINK3_URL},
-        {titleKey: SETTING_ICS_EXPORT_LINK4_TITLE, urlKey: SETTING_ICS_EXPORT_LINK4_URL},
-    ];
 
     const out: IcsExportLink[] = [];
 
-    for (const p of pairs) {
+    for (const p of ICS_EXPORT_LINK_PAIRS) {
         const rawTitle = await joplin.settings.value(p.titleKey);
         const rawUrl = await joplin.settings.value(p.urlKey);
 

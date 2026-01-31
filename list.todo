@@ -1,10 +1,9 @@
 TODO:[1]:
     - refactoring:
-        - Move all *.style attributes from js/ts to .css;
     - readme.md:
     - release:
         - npm  portal;
-        - joplin portal;
+        - github portal;
 TODO:[regular]:
     - manual tests check;
     - regular jest cases check;
