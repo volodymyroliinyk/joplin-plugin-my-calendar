@@ -13,6 +13,7 @@ export type UiSettingsMessage = {
     debug: boolean;
     icsExportLinks: IcsExportLink[];
     dayEventsRefreshMinutes: unknown;
+    showEventTimeline: boolean;
 };
 
 type JoplinLike = {
@@ -37,11 +38,12 @@ async function getIcsExportLinksCompat(joplin: unknown): Promise<IcsExportLink[]
  * Separated for easier unit testing and future reuse.
  */
 export async function buildUiSettingsMessage(joplin: unknown): Promise<UiSettingsMessage> {
-    const [weekStart, debugRaw, icsExportLinks, dayEventsRefreshMinutes] = await Promise.all([
+    const [weekStart, debugRaw, icsExportLinks, dayEventsRefreshMinutes, showEventTimeline] = await Promise.all([
         settings.getWeekStart(joplin as any),
         settings.getDebugEnabled(joplin as any),
         getIcsExportLinksCompat(joplin),
         settings.getDayEventsRefreshMinutes(joplin as any),
+        settings.getShowEventTimeline(joplin as any),
     ]);
 
     const debugEnabled = Boolean(debugRaw);
@@ -55,6 +57,7 @@ export async function buildUiSettingsMessage(joplin: unknown): Promise<UiSetting
         debug: debugEnabled,
         icsExportLinks,
         dayEventsRefreshMinutes,
+        showEventTimeline,
     };
 }
 
