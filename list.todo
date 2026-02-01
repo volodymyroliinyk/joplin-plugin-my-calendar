@@ -1,13 +1,8 @@
 TODO:[1]:
-    - refactoring:
     - readme.md:
     - release:
         - npm  portal;
         - github portal;
-TODO:[regular]:
-    - manual tests check;
-    - regular jest cases check;
-    - just english comments and annotations, use IDE translator;
 TODO:[2]:
     - multilingual support;
 
