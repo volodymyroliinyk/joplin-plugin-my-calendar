@@ -19,7 +19,8 @@
     "test:watch": "jest --watch",
     "lint": "eslint .",
     "prepare": "husky",
-    "release": "standard-version"
+    "release": "standard-version",
+    "changelog:preview": "bash scripts/preview-changelog.sh"
   },
   "keywords": [
     "joplin-plugin"

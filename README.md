@@ -22,9 +22,9 @@ note-taking app.
 - **Notes as Events**: Any note can become a calendar event simply by adding a small Markdown block.
 - **ICS Import**: Import standard `*.ics` files (from Google Calendar, Outlook, Apple, etc.) directly into your Joplin
   notebooks.
-- **Optimized Automatic Alarms**: The plugin automatically creates "Todo" notes with reminders based on your calendar
-  alarms (
-  `VALARM`). The sync process is optimized to only update what's necessary, reducing sync traffic.
+- **Notes as Alarms**: The plugin automatically creates "Todo" notes with reminders based on your calendar alarms
+  (`VALARM`). These notes act as system notifications and link back to the original event. The sync process is optimized
+  to only update what's necessary.
 - **Recurrence Support**: Full support for daily, weekly, monthly, and yearly recurring events.
 - **High Security**: Built-in protection against Markdown and CSS injections.
 - **Universal Sync**: Works with Joplin's built-in synchronization across all your devices.
@@ -152,17 +152,27 @@ The calendar supports several ways to specify the time and timezone of your even
 
 Customize your experience in the Joplin Settings (`Tools` > `Options` > `My Calendar`):
 
-### General
+### Calendar
 
 - **Week starts on**: Choose between **Monday** (default) or **Sunday** for the calendar grid.
+
+### Day events
+
+- **Show event timeline**: Show a visual timeline bar under each event in the day list. Disabling this also stops
+  related UI update timers. (Default: Enabled).
 - **Day events auto-refresh**: Set the interval (in minutes) for how often the day's event list updates. (Default: 1
   min).
 
-### ICS Import
+### ICS Import (Desktop only)
 
+- **Enable ICS import alarms**: If enabled, alarms from ICS files will be imported as Todo notes. If disabled, existing
+  alarms will be deleted on re-import. (Default: Disabled).
 - **ICS import alarm range**: Define how many days into the future (up to 365) the plugin should scan and generate
   native Joplin reminders from your ICS files. (Default: 30 days).
-- **ICS export links (Desktop only)**: Add up to 4 quick-access links to your favorite calendar exporters (e.g., Google
+- **Empty trash after alarm cleanup**: If enabled, the plugin will empty the trash after deleting old alarms. **WARNING
+  **:
+  This deletes ALL items in the trash. (Default: Disabled).
+- **ICS export links**: Add up to 4 quick-access links to your favorite calendar exporters (e.g., Google
   Calendar Export URL). These will appear as convenient buttons in the import panel.
 
 ### Developer
@@ -178,8 +188,6 @@ Customize your experience in the Joplin Settings (`Tools` > `Options` > `My Cale
 ---
 
 ## 👨‍💻 Development
-
-This plugin is built with **modern TypeScript** and focused on high code quality.
 
 ### Commands:
 

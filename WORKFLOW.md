@@ -14,10 +14,10 @@ The development process is divided into several key stages:
 - **Create a Branch**: Always start new work on a dedicated branch. Never commit directly to `main`.
   ```bash
   # For a new feature
-  git checkout -b feature/new-calendar-view
+  git checkout -b feature/new-calendar-view;
 
   # For a bug fix
-  git checkout -b fix/timezone-bug
+  git checkout -b fix/timezone-bug;
   ```
 
 ### 2. Development Loop
@@ -26,7 +26,7 @@ The development process is divided into several key stages:
 - **Commit Changes**: Use the **Conventional Commits** standard for your commit messages. This is critical for automated
   changelog generation.
   ```bash
-  git commit -m "feat: add monthly calendar view"
+  git commit -m "feat: add monthly calendar view";
   ```
 - **Automated Checks (Husky)**: When you commit, a pre-commit hook will automatically run the linter (`npm run lint`).
   If there are errors, the commit will be aborted, preventing bad code from entering the history.
@@ -36,7 +36,7 @@ The development process is divided into several key stages:
 - **Run Local Checks**: Before pushing, run the `pre-pack.sh` script. It ensures that the code is lint-free and all
   tests pass.
   ```bash
-  ./scripts/pre-pack.sh
+  bash ./scripts/pre-pack.sh;
   ```
 - **Manual QA**: Test the generated `.jpl` file on both Desktop and Mobile to ensure everything works as expected.
 
@@ -47,11 +47,30 @@ The development process is divided into several key stages:
 - **Pre-Push Hook**: When you push to `main`, a pre-push hook will verify that tests have passed recently, preventing
   broken code from being merged.
 
-### 5. Release
+### 5. Preview Changelog
+
+Before running a release, you can preview how the `CHANGELOG.md` will look. This is useful to verify that all commits
+are correctly categorized and the version bump is as expected.
+
+- **Check next Patch version**:
+  ```bash
+  npm run changelog:preview;
+  ```
+
+- **Check next Minor version**:
+  ```bash
+  # Using the script directly
+  bash scripts/preview-changelog.sh minor;
+
+  # Or via npm (requires extra dashes)
+  npm run changelog:preview -- minor;
+  ```
+
+### 6. Release
 
 - **Run the Release Script**: Use the `release.sh` script to automate the entire release process.
   ```bash
-  ./scripts/release.sh [patch|minor|major]
+  bash ./scripts/release.sh [patch|minor|major];
   ```
   This script will:
   1. Analyze commits since the last tag.
