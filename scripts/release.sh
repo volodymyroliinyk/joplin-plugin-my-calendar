@@ -99,16 +99,24 @@ fi
 if command -v gh &> /dev/null; then
     echo -e "${YELLOW}🌐 Creating GitHub Release v$NEW_VERSION...${NC}"
 
-    # Extract notes from CHANGELOG (optional complexity, or just point to file)
-    # Here we just use the title.
+    # Extract notes from CHANGELOG
+    NOTES_FILE="release_notes.tmp"
+    # Extract lines between "## [VERSION]" and the next "## "
+    awk "/^## \[${NEW_VERSION}\]/{flag=1; next} /^## /{flag=0} flag" CHANGELOG.md > "$NOTES_FILE"
+    
+    # Fallback if empty
+    if [ ! -s "$NOTES_FILE" ]; then
+       echo "See CHANGELOG.md for details." > "$NOTES_FILE"
+    fi
 
     if [ -f "$JPL_FILE" ]; then
-        gh release create "v$NEW_VERSION" "$JPL_FILE" --title "v$NEW_VERSION" --notes "See CHANGELOG.md for details."
+        gh release create "v$NEW_VERSION" "$JPL_FILE" --title "v$NEW_VERSION" --notes-file "$NOTES_FILE"
         echo -e "${GREEN}✅ GitHub Release created with .jpl attachment.${NC}"
     else
         echo -e "${RED}⚠️ .jpl file not found at $JPL_FILE. Creating release without attachment.${NC}"
-        gh release create "v$NEW_VERSION" --title "v$NEW_VERSION" --notes "See CHANGELOG.md for details."
+        gh release create "v$NEW_VERSION" --title "v$NEW_VERSION" --notes-file "$NOTES_FILE"
     fi
+    rm -f "$NOTES_FILE"
 else
     echo -e "${YELLOW}⚠️ Warning: 'gh' (GitHub CLI) not found. Skipping GitHub Release.${NC}"
 fi
