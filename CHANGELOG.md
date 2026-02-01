@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### 1.2.2 (2026-02-01)
+
+
+### 🐛 Bug Fixes
+
+* add authentication checks and redundant build step to release script ([4c59a6d](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/4c59a6d681b75b825b73b2bc20f185ca30534a5c))
+* update pack script and remove deprecated husky config ([6a2ba19](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/6a2ba19a6b11beb302be0cd0f92717e7e3294dca))
+* use static label for toggle command to avoid UI sync issues ([e2d4c99](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/e2d4c99aa880a2d7b837b1cf044bfbaf3678efaa))
+
+
+### ✨ Features
+
+* add option to empty trash after alarm cleanup ([80ed82b](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/80ed82b8102ee73d5b14341d9531849953d40700))
+* add setting to toggle event timeline visibility ([263013c](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/263013c05404b96f5d3ab8eaa0ef61aaa322c26d))
+* add setting to toggle ICS alarm import ([7cb16f2](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/7cb16f276f43882136ce432464875ae154605d56))
+* enhance alarm notification content ([f12cd29](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/f12cd2967900d54ca742d04101cc8545cc2af709))
+* improve github release notes extraction ([94d6173](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/94d6173ad08a826cebd71edbfe00ff26b0c140e0))
+* optimize alarm synchronization logic ([46a1bc8](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/46a1bc87573e8f9ea51dffe2e1281946e4873c69))
+
 ### 1.2.1 (2026-02-01)
 
 
