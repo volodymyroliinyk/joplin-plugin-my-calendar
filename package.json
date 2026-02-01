@@ -23,7 +23,14 @@
     "changelog:preview": "bash scripts/preview-changelog.sh"
   },
   "keywords": [
-    "joplin-plugin"
+    "joplin",
+    "plugin",
+    "calendar",
+    "event",
+    "my calendar",
+    "ics",
+    "import",
+    "ical"
   ],
   "devDependencies": {
     "@eslint/js": "^9.39.2",
