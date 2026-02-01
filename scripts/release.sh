@@ -47,7 +47,26 @@ if ! bash scripts/check-tests.sh; then
     exit 1
 fi
 
-# 3. Generate changelog, bump version, and create tag
+# 3. Check Authentication
+echo -e "${YELLOW}🕵️ Checking authentication status...${NC}"
+
+# Check npm login
+if ! npm whoami &> /dev/null; then
+    echo -e "${RED}❌ You are not logged in to npm. Run 'npm login' first.${NC}"
+    exit 1
+fi
+
+# Check gh login (only if gh is installed)
+if command -v gh &> /dev/null; then
+    if ! gh auth status &> /dev/null; then
+        echo -e "${RED}❌ You are not logged in to GitHub CLI. Run 'gh auth login' first.${NC}"
+        exit 1
+    fi
+else
+    echo -e "${YELLOW}⚠️ GitHub CLI not found. GitHub release will be skipped.${NC}"
+fi
+
+# 4. Generate changelog, bump version, and create tag
 echo -e "${YELLOW}📈 Bumping version ($TYPE)...${NC}"
 # standard-version bumps version in package.json/manifest.json and commits it
 npm run release -- --release-as $TYPE
@@ -55,14 +74,14 @@ npm run release -- --release-as $TYPE
 # Get the new version
 NEW_VERSION=$(node -p "require('./package.json').version")
 
-# 4. RE-BUILD and PACK with the new version
+# 5. RE-BUILD and PACK with the new version
 # This is critical! We need to update the dist/ folder and .jpl file
 # so they contain the new version number from manifest.json
 echo -e "${YELLOW}🔨 Re-building plugin with version $NEW_VERSION...${NC}"
-npm run build
+
 npm run pack
 
-# 5. Push and Merge logic
+# 6. Push and Merge logic
 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
 echo -e "${YELLOW}🚀 Pushing $CURRENT_BRANCH to origin...${NC}"
@@ -76,7 +95,7 @@ if [ "$CURRENT_BRANCH" != "main" ]; then
     git checkout "$CURRENT_BRANCH"
 fi
 
-# 6. GitHub Release (requires gh CLI)
+# 7. GitHub Release (requires gh CLI)
 if command -v gh &> /dev/null; then
     echo -e "${YELLOW}🌐 Creating GitHub Release v$NEW_VERSION...${NC}"
 
@@ -94,7 +113,7 @@ else
     echo -e "${YELLOW}⚠️ Warning: 'gh' (GitHub CLI) not found. Skipping GitHub Release.${NC}"
 fi
 
-# 7. NPM Release
+# 8. NPM Release
 echo -e "${YELLOW}📦 Publishing to NPM...${NC}"
 npm publish
 
