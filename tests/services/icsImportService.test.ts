@@ -281,11 +281,11 @@ describe('icsImportService.importIcsIntoNotes', () => {
 
         const existingAlarm = {
             id: 'old-alarm-id',
-            title: 'With alarm + 2025-01-15 09:00',
+            title: 'With alarm at 2025-01-15 09:00',
             parent_id: 'nb1',
             body: [
                 '```mycalendar-alarm',
-                'title: With alarm + 2025-01-15 09:00',
+                'title: With alarm at 2025-01-15 09:00',
                 'uid: u-del',
                 'recurrence_id: ',
                 'when: 2025-01-15 09:00:00+00:00',
@@ -1202,11 +1202,11 @@ describe('icsImportService.importIcsIntoNotes', () => {
 
         const existingAlarm = {
             id: 'old-alarm-id',
-            title: 'Occ with alarm + 2025-01-15 13:00',
+            title: 'Occ with alarm at 2025-01-15 13:00',
             parent_id: 'nb1',
             body: [
                 '```mycalendar-alarm',
-                'title: Occ with alarm + 2025-01-15 13:00',
+                'title: Occ with alarm at 2025-01-15 13:00',
                 'uid: u-rid',
                 'recurrence_id: 20250115T090000',
                 'when: 2025-01-15 13:00:00+00:00',

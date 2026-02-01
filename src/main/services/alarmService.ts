@@ -187,7 +187,7 @@ export async function syncAlarmsForEvents(
                 matchedDesiredIndices.add(matchIndex);
                 const {alarmTime, eventTime, trigger} = desiredAlarms[matchIndex];
                 const eventTitle = ev.title || 'Event';
-                const todoTitle = `${eventTitle} + ${formatAlarmTitleTime(eventTime)}`;
+                const todoTitle = `${eventTitle} at ${formatAlarmTitleTime(eventTime)}`;
                 const newBody = buildAlarmNoteBody({
                     eventTitle,
                     eventTime,
@@ -222,7 +222,7 @@ export async function syncAlarmsForEvents(
 
             const {alarmTime, eventTime, trigger} = desiredAlarms[i];
             const eventTitle = ev.title || 'Event';
-            const todoTitle = `${eventTitle} + ${formatAlarmTitleTime(eventTime)}`;
+            const todoTitle = `${eventTitle} at ${formatAlarmTitleTime(eventTime)}`;
             const body = buildAlarmNoteBody({
                 eventTitle,
                 eventTime,
