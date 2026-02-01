@@ -207,7 +207,7 @@ The project includes helper scripts in the `scripts/` directory to streamline de
 Ensures code quality before packaging. It runs the linter (failing on warnings) and the full test suite.
 
 ```bash
-./scripts/pre-pack.sh
+bash ./scripts/pre-pack.sh;
 ```
 
 #### `scripts/release.sh`
@@ -215,7 +215,7 @@ Ensures code quality before packaging. It runs the linter (failing on warnings) 
 Automates the entire release workflow: bumps version, syncs manifest, tags, pushes, and publishes to NPM.
 
 ```bash
-./scripts/release.sh [patch|minor|major]
+bash ./scripts/release.sh [patch|minor|major];
 ```
 
 ### Development Workflow
