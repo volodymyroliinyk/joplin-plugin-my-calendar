@@ -23,6 +23,7 @@
     "changelog:preview": "bash scripts/preview-changelog.sh"
   },
   "keywords": [
+    "joplin-plugin",
     "joplin",
     "plugin",
     "calendar",
