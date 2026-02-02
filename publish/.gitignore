@@ -1,5 +1,6 @@
-# Ignore everything in this directory
+# Ignore everything
 *
 
-# Except this file (keeps the directory in git)
+# Except these
 !.gitignore
+!.npmignore

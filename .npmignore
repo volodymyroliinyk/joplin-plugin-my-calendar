@@ -1,9 +1,25 @@
-*.md
-!README.md
-/*.jpl
-/api
-/src
-/dist
+# Ignore development files
+src/
+tests/
+scripts/
+.github/
+.husky/
+.idea/
+.vscode/
+node_modules/
+
+# Configs
 tsconfig.json
 webpack.config.js
-/docs
+jest.config.js
+eslint.config.js
+.gitignore
+.npmrc
+.versionrc
+WORKFLOW.md
+list.todo
+directory-tree.txt
+
+# Keep dist and publish
+!dist/
+!publish/
