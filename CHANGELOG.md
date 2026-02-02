@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.2.7](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.2.6...v1.2.7) (2026-02-02)
+
+
+### 🐛 Bug Fixes
+
+* ensure publish folder is included in npm package ([213f287](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/213f28721fbd041804e96351bb6b2dbf8d04e28c))
+
 ### [1.2.6](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.2.5...v1.2.6) (2026-02-02)
 
 ### [1.2.5](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.2.4...v1.2.5) (2026-02-01)
