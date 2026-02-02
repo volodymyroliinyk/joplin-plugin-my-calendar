@@ -73,11 +73,11 @@ are correctly categorized and the version bump is as expected.
   bash ./scripts/release.sh [patch|minor|major];
   ```
   This script will:
-  1. Analyze commits since the last tag.
-  2. Automatically generate `CHANGELOG.md`.
-  3. Bump the version number.
-  4. Create a new git tag and push it.
-  5. Publish the new version to NPM.
+    1. Analyze commits since the last tag.
+    2. Automatically generate `CHANGELOG.md`.
+    3. Bump the version number.
+    4. Create a new git tag and push it.
+    5. Publish the new version to NPM.
 
 ---
 

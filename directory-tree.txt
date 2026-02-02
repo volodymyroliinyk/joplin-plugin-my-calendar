@@ -5,6 +5,9 @@ joplin-plugin-my-calendar/
 │       ├── dark_view.png
 │       ├── light_settings_view.png
 │       └── light_view.png
+├── docs/
+│   ├── DIAGRAMS.md
+│   └── WORKFLOW.md
 ├── examples/
 │   ├── all-day.md
 │   ├── custom-content.md
@@ -97,7 +100,6 @@ joplin-plugin-my-calendar/
 ├── CHANGELOG.md
 ├── LICENSE
 ├── README.md
-├── WORKFLOW.md
 ├── directory-tree.txt
 ├── eslint.config.js
 ├── jest.config.js

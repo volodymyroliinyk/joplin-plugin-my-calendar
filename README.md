@@ -221,7 +221,7 @@ bash ./scripts/release.sh [patch|minor|major];
 ### Development Workflow
 
 For a detailed guide on branch naming, commit message formats, and the release process, please see the *
-*[Development Workflow Guide](./WORKFLOW.md)**.
+*[Development Workflow Guide](./docs/WORKFLOW.md)**.
 
 ### Security First:
 
