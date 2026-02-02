@@ -13,12 +13,12 @@
   "scripts": {
     "clean": "rm -rf dist node_modules package-lock.json",
     "build": "webpack",
-    "pack": "npm run build && cd dist && tar --format=ustar -cf ../publish/com.volodymyroliinyk.joplin.plugin.my-calendar.jpl manifest.json index.js ui",
+    "pack": "npm run build && cd dist && tar --format=ustar -cf ../publish/com.volodymyroliinyk.joplin.plugin.my-calendar.jpl manifest.json index.js ui && cp manifest.json ../publish/com.volodymyroliinyk.joplin.plugin.my-calendar.json",
     "dist": "npm run pack",
     "test": "(TZ=UTC jest && echo \"$(date +%s)|PASS\" > .test-status) || (echo \"$(date +%s)|FAIL\" > .test-status && exit 1)",
     "test:watch": "jest --watch",
     "lint": "eslint .",
-    "prepare": "husky",
+    "prepare": "husky && npm run dist",
     "release": "standard-version",
     "changelog:preview": "bash scripts/preview-changelog.sh"
   },
@@ -55,7 +55,10 @@
     "dist/index.js",
     "dist/ui",
     "dist/manifest.json",
+    "publish/**",
     "manifest.json",
-    "CHANGELOG.md"
+    "CHANGELOG.md",
+    "README.md",
+    "LICENSE"
   ]
 }
