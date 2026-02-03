@@ -189,10 +189,10 @@ Customize your experience in the Joplin Settings (`Tools` > `Options` > `My Cale
 
 ## 👨‍💻 Development
 
-### Commands:
+### Commands
 
 - `npm run build;`: Compile the project.
-- `npm run pack;`: Create the `.jpl` distribution file.
+- `npm pack;`: Create the `.jpl` distribution file.
 - `npm test;`: Run the extensive test suite (250+ cases).
 - `npm run lint;`: Check code style and common patterns.
 - `pkill -f jest || true;pkill -f node || true;rm -rf node_modules/.cache;rm -rf ~/.cache/jest;npx jest --clearCache;`:

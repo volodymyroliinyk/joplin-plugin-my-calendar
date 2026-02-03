@@ -4,7 +4,7 @@
   "app_min_version": "3.3",
   "version": "1.2.7",
   "name": "My Calendar",
-  "description": "Calendar view from notes with event syntax",
+  "description": "Calendar plugin for Joplin",
   "author": "Volodymyr Oliinyk",
   "homepage_url": "https://github.com/volodymyroliinyk/joplin-plugin-my-calendar",
   "repository_url": "https://github.com/volodymyroliinyk/joplin-plugin-my-calendar",
