@@ -244,6 +244,9 @@
             let current = startOfMonthLocal(new Date());
             let selectedDayUtc = localMidnightTs(new Date());
 
+            let isPickerOpen = false;
+            let pickerYear = null;
+
             // Events received for the current range of calendar grid (42 days)
             let gridEvents = [];
 
@@ -272,9 +275,10 @@
                 // Ensure immediate behavior on settings toggle without requiring a full re-render.
                 if (hidden) {
                     ul.querySelectorAll('.mc-event-timeline').forEach((el) => el.remove());
+                    ul.querySelectorAll('.mc-events-timeline-now-line-wrap').forEach((el) => el.remove());
                 }
             }
-            
+
             function markPastDayEvents() {
                 const ul = document.getElementById('mc-events-list');
                 if (!ul) return;
@@ -357,15 +361,16 @@
                 const inDay = now >= dayStartUtc && now < (dayStartUtc + DAY);
                 const pct = Math.max(0, Math.min(100, ((now - dayStartUtc) / DAY) * 100));
 
-                ul.querySelectorAll('.mc-event-timeline-now').forEach((dot) => {
-                    const el = /** @type {HTMLElement} */ (dot);
+                const line = ul.querySelector('.mc-events-timeline-now-line');
+                if (line) {
+                    const el = /** @type {HTMLElement} */ (line);
                     if (!inDay) {
                         el.style.display = 'none';
-                        return;
+                    } else {
+                        el.style.display = 'block';
+                        el.style.left = pct + '%';
                     }
-                    el.style.display = '';
-                    el.style.left = pct + '%';
-                });
+                }
             }
 
             function scheduleDayNowTimelineTick() {
@@ -629,6 +634,83 @@
                 return b;
             }
 
+            function renderMonthYearPicker() {
+                const dropdown = document.createElement('div');
+                dropdown.className = 'mc-picker-dropdown';
+                dropdown.addEventListener('click', (e) => e.stopPropagation());
+
+                if (pickerYear === null) {
+                    pickerYear = current.getFullYear();
+                }
+
+                const yearRow = document.createElement('div');
+                yearRow.className = 'mc-picker-year-row';
+
+                const btnPrevYear = button('‹', 'Previous year', () => {
+                    pickerYear--;
+                    renderToolbar();
+                });
+                const yearLabel = document.createElement('div');
+                yearLabel.className = 'mc-picker-year';
+                yearLabel.textContent = String(pickerYear);
+                const btnNextYear = button('›', 'Next year', () => {
+                    pickerYear++;
+                    renderToolbar();
+                });
+
+                yearRow.appendChild(btnPrevYear);
+                yearRow.appendChild(yearLabel);
+                yearRow.appendChild(btnNextYear);
+                dropdown.appendChild(yearRow);
+
+                const monthsGrid = document.createElement('div');
+                monthsGrid.className = 'mc-picker-months';
+
+                const monthNames = [];
+                for (let m = 0; m < 12; m++) {
+                    const d = new Date(2000, m, 1);
+                    monthNames.push(d.toLocaleString(undefined, {month: 'short'}));
+                }
+
+                monthNames.forEach((name, idx) => {
+                    const mBtn = document.createElement('div');
+                    mBtn.className = 'mc-picker-month';
+                    if (idx === current.getMonth() && pickerYear === current.getFullYear()) {
+                        mBtn.classList.add('mc-active');
+                    }
+                    mBtn.textContent = name;
+                    mBtn.addEventListener('click', () => {
+                        current = new Date(pickerYear, idx, 1);
+                        isPickerOpen = false;
+                        pickerYear = null;
+                        drawMonth();
+                    });
+                    monthsGrid.appendChild(mBtn);
+                });
+
+                dropdown.appendChild(monthsGrid);
+
+                // const footer = document.createElement('div');
+                // footer.style.display = 'flex';
+                // footer.style.justifyContent = 'center';
+                // footer.style.marginTop = '8px';
+                // footer.style.paddingTop = '8px';
+                // footer.style.borderTop = '1px solid var(--joplin-divider-color)';
+                //
+                // const btnTodayPicker = button('Go to Today', 'Go to current month', () => {
+                //     current = startOfMonthLocal(new Date());
+                //     selectedDayUtc = localMidnightTs(new Date());
+                //     isPickerOpen = false;
+                //     pickerYear = null;
+                //     drawMonth();
+                // });
+                // btnTodayPicker.style.width = '100%';
+                // footer.appendChild(btnTodayPicker);
+                // dropdown.appendChild(footer);
+
+                return dropdown;
+            }
+
             function renderToolbar() {
                 const root = $toolbar();
                 if (!root) return;
@@ -637,15 +719,18 @@
                 wrap.className = 'mc-toolbar-inner';
 
                 const btnPrev = button('‹', 'Previous month', () => {
+                    isPickerOpen = false;
                     current = addMonthsLocal(current, -1);
                     drawMonth();
                 });
                 const btnToday = button('Today', 'Today', () => {
+                    isPickerOpen = false;
                     current = startOfMonthLocal(new Date());
                     selectedDayUtc = localMidnightTs(new Date());
                     drawMonth();
                 });
                 const btnNext = button('›', 'Next month', () => {
+                    isPickerOpen = false;
                     current = addMonthsLocal(current, +1);
                     drawMonth();
                 });
@@ -653,14 +738,36 @@
                 // Month YYYY title.
                 const title = document.createElement('div');
                 title.className = 'mc-title';
-                title.textContent = monthLabel(current);
+                title.id = 'mc-picker-trigger';
+                title.innerHTML = `${monthLabel(current)} <span class="mc-picker-arrow">▾</span>`;
+                title.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    isPickerOpen = !isPickerOpen;
+                    if (isPickerOpen) {
+                        pickerYear = current.getFullYear();
+                    }
+                    renderToolbar();
+                });
 
                 wrap.appendChild(btnPrev);
                 wrap.appendChild(btnToday);
                 wrap.appendChild(btnNext);
                 wrap.appendChild(title);
+
+                if (isPickerOpen) {
+                    const picker = renderMonthYearPicker();
+                    title.appendChild(picker);
+                }
+
                 root.appendChild(wrap);
             }
+
+            document.addEventListener('click', () => {
+                if (isPickerOpen) {
+                    isPickerOpen = false;
+                    renderToolbar();
+                }
+            });
 
             function drawMonth() {
                 if (!uiSettings.weekStart) {
@@ -932,6 +1039,15 @@
                     return;
                 }
 
+                if (uiSettings.showEventTimeline !== false) {
+                    const wrap = document.createElement('div');
+                    wrap.className = 'mc-events-timeline-now-line-wrap';
+                    const line = document.createElement('div');
+                    line.className = 'mc-events-timeline-now-line';
+                    wrap.appendChild(line);
+                    ul.appendChild(wrap);
+                }
+
                 for (const item of daySlices) {
                     const ev = item.ev;
                     const slice = item.slice;
@@ -955,7 +1071,7 @@
                     li.appendChild(title);
                     li.appendChild(t);
 
-                    // 24h timeline under the event (segment = event slice, dot = current time in day)
+                    // 24h timeline under the event (segment = event slice)
                     if (uiSettings.showEventTimeline !== false) {
                         const timeline = document.createElement('div');
                         timeline.className = 'mc-event-timeline';
@@ -972,11 +1088,7 @@
                         seg.style.left = left + '%';
                         seg.style.width = Math.max(0, (right - left)) + '%';
 
-                        const nowDot = document.createElement('div');
-                        nowDot.className = 'mc-event-timeline-now';
-
                         timeline.appendChild(seg);
-                        timeline.appendChild(nowDot);
                         li.appendChild(timeline);
                     }
 

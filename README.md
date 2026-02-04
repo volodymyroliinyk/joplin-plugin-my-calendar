@@ -18,6 +18,8 @@ note-taking app.
 ## 🌟 Key Features
 
 - **Monthly Calendar Grid**: Navigate through months, view event bars, and see your schedule at a glance.
+- **Quick Month-Year Navigation**: Click the month/year header to open a picker and jump instantly to any date in the
+  past or future.
 - **Smart Day View**: Click any day to see a detailed list of scheduled events.
 - **Notes as Events**: Any note can become a calendar event simply by adding a small Markdown block.
 - **ICS Import**: Import standard `*.ics` files (from Google Calendar, Outlook, Apple, etc.) directly into your Joplin

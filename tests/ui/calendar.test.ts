@@ -596,7 +596,7 @@ describe('src/ui/calendar.js', () => {
         (Date.now as any).mockRestore?.();
     });
 
-    test('updateDayNowTimelineDot: positions now dot within day and hides outside day', () => {
+    test('updateDayNowTimelineDot: positions shared now line within day and hides outside day', () => {
         loadCalendarJsFresh();
         const hooks = (window as any).__mcTest;
         expect(hooks).toBeTruthy();
@@ -605,21 +605,21 @@ describe('src/ui/calendar.js', () => {
         const dayStartUtc = Date.UTC(2025, 0, 15, 0, 0, 0, 0);
         ul.dataset.dayStartUtc = String(dayStartUtc);
 
-        // Add one dot
-        const dot = document.createElement('div');
-        dot.className = 'mc-event-timeline-now';
-        ul.appendChild(dot);
+        // Add shared line
+        const line = document.createElement('div');
+        line.className = 'mc-events-timeline-now-line';
+        ul.appendChild(line);
 
         // now in middle of day
         jest.spyOn(Date, 'now').mockImplementation(() => dayStartUtc + (12 * 60 * 60 * 1000));
         hooks.updateDayNowTimelineDot();
-        expect((dot as HTMLElement).style.display).toBe('');
-        expect((dot as HTMLElement).style.left).toBe('50%');
+        expect((line as HTMLElement).style.display).toBe('block');
+        expect((line as HTMLElement).style.left).toBe('50%');
 
         // now outside day
         (Date.now as any).mockImplementation(() => dayStartUtc - 1000);
         hooks.updateDayNowTimelineDot();
-        expect((dot as HTMLElement).style.display).toBe('none');
+        expect((line as HTMLElement).style.display).toBe('none');
 
         (Date.now as any).mockRestore?.();
     });

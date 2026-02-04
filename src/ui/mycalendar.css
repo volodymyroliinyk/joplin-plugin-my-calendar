@@ -1,35 +1,42 @@
 /* src/ui/mycalendar.css */
 
-html, body {
+html,
+body {
     height: 100%;
     margin: 0;
     overflow: auto;
 }
 
 /* TODO:[1]: parent --scrollbar-size is invisible inside of iframe, and size is 7px always. How to solve that? */
-body::-webkit-scrollbar, select::-webkit-scrollbar {
+body::-webkit-scrollbar,
+select::-webkit-scrollbar {
     width: var(--scrollbar-size, 7px);
     height: var(--scrollbar-size, 7px);
 }
 
-body::-webkit-scrollbar-corner, select::-webkit-scrollbar-corner {
+body::-webkit-scrollbar-corner,
+select::-webkit-scrollbar-corner {
     background: none;
 }
 
-body::-webkit-scrollbar-track, select::-webkit-scrollbar-track {
+body::-webkit-scrollbar-track,
+select::-webkit-scrollbar-track {
     border: none;
 }
 
-body::-webkit-scrollbar-thumb, select::-webkit-scrollbar-thumb {
+body::-webkit-scrollbar-thumb,
+select::-webkit-scrollbar-thumb {
     background: var(--scrollbar-thumb-color);
     border-radius: calc(var(--scrollbar-size, 7px) * 0.7);
 }
 
-body::-webkit-scrollbar-track:hover, select::-webkit-scrollbar-track:hover {
+body::-webkit-scrollbar-track:hover,
+select::-webkit-scrollbar-track:hover {
     background: rgba(0, 0, 0, 0.1);
 }
 
-body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
+body::-webkit-scrollbar-thumb:hover,
+select::-webkit-scrollbar-thumb:hover {
     background: var(--scrollbar-thumb-color-hover);
 }
 
@@ -37,17 +44,13 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
     --scrollbar-thumb-color: var(--joplin-scrollbar-thumb-color);
     --scrollbar-thumb-color-hover: var(--joplin-scrollbar-thumb-color-hover);
     --mc-default-event-color: #1470d9;
+    --mc-default-current-time-v-line-color: #ffa334;
     --mc-past-opacity: 0.45;
     /* Subtle weekend highlight (theme-aware) */
     --mc-weekend-head-bg: color-mix(in srgb, var(--joplin-background-color3) 70%, transparent);
     --mc-weekend-cell-bg: color-mix(in srgb, var(--joplin-background-color3) 45%, transparent);
 
 }
-
-/*#joplin-plugin-content-root {*/
-/*    min-width: 315px;*/
-/*}*/
-
 
 /* Outer container that will actually scroll */
 #mc-cal-scroll {
@@ -94,6 +97,102 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
     flex: 1;
 }
 
+.mc-toolbar-inner .mc-title {
+    margin-left: 4px;
+    font-weight: 700;
+    flex: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background 0.1s;
+    user-select: none;
+    position: relative;
+}
+
+.mc-toolbar-inner .mc-title:hover {
+    background: var(--joplin-background-color3);
+}
+
+.mc-btn.mc-calendar-nav-btn:hover {
+    background: var(--joplin-background-color3);
+}
+
+.mc-picker-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    background: var(--joplin-background-color);
+    border: 1px solid var(--joplin-divider-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    padding: 8px;
+    min-width: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    animation: mc-fade-in 0.15s ease-out;
+}
+
+@keyframes mc-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.mc-picker-year-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    border-bottom: 1px solid var(--joplin-divider-color);
+    padding-bottom: 8px;
+    margin-bottom: 4px;
+}
+
+.mc-picker-year {
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.mc-picker-months {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+}
+
+.mc-picker-month {
+    padding: 6px;
+    font-size: 12px;
+    text-align: center;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.1s;
+}
+
+.mc-picker-month:hover {
+    background: var(--joplin-background-color3);
+}
+
+.mc-picker-month.mc-active {
+    background: var(--joplin-color);
+    color: var(--joplin-background-color);
+}
+
+.mc-picker-arrow {
+    font-size: 10px;
+    opacity: 0.6;
+}
+
 #mc-grid {
     border: 1px solid var(--joplin-divider-color);
     border-radius: 8px;
@@ -105,7 +204,8 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
 #mc-grid .mc-grid-loader {
     position: absolute;
     inset: 0;
-    display: none; /* shown via .mc-loading */
+    display: none;
+    /* shown via .mc-loading */
     align-items: center;
     justify-content: center;
     background: color-mix(in srgb, var(--joplin-background-color) 70%, transparent);
@@ -142,7 +242,8 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
     }
 }
 
-.mc-grid-head, .mc-grid-body {
+.mc-grid-head,
+.mc-grid-body {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     gap: 4px;
@@ -208,7 +309,19 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
 .mc-grid-body .mc-cell {
     min-width: 0;
     padding: var(--mc-cell-pad-y) var(--mc-cell-pad-x);
+    border-right: 1px solid var(--joplin-divider-color);
+    border-top: 1px solid var(--joplin-divider-color);
+    overflow: hidden;
 }
+
+.mc-grid-body .mc-cell.mc-weekend {
+    background: var(--mc-weekend-cell-bg);
+}
+
+.mc-grid-body .mc-cell:nth-child(7n) {
+    border-right: none;
+}
+
 
 /* Scale typography inside cells */
 .mc-daynum {
@@ -258,24 +371,6 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
 
 /*****/
 
-.mc-grid-body .mc-cell {
-    /*position: relative;*/
-    /*min-height: 50px;*/
-    border-right: 1px solid var(--joplin-divider-color);
-    border-top: 1px solid var(--joplin-divider-color);
-    padding: 4px 6px;
-    overflow: hidden;
-}
-
-/* Highlight weekends inside the current month only (keep .mc-out styling as-is) */
-.mc-grid-body .mc-cell.mc-weekend:not(.mc-out) {
-    background: var(--mc-weekend-cell-bg);
-}
-
-.mc-grid-body .mc-cell:nth-child(7n) {
-    border-right: none;
-}
-
 .mc-daynum {
     font-size: 12px;
     opacity: 0.8;
@@ -297,7 +392,7 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
 }
 
 .mc-out {
-    background: var(--joplin-background-color3);
+    opacity: 0.6;
 }
 
 .mc-today {
@@ -307,16 +402,6 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
 
 .mc-selected {
     box-shadow: inset 0 0 0 2px var(--joplin-color);
-}
-
-/* Past days in the month grid */
-.mc-cell.mc-past {
-    opacity: var(--mc-past-opacity);
-}
-
-/* Keep selection slightly more readable even if the day is in the past */
-.mc-cell.mc-past.mc-selected {
-    opacity: 0.7;
 }
 
 .mc-events-header {
@@ -332,13 +417,15 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
     white-space: nowrap;
 }
 
-#mc-events, #mc-import {
+#mc-events,
+#mc-import {
     border: 1px solid var(--joplin-divider-color);
     border-radius: 8px;
     overflow: hidden;
 }
 
-.mc-events-header, .mc-import-header {
+.mc-events-header,
+.mc-import-header {
     background: var(--joplin-background-color3);
     padding: 6px 10px;
     font-size: 12px;
@@ -349,6 +436,7 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
     list-style: none;
     margin: 0;
     padding: 8px 6px;
+    position: relative;
 }
 
 .mc-event {
@@ -358,6 +446,8 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
     padding: 6px;
     border-radius: 6px;
     cursor: pointer;
+    position: relative;
+    z-index: 2;
 }
 
 .mc-event:hover {
@@ -384,7 +474,6 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
 
 /* The container of strips in the cell */
 .mc-bars {
-    /*position: absolute;*/
     left: 4px;
     right: 4px;
     bottom: 6px;
@@ -404,17 +493,16 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
 
 /* Badge-chiller is up to the right */
 .mc-count {
-    /*position: absolute;*/
     top: 2px;
     right: 4px;
     font-size: 14px;
     font-weight: bold;
     text-align: center;
     line-height: 1;
-    padding: 2px 4px;
-    border-radius: 6px;
+    padding: 3px 4px;
+    border-radius: 4px;
     background: var(--joplin-background-color3);
-    border: 1px solid var(--joplin-divider-color);
+    border: 0px solid var(--joplin-divider-color);
     opacity: 0.85;
     z-index: 3;
 }
@@ -424,8 +512,10 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
 }
 
 .mc-calendar-nav-btn {
-    color: var(--joplin-color) !important; /* make the text white */
-    background: transparent; /* The background is transparent */
+    color: var(--joplin-color) !important;
+    /* make the text white */
+    background: transparent;
+    /* The background is transparent */
     border: none;
     font-size: 12px;
     font-weight: 700;
@@ -433,7 +523,8 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
 }
 
 .mc-calendar-nav-btn:hover {
-    color: var(--joplin-color) !important; /* lighter when creeping */
+    color: var(--joplin-color) !important;
+    /* lighter when creeping */
 }
 
 /* --- Events panel layout: list scroll + import at bottom --- */
@@ -450,7 +541,8 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
 #mc-ics-import-form .mc-grid-loader {
     position: absolute;
     inset: 0;
-    display: none; /* shown via .mc-loading */
+    display: none;
+    /* shown via .mc-loading */
     align-items: center;
     justify-content: center;
     background: color-mix(in srgb, var(--joplin-background-color) 70%, transparent);
@@ -489,8 +581,10 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
 /* Container to be scrolled */
 #mc-import-body {
     margin: 0;
-    max-height: 260px; /* choose the height that suits you */
-    padding: 8px 6px; /* so that the scroll does not "stick" to the content */
+    max-height: 260px;
+    /* choose the height that suits you */
+    padding: 8px 6px;
+    /* so that the scroll does not "stick" to the content */
 }
 
 /* Very important for <input type="file"> in flex-line: otherwise it can inflate the width */
@@ -545,7 +639,6 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
     position: relative;
     flex: 0 0 100%;
     height: 2px;
-    /*margin-top: 4px;*/
     border-radius: 999px;
     background: color-mix(in srgb, var(--joplin-color) 18%, transparent);
     overflow: hidden;
@@ -560,16 +653,28 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
     opacity: 0.9;
 }
 
-/* dot “now” */
-.mc-event-timeline .mc-event-timeline-now {
+/* shared vertical line “now” */
+.mc-events-timeline-now-line-wrap {
     position: absolute;
-    top: 50%;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    transform: translate(-50%, -50%);
-    background: var(--joplin-color);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--joplin-background-color) 65%, transparent);
+    top: 0;
+    bottom: 0;
+    left: 12px;
+    /* 6px (ul padding) + 6px (li padding) */
+    right: 12px;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.mc-events-timeline-now-line {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: color-mix(in srgb, var(--mc-default-current-time-v-line-color) 40%, transparent);
+    box-shadow: 0 0 2px color-mix(in srgb, var(--mc-default-current-time-v-line-color) 20%, transparent);
+    z-index: 1;
+    display: none;
+    /* shown via JS when inDay */
 }
 
 /* slightly mute the timeline for past events */
@@ -689,7 +794,7 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
         gap: 2px;
     }
 
-    .mc-cell {
+    .mc-grid-body .mc-cell {
         padding: 6px;
     }
 
@@ -697,7 +802,8 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
         font-size: 12px;
     }
 
-    .mc-events-header, .mc-import-header {
+    .mc-events-header,
+    .mc-import-header {
         font-weight: normal;
         font-size: 12px;
     }
@@ -720,5 +826,9 @@ body::-webkit-scrollbar-thumb:hover, select::-webkit-scrollbar-thumb:hover {
     /* Keep weekend header highlight as you already have */
     .mc-grid-head-cell.mc-weekend {
         background: var(--mc-weekend-head-bg);
+    }
+
+    .mc-count {
+        padding: 2px 4px;
     }
 }

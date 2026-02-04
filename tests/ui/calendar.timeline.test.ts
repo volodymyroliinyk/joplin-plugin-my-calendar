@@ -70,7 +70,7 @@ describe('calendar.js timeline settings', () => {
         }];
     }
 
-    test('timeline is rendered when showEventTimeline=true and schedules timers', () => {
+    test('timeline and shared line are rendered when showEventTimeline=true and schedules timers', () => {
         loadScript();
 
         sendSettings({showEventTimeline: true, dayEventsRefreshMinutes: 1});
@@ -79,11 +79,17 @@ describe('calendar.js timeline settings', () => {
         const timeline = document.querySelector('.mc-event-timeline');
         expect(timeline).not.toBeNull();
 
-        // now-dot + past-status refresh timers
+        const sharedLine = document.querySelector('.mc-events-timeline-now-line');
+        expect(sharedLine).not.toBeNull();
+
+        const oldDot = document.querySelector('.mc-event-timeline-now');
+        expect(oldDot).toBeNull();
+
+        // now-line + past-status refresh timers
         expect(jest.getTimerCount()).toBe(2);
     });
 
-    test('timeline is NOT rendered when showEventTimeline=false and does not schedule timers', () => {
+    test('timeline and shared line are NOT rendered when showEventTimeline=false and does not schedule timers', () => {
         loadScript();
 
         sendSettings({showEventTimeline: false});
@@ -102,22 +108,27 @@ describe('calendar.js timeline settings', () => {
         const timeline = document.querySelector('.mc-event-timeline');
         expect(timeline).toBeNull();
 
+        const sharedLine = document.querySelector('.mc-events-timeline-now-line');
+        expect(sharedLine).toBeNull();
+
         expect(jest.getTimerCount()).toBe(0);
     });
 
-    test('toggling showEventTimeline from true to false hides existing timelines and stops timers', () => {
+    test('toggling showEventTimeline from true to false hides existing timelines/line and stops timers', () => {
         loadScript();
 
         sendSettings({showEventTimeline: true, dayEventsRefreshMinutes: 1});
         sendRangeEvents(futureEvent());
 
         expect(document.querySelector('.mc-event-timeline')).not.toBeNull();
+        expect(document.querySelector('.mc-events-timeline-now-line')).not.toBeNull();
         expect(jest.getTimerCount()).toBe(2);
 
         // Toggle without re-sending events (no re-render)
         sendSettings({showEventTimeline: false, dayEventsRefreshMinutes: 1});
 
         expect(document.querySelector('.mc-event-timeline')).toBeNull();
+        expect(document.querySelector('.mc-events-timeline-now-line')).toBeNull();
         expect(jest.getTimerCount()).toBe(0);
     });
 });
