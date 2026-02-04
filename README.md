@@ -66,8 +66,8 @@ You don't need to import files to use the calendar. Simply add the following blo
 ~~~markdown
 ```mycalendar-event
 title: Meeting with Team
-start: 2025-12-18 10:00+02:00
-end: 2025-12-18 11:30+02:00
+start: 2026-02-04 10:00+02:00
+end: 2026-02-04 11:30+02:00
 color: #3498db
 location: Conference Room B
 ```
@@ -130,14 +130,14 @@ The calendar supports several ways to specify the time and timezone of your even
    Explicitly define the time and its relation to UTC. This time will be automatically converted to your current
    device's timezone.
    ```text
-   start: 2025-12-18 10:00+02:00
+   start: 2026-02-04 10:00+02:00
    ```
 
 2. **With `tz` Property (IANA)**
    Specify the time and the exact IANA Timezone name. The plugin will handle the conversion based on daylight saving
    rules.
    ```text
-   start: 2025-12-18 10:00
+   start: 2026-02-04 10:00
    tz: America/Toronto
    ```
 
@@ -145,7 +145,7 @@ The calendar supports several ways to specify the time and timezone of your even
    If no offset or `tz` is provided, the time is considered "floating" and will be shown exactly as written, regardless
    of the device's timezone settings.
    ```text
-   start: 2025-12-18 10:00
+   start: 2026-02-04 10:00
    ```
 
 ---
@@ -218,6 +218,14 @@ Automates the entire release workflow: bumps version, syncs manifest, tags, push
 
 ```bash
 bash ./scripts/release.sh [patch|minor|major];
+```
+
+#### `scripts/update-demo-ics.py`
+
+Automatically shifts dates in the demo ICS file to start from today. Useful for refreshing screenshots.
+
+```bash
+./scripts/update-demo-ics.py;
 ```
 
 ### Development Workflow
