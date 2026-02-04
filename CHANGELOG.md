@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.3.1](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.3.0...v1.3.1) (2026-02-04)
+
+
+### 🐛 Bug Fixes
+
+* eliminate UI flickering and improve mobile initialization ([01d378f](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/01d378f198a416777414c2c4d92627f9b903f58c))
+
 ## [1.3.0](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.2.7...v1.3.0) (2026-02-04)
 
 
