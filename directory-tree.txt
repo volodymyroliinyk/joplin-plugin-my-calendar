@@ -23,7 +23,8 @@ joplin-plugin-my-calendar/
 │   ├── check-tests.sh
 │   ├── pre-pack.sh
 │   ├── preview-changelog.sh
-│   └── release.sh
+│   ├── release.sh
+│   └── update-demo-ics.py
 ├── src/
 │   ├── main/
 │   │   ├── parsers/
@@ -82,6 +83,7 @@ joplin-plugin-my-calendar/
 │   ├── ui/
 │   │   ├── calendar.backendReady.test.ts
 │   │   ├── calendar.messages.test.ts
+│   │   ├── calendar.picker.test.ts
 │   │   ├── calendar.test.ts
 │   │   ├── calendar.timeline.test.ts
 │   │   ├── calendar.weekStart.test.ts

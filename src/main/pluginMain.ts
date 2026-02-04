@@ -267,12 +267,6 @@ async function registerUiMessageHandlers(joplin: any, panelId: string) {
 
         if (msg.name === 'uiReady') {
             await pushUiSettings(joplin, panelId);
-            // Force a redraw so weekStart takes effect immediately.
-            // const pm = joplin?.views?.panels?.postMessage;
-            // if (typeof pm === 'function') {
-            //     await pm(panelId, {name: 'redrawMonth'});
-            // }
-            await safePostMessage(joplin, panelId, {name: 'redrawMonth'})
             return;
         }
     });

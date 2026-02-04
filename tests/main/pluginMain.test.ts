@@ -722,6 +722,6 @@ describe('pluginMain.runPlugin', () => {
         await uiHandler({name: 'uiReady'});
 
         expect(pushUiSettings).toHaveBeenCalledWith(ctx.joplin, 'panel-1');
-        expect(ctx.panels.postMessage).toHaveBeenCalledWith('panel-1', {name: 'redrawMonth'});
+        expect(ctx.panels.postMessage).not.toHaveBeenCalled();
     });
 });
