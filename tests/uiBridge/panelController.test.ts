@@ -114,8 +114,7 @@ describe('panelController', () => {
         expect(pushUiSettings).toHaveBeenCalledTimes(1);
         expect(pushUiSettings).toHaveBeenCalledWith(joplin, 'panel-1');
 
-        expect(postMessage).toHaveBeenCalledTimes(1);
-        expect(postMessage).toHaveBeenCalledWith('panel-1', {name: 'redrawMonth'});
+        expect(postMessage).not.toHaveBeenCalled();
 
     });
 

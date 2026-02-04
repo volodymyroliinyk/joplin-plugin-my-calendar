@@ -79,7 +79,6 @@ export async function registerCalendarPanelController(
             switch (msg.name) {
                 case 'uiReady': {
                     await pushUiSettings(joplin, panel);
-                    await post({name: 'redrawMonth'});
                     return;
                 }
 

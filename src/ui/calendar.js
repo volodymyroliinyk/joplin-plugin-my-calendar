@@ -3,9 +3,9 @@
 (function () {
     // Ensure a single shared settings object across all UI scripts.
     window.__mcUiSettings = window.__mcUiSettings || {
-        weekStart: undefined,
-        debug: undefined,
-        dayEventsRefreshMinutes: undefined,
+        weekStart: 'monday', // Default to Monday instead of undefined
+        debug: false,
+        dayEventsRefreshMinutes: 1,
         showEventTimeline: true,
     };
 
@@ -407,7 +407,10 @@
                     clearTimeout(_uiReadyDebounce);
                     _uiReadyDebounce = setTimeout(() => {
                         try {
+                            log('sending uiReady again (visibility/focus)');
                             window.webviewApi?.postMessage?.({name: 'uiReady'});
+                            // Also trigger a redraw to ensure UI is not stuck
+                            drawMonth();
                         } catch (_err) {
                             // ignore
                         }
@@ -569,7 +572,7 @@
                         const firstSettingsArrived = !__mcHasUiSettings;
                         __mcHasUiSettings = true;
 
-                        if (firstSettingsArrived || weekStartChanged) {
+                        if (weekStartChanged || (firstSettingsArrived && !gridEvents.length)) {
                             drawMonth();
                         }
                     },
@@ -595,6 +598,11 @@
                     [MSG.RANGE_EVENTS]: () => {
                         log('got rangeEvents:', (msg.events || []).length);
                         gridEvents = msg.events || [];
+
+                        if (rangeRequestTimer) {
+                            clearTimeout(rangeRequestTimer);
+                            rangeRequestTimer = null;
+                        }
 
                         setGridLoading(false);
 
@@ -770,10 +778,8 @@
             });
 
             function drawMonth() {
-                if (!uiSettings.weekStart) {
-                    log('drawMonth skipped: weekStart not set');
-                    return;
-                }
+                // We no longer skip if weekStart is missing; getWeekdayMeta/startOfCalendarGridLocal have defaults.
+                // This ensures the loader and toolbar are visible immediately.
                 renderToolbar();
                 renderGridSkeleton();
 
@@ -1113,10 +1119,15 @@
             }
 
             // Launch
-            // Ensure backend handshake is not lost on first start
+            // Ensure backend handshake is not lost on first start.
+            // We only show the preliminary skeleton state here to avoid total empty screen.
+            renderToolbar();
+            renderGridSkeleton();
+            setGridLoading(true);
+
             ensureBackendReady(() => {
+                // Handshake will trigger uiSettings, which will then trigger full drawMonth()
             });
-            drawMonth();
 
             log('init done');
         } catch (e) {
