@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.3.0](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.2.7...v1.3.0) (2026-02-04)
+
+
+### ✨ Features
+
+* ui enhancements ([af04211](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/af04211e1efcb8816ebd3decec7da11a74048118))
+
 ### [1.2.7](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.2.6...v1.2.7) (2026-02-02)
 
 
