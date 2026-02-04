@@ -184,8 +184,8 @@ select::-webkit-scrollbar-thumb:hover {
 }
 
 .mc-picker-month.mc-active {
-    background: var(--joplin-color);
-    color: var(--joplin-background-color);
+    background: var(--joplin-background-color3);
+    color: var(--joplin-color);
 }
 
 .mc-picker-arrow {
