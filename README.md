@@ -28,6 +28,8 @@ note-taking app.
   (`VALARM`). These notes act as system notifications and link back to the original event. The sync process is optimized
   to only update what's necessary.
 - **Recurrence Support**: Full support for daily, weekly, monthly, and yearly recurring events.
+- **Week Numbers**: Optional row for week numbers in the monthly grid.
+- **Alarm Indicators**: Visual icons on the calendar and in the event list to show which events have active reminders.
 - **High Security**: Built-in protection against Markdown and CSS injections.
 - **Universal Sync**: Works with Joplin's built-in synchronization across all your devices.
 
@@ -107,20 +109,21 @@ The plugin features a robust import system designed for performance and reliabil
 
 Below is the full list of properties supported inside the ` ```mycalendar-event ` block:
 
-| Property | Status | Description | Example |
-| :--- | :--- | :--- | :--- |
-| `start` | **Required** | Start date and time. Mandatory for the event to appear. | `2025-12-18 10:00+02:00` |
-| `title` | Optional | Display name. If omitted, the **Joplin note title** will be used. | `Meeting` |
-| `end` | Optional | End date and time. If omitted, the event is treated as a point in time (0 duration). | `2025-12-18 11:30+02:00` |
-| `tz` | Optional | Timezone (IANA). | `America/Toronto` |
-| `color` | Optional | Hex color for the event bar. | `#e74c3c` |
-| `location` | Optional | Location string. | `Home Office` |
-| `description` | Optional | Extra details (auto-sanitized). | `Check project status.` |
-| `repeat` | Optional | `daily`, `weekly`, `monthly`, `yearly` | `weekly` |
-| `repeat_interval`| Optional | Frequency (e.g., every 2 weeks). | `2` |
-| `byweekday` | Optional | Specific days for weekly repeat. | `MO,WE,FR` |
-| `bymonthday` | Optional | Day of the month for monthly repeat. | `15` |
-| `all_day` | Optional | Set to `true` for all-day events. | `true` |
+| Property          | Status       | Description                                                                          | Example                  |
+|:------------------|:-------------|:-------------------------------------------------------------------------------------|:-------------------------|
+| `start`           | **Required** | Start date and time. Mandatory for the event to appear.                              | `2025-12-18 10:00+02:00` |
+| `title`           | Optional     | Display name. If omitted, the **Joplin note title** will be used.                    | `Meeting`                |
+| `end`             | Optional     | End date and time. If omitted, the event is treated as a point in time (0 duration). | `2025-12-18 11:30+02:00` |
+| `tz`              | Optional     | Timezone (IANA).                                                                     | `America/Toronto`        |
+| `color`           | Optional     | Hex color for the event bar.                                                         | `#e74c3c`                |
+| `location`        | Optional     | Location string.                                                                     | `Home Office`            |
+| `description`     | Optional     | Extra details (auto-sanitized).                                                      | `Check project status.`  |
+| `repeat`          | Optional     | `daily`, `weekly`, `monthly`, `yearly`                                               | `weekly`                 |
+| `repeat_interval` | Optional     | Frequency (e.g., every 2 weeks).                                                     | `2`                      |
+| `repeat_until`    | Optional     | End date for recurrence (e.g., wrap up series).                                      | `2026-12-31`             |
+| `byweekday`       | Optional     | Specific days for weekly repeat.                                                     | `MO,WE,FR`               |
+| `bymonthday`      | Optional     | Day of the month for monthly repeat.                                                 | `15`                     |
+| `all_day`         | Optional     | Set to `true` for all-day events.                                                    | `true`                   |
 
 ### 🕒 Supported Time & Timezone Formats
 
@@ -157,6 +160,7 @@ Customize your experience in the Joplin Settings (`Tools` > `Options` > `My Cale
 ### Calendar
 
 - **Week starts on**: Choose between **Monday** (default) or **Sunday** for the calendar grid.
+- **Show week numbers**: Toggle the display of week numbers alongside the calendar grid. (Default: Disabled).
 
 ### Day events
 
