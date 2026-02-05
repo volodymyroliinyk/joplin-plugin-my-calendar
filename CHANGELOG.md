@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.4.1](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.4.0...v1.4.1) (2026-02-05)
+
+
+### 🐛 Bug Fixes
+
+* allow release script to commit to main branch ([4413e58](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/4413e5815e1a89e1a3ce538bcbfcb7fa2ebaee70))
+* reduce timezone warning spam and fix weekly recurrence fallback ([ec38d68](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/ec38d685087fd1ef289f58402295309773f9324c))
+
 ## [1.4.0](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.3.1...v1.4.0) (2026-02-05)
 
 
