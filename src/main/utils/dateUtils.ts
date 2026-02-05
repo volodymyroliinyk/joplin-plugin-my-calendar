@@ -8,7 +8,7 @@ export const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type YmdHms = { Y: number; M: number; D: number; h: number; m: number; sec: number };
 
-const YMD_HMS_RE = /^\s*(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T]+(\d{1,2})(?::(\d{1,2}))?(?::(\d{1,2}))?)?\s*$/;
+const YMD_HMS_RE = /^\s*(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T]+(\d{1,2})(?::(\d{1,2}))?(?::(\d{1,2}))?)?(?:\s*[+-]\d{2}:?\d{2}|\s*Z)?\s*$/i;
 
 function assertIntInRange(name: string, v: number, min: number, max: number): void {
     if (!Number.isInteger(v) || v < min || v > max) {

@@ -88,7 +88,25 @@ describe('occurrenceService.expandOccurrences', () => {
         ]);
     });
 
-    test('monthly recurrence skips months where day-of-month does not exist (31st)', () => {
+    test('weekly recurrence with interval=2 and byweekday matches RFC (bi-weekly)', () => {
+        const ev: IcsEvent = {
+            start: '2025-01-01 10:00:00+00:00', // Wednesday (W1)
+            repeat: 'weekly',
+            repeat_interval: 2,
+            byweekday: 'MO,WE',
+        };
+        // W1: Wed (Jan 01)
+        // W2: skipped
+        // W3: Mon (Jan 13), Wed (Jan 15)
+        const occs = expandOccurrences(ev, new Date('2025-01-01T00:00:00Z'), new Date('2025-01-20T00:00:00Z'));
+        expect(occs.map(o => isoLocal(o.start))).toEqual([
+            '2025-01-01T10:00:00.000Z',
+            '2025-01-13T10:00:00.000Z',
+            '2025-01-15T10:00:00.000Z',
+        ]);
+    });
+
+    test('monthly recurrence skipped months', () => {
         const ev: IcsEvent = {
             start: '2025-01-31 10:00:00+00:00',
             end: '2025-01-31 11:00:00+00:00',

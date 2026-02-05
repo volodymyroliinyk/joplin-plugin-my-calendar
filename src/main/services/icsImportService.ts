@@ -111,6 +111,13 @@ export async function importIcsIntoNotes(
 
     const {existingByKey: existing, existingAlarms, noteIdToKeys} = indexExistingNotes(allNotes);
 
+    let alarmsEnabled = true;
+    try {
+        alarmsEnabled = await getIcsImportAlarmsEnabled(joplin);
+    } catch (e) {
+        await say(`[icsImportService] WARNING: Failed to read alarms setting; defaulting to enabled. ${String((e as any)?.message || e)}`);
+    }
+
     let added = 0, updated = 0, skipped = 0, errors = 0;
     const importedEventNotes: ImportedEventNotes = {};
 
@@ -123,6 +130,10 @@ export async function importIcsIntoNotes(
 
         const rid = (ev.recurrence_id || '').trim();
         const key = applyImportColors(ev, existing, preserveLocalColor, importDefaultColor);
+
+        if (!alarmsEnabled) {
+            ev.valarms = [];
+        }
 
         const block = buildMyCalBlock(ev);
         const desiredTitle = ev.title || 'Event';
@@ -191,15 +202,6 @@ export async function importIcsIntoNotes(
         }
     }
 
-    let alarmsEnabled = true;
-    try {
-        alarmsEnabled = await getIcsImportAlarmsEnabled(joplin);
-    } catch (e) {
-        // Backward compatibility: if setting read fails (old Joplin API / corrupted profile),
-        // keep previous behavior (alarms enabled).
-        await say(`[icsImportService] WARNING: Failed to read alarms setting; defaulting to enabled. ${String((e as any)?.message || e)}`);
-        alarmsEnabled = true;
-    }
 
     const alarmRes = await syncAlarmsForEvents(
         joplin, events, importedEventNotes, existingAlarms, targetFolderId, onStatus, {

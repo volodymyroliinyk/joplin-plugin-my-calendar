@@ -252,6 +252,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
         // ensure alarm fields are persisted reliably via PUT after POST
         expect((joplin.data.put as any)).toHaveBeenCalledWith(['notes', 'alarm-note-id'], null, {
             todo_due: new Date('2025-01-15T09:00:00.000Z').getTime(),
+            alarm_time: new Date('2025-01-15T09:00:00.000Z').getTime(),
         });
         expect(String(alarmNote.body)).toContain('```mycalendar-alarm');
         expect(String(alarmNote.body)).toContain('uid: u-valarm2');
@@ -1473,4 +1474,42 @@ describe('icsImportService.importIcsIntoNotes', () => {
         jest.useRealTimers();
     });
 
+
+    test('VALARM is included in event block only if alarms settings are enabled', async () => {
+        const ics = [
+            'BEGIN:VCALENDAR',
+            'BEGIN:VEVENT',
+            'UID:u-alarm-test',
+            'SUMMARY:Alarm Event',
+            'DTSTART:20250115T100000Z',
+            'BEGIN:VALARM',
+            'TRIGGER:-PT15M',
+            'ACTION:DISPLAY',
+            'END:VALARM',
+            'END:VEVENT',
+            'END:VCALENDAR',
+        ].join('\n');
+
+        // 1. Alarms ENABLED (default)
+        (settings.getIcsImportAlarmsEnabled as jest.Mock).mockResolvedValue(true);
+        const joplin1 = mkJoplin({
+            get: jest.fn().mockResolvedValue({items: [], has_more: false}),
+            post: jest.fn().mockResolvedValue({id: 'new-note-id'}),
+        });
+
+        await importIcsIntoNotes(joplin1 as any, ics);
+        const postCall1 = (joplin1.data.post as jest.Mock).mock.calls.find(c => c[0][0] === 'notes');
+        expect(postCall1[2].body).toContain('valarm: {"trigger":"-PT15M","action":"DISPLAY"}');
+
+        // 2. Alarms DISABLED
+        (settings.getIcsImportAlarmsEnabled as jest.Mock).mockResolvedValue(false);
+        const joplin2 = mkJoplin({
+            get: jest.fn().mockResolvedValue({items: [], has_more: false}),
+            post: jest.fn().mockResolvedValue({id: 'new-note-id'}),
+        });
+
+        await importIcsIntoNotes(joplin2 as any, ics);
+        const postCall2 = (joplin2.data.post as jest.Mock).mock.calls.find(c => c[0][0] === 'notes');
+        expect(postCall2[2].body).not.toContain('valarm:');
+    });
 });

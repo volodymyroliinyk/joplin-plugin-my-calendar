@@ -71,6 +71,7 @@ joplin-plugin-my-calendar/
 │   │   ├── eventParser.test.ts
 │   │   └── icsParser.test.ts
 │   ├── services/
+│   │   ├── alarmSafety.test.ts
 │   │   ├── alarmService.test.ts
 │   │   ├── eventsCache.test.ts
 │   │   ├── folderService.test.ts
@@ -86,6 +87,7 @@ joplin-plugin-my-calendar/
 │   │   ├── calendar.picker.test.ts
 │   │   ├── calendar.test.ts
 │   │   ├── calendar.timeline.test.ts
+│   │   ├── calendar.weekNumbers.test.ts
 │   │   ├── calendar.weekStart.test.ts
 │   │   └── icsImport.test.ts
 │   ├── uiBridge/
