@@ -42,6 +42,8 @@ fi
 
 # 3. Generate changelog, bump version, and create tag
 echo -e "${YELLOW}📈 Bumping version ($TYPE)...${NC}"
+# Allow standard-version to commit to main by setting SKIP_MAIN_CHECK
+export SKIP_MAIN_CHECK=1
 # standard-version bumps version in package.json/manifest.json and commits it
 npm run release -- --release-as $TYPE
 
