@@ -241,12 +241,13 @@ export async function syncAlarmsForEvents(
                     parent_id: notebookId,
                     is_todo: 1,
                     todo_due: alarmTime,
+                    alarm_time: alarmTime,
                 };
 
                 const created = await createNote(joplin, noteBody);
                 if (created?.id) {
                     // NOTE: Keeping this as a safety measure in case Joplin doesn't persist todo_due on create reliably.
-                    await updateNote(joplin, created.id, {todo_due: alarmTime});
+                    await updateNote(joplin, created.id, {todo_due: alarmTime, alarm_time: alarmTime});
                 }
                 alarmsCreated++;
             } catch (e) {

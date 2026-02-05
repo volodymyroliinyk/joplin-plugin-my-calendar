@@ -9,6 +9,7 @@ export interface NoteItem {
     parent_id?: string;
     is_todo?: number;
     todo_due?: number;
+    alarm_time?: number;
 }
 
 interface PagedResponse<T> {

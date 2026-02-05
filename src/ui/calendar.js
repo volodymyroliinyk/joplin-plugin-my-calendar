@@ -1125,6 +1125,14 @@
                     t.textContent = label;
                     li.appendChild(color);
                     li.appendChild(title);
+
+                    if (ev.hasAlarms) {
+                        const alarm = document.createElement('span');
+                        alarm.className = 'mc-alarm-icon';
+                        alarm.innerHTML = `<svg viewBox="0 0 448 512"><path fill="currentColor" d="M224 512c35.3 0 64-28.7 64-64H160c0 35.3 28.7 64 64 64zm176-128v-152c0-82.8-51.7-152.6-123.5-177.1V40c0-22.1-17.9-40-40-40s-40 17.9-40 40v14.9C101.7 79.4 50 149.2 50 232v152l-37.6 56.4c-8.7 13.1 0.7 31.6 16.5 31.6h390.2c15.8 0 25.2-18.5 16.5-31.6L400 384z"/></svg>`;
+                        li.appendChild(alarm);
+                    }
+
                     li.appendChild(t);
 
                     // 24h timeline under the event (segment = event slice)

@@ -219,9 +219,13 @@ describe('alarmService', () => {
             parent_id: 'folder1',
             is_todo: 1,
             todo_due: new Date('2026-01-30T11:45:00.000Z').getTime(),
+            alarm_time: new Date('2026-01-30T11:45:00.000Z').getTime(),
         });
         // todo_due post-update saved (if we leave the workaround)
-        expect(mockUpdateNote).toHaveBeenCalledWith(mockJoplin, 'newAlarm1', {todo_due: new Date('2026-01-30T11:45:00.000Z').getTime()});
+        expect(mockUpdateNote).toHaveBeenCalledWith(mockJoplin, 'newAlarm1', {
+            todo_due: new Date('2026-01-30T11:45:00.000Z').getTime(),
+            alarm_time: new Date('2026-01-30T11:45:00.000Z').getTime()
+        });
     });
 
     it('should empty trash when alarms were deleted and setting is enabled', async () => {

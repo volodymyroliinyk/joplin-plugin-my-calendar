@@ -28,6 +28,7 @@ type EventInput = {
     byMonthDay?: number;
 
     allDay?: boolean;
+    hasAlarms?: boolean;
 };
 
 const EVENT_BLOCK_RE =
@@ -208,6 +209,7 @@ export function parseEventsFromBody(noteId: string, titleFallback: string, body:
             byweekday?: string;
             bymonthday?: string;
             all_day?: string;
+            valarm?: string;
         };
 
         const fields: ParsedBlockFields = {};
@@ -283,6 +285,7 @@ export function parseEventsFromBody(noteId: string, titleFallback: string, body:
             byMonthDay,
 
             allDay,
+            hasAlarms: !!fields.valarm,
         });
     }
 
