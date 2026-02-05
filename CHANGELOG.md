@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.4.0](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.3.1...v1.4.0) (2026-02-05)
+
+
+### ✨ Features
+
+* add alarm indicators to UI and fix timezone handling for recurring events ([de7f5ef](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/de7f5ef51cac2899b7b3b0b77eaff5c236888b84))
+* implement week numbers with support for Monday/Sunday starts ([c0c0fb8](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/c0c0fb80a7bcf64887ce01701e86f1933de9ecf9))
+
 ### [1.3.1](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.3.0...v1.3.1) (2026-02-04)
 
 
