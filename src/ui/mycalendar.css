@@ -249,6 +249,11 @@ select::-webkit-scrollbar-thumb:hover {
     gap: 4px;
 }
 
+#mc-grid.mc-show-week-numbers .mc-grid-head,
+#mc-grid.mc-show-week-numbers .mc-grid-body {
+    grid-template-columns: 2.2em repeat(7, 1fr);
+}
+
 .mc-grid-head {
     background: var(--joplin-background-color3);
 }
@@ -294,6 +299,11 @@ select::-webkit-scrollbar-thumb:hover {
     gap: var(--mc-grid-gap);
 }
 
+#mc-grid.mc-show-week-numbers .mc-grid-head,
+#mc-grid.mc-show-week-numbers .mc-grid-body {
+    grid-template-columns: 2.2em repeat(7, minmax(0, 1fr));
+}
+
 /* Ensure header cells can shrink and don’t overflow the grid */
 .mc-grid-head-cell {
     min-width: 0;
@@ -318,8 +328,35 @@ select::-webkit-scrollbar-thumb:hover {
     background: var(--mc-weekend-cell-bg);
 }
 
-.mc-grid-body .mc-cell:nth-child(7n) {
+/* Standard 7-column grid: remove border from last cell in each row (7th, 14th, etc.) */
+#mc-grid:not(.mc-show-week-numbers) .mc-grid-body .mc-cell:nth-child(7n) {
     border-right: none;
+}
+
+/* Grid with week numbers (8 columns total): remove border from last cell in each row (8th, 16th, etc.) */
+#mc-grid.mc-show-week-numbers .mc-grid-body .mc-cell:nth-child(8n) {
+    border-right: none;
+}
+
+.mc-grid-body .mc-cell:last-child {
+    border-right: none;
+}
+
+.mc-week-num-head,
+.mc-week-num-cell {
+    font-size: 10px;
+    opacity: 0.5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--joplin-background-color3);
+    border-right: 1px solid var(--joplin-divider-color);
+    user-select: none;
+    font-weight: 600;
+}
+
+.mc-week-num-cell {
+    border-top: 1px solid var(--joplin-divider-color);
 }
 
 
@@ -798,6 +835,18 @@ select::-webkit-scrollbar-thumb:hover {
         padding: 6px;
     }
 
+    /* Restore week number column width to original 2.2em, but keep tight padding */
+    #mc-grid.mc-show-week-numbers .mc-grid-head,
+    #mc-grid.mc-show-week-numbers .mc-grid-body {
+        grid-template-columns: 2.2em repeat(7, minmax(0, 1fr));
+    }
+
+    .mc-week-num-head,
+    .mc-week-num-cell {
+        padding-left: 2px !important;
+        padding-right: 2px !important;
+    }
+
     .mc-daynum {
         font-size: 12px;
     }
@@ -829,6 +878,6 @@ select::-webkit-scrollbar-thumb:hover {
     }
 
     .mc-count {
-        padding: 2px 4px;
+        padding: 2px 2px;
     }
 }

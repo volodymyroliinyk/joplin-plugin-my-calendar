@@ -4,7 +4,7 @@
 //
 // src/ui/icsImport.js
 //
-// npx jest tests/ui/icsImport.test.ts --runInBand --no-cache;
+// TZ=UTC npx jest tests/ui/icsImport.test.ts --runInBand --no-cache;
 //
 
 export {};

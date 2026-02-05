@@ -2,7 +2,7 @@
 //
 // src/main/services/folderService.ts
 //
-// npx jest tests/services/folderService.test.ts --runInBand --no-cache;
+// TZ=UTC npx jest tests/services/folderService.test.ts --runInBand --no-cache;
 //
 import {flattenFolderTree, getAllFolders, FolderRow} from '../../src/main/services/folderService';
 

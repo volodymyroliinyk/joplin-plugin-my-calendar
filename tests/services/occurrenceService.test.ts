@@ -2,7 +2,7 @@
 //
 // src/main/services/occurrenceService.ts
 //
-// npx jest tests/services/occurrenceService.test.ts --runInBand --no-cache;
+// TZ=UTC npx jest tests/services/occurrenceService.test.ts --runInBand --no-cache;
 //
 import {expandOccurrences} from '../../src/main/services/occurrenceService';
 import {IcsEvent} from '../../src/main/types/icsTypes';

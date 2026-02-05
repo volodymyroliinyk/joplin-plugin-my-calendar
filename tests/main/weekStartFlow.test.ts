@@ -2,7 +2,7 @@
 //
 // src/main/pluginMain.ts
 //
-// npx jest tests/main/weekStartFlow.test.ts --runInBand --no-cache;
+// TZ=UTC npx jest tests/main/weekStartFlow.test.ts --runInBand --no-cache;
 //
 // Backend-focused tests for weekStart propagation.
 // NOTE: mocks ensureAllEventsCache returns [] to avoid noisy console errors.
@@ -29,6 +29,7 @@ jest.mock('../../src/main/settings/settings', () => ({
     getDebugEnabled: jest.fn().mockResolvedValue(false),
     getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(1),
     getShowEventTimeline: jest.fn().mockResolvedValue(true),
+    getShowWeekNumbers: jest.fn().mockResolvedValue(false),
 }));
 
 import {createCalendarPanel} from '../../src/main/views/calendarView';

@@ -7,6 +7,7 @@
         debug: false,
         dayEventsRefreshMinutes: 1,
         showEventTimeline: true,
+        showWeekNumbers: false,
     };
 
     const uiSettings = window.__mcUiSettings;
@@ -176,6 +177,35 @@
                     {label: 'Sat', dow: 6},
                     {label: 'Sun', dow: 0},
                 ];
+            }
+
+            function getWeekNumber(date) {
+                if (uiSettings.weekStart === 'sunday') {
+                    // Traditional (US/Standard) numbering: Week containing Jan 1 is W1.
+                    const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                    const sun = new Date(d.getTime());
+                    sun.setDate(d.getDate() - d.getDay());
+
+                    const sat = new Date(sun.getTime());
+                    sat.setDate(sun.getDate() + 6);
+
+                    const targetJan1 = (sat.getFullYear() > sun.getFullYear())
+                        ? new Date(sat.getFullYear(), 0, 1)
+                        : new Date(sun.getFullYear(), 0, 1);
+
+                    const startOfFirstWeek = new Date(targetJan1.getTime());
+                    startOfFirstWeek.setDate(targetJan1.getDate() - targetJan1.getDay());
+
+                    const diff = sun.getTime() - startOfFirstWeek.getTime();
+                    return Math.floor(diff / (7 * 86400000)) + 1;
+                }
+
+                // ISO week number (Monday start): Thursday of the week determines the year.
+                const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+                const dayNum = d.getUTCDay() || 7;
+                d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+                const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+                return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
             }
 
             // Local North (00:00) in MS of the era
@@ -532,11 +562,15 @@
 
                     [MSG.UI_SETTINGS]: () => {
                         const prevWeekStart = uiSettings.weekStart;
-
                         const prevShowEventTimeline = uiSettings.showEventTimeline;
+                        const prevShowWeekNumbers = uiSettings.showWeekNumbers;
 
                         if (msg.weekStart === 'monday' || msg.weekStart === 'sunday') {
                             uiSettings.weekStart = msg.weekStart;
+                        }
+
+                        if (typeof msg.showWeekNumbers === 'boolean') {
+                            uiSettings.showWeekNumbers = msg.showWeekNumbers;
                         }
 
                         if (typeof msg.debug === 'boolean') {
@@ -569,10 +603,11 @@
                         scheduleDayEventsRefresh();
 
                         const weekStartChanged = prevWeekStart !== uiSettings.weekStart;
+                        const showWeekNumbersChanged = prevShowWeekNumbers !== uiSettings.showWeekNumbers;
                         const firstSettingsArrived = !__mcHasUiSettings;
                         __mcHasUiSettings = true;
 
-                        if (weekStartChanged || (firstSettingsArrived && !gridEvents.length)) {
+                        if (weekStartChanged || showWeekNumbersChanged || (firstSettingsArrived && !gridEvents.length)) {
                             drawMonth();
                         }
                     },
@@ -825,6 +860,7 @@
                 const grid = $grid();
                 if (!grid) return;
                 grid.innerHTML = '';
+                grid.classList.toggle('mc-show-week-numbers', !!uiSettings.showWeekNumbers);
 
                 // Loader overlay (accessibility-friendly)
                 const loader = document.createElement('div');
@@ -837,6 +873,12 @@
 
                 const head = document.createElement('div');
                 head.className = 'mc-grid-head';
+                if (uiSettings.showWeekNumbers) {
+                    const c = document.createElement('div');
+                    c.className = 'mc-grid-head-cell mc-week-num-head';
+                    c.textContent = 'W';
+                    head.appendChild(c);
+                }
                 for (const {label, dow} of getWeekdayMeta()) {
                     const c = document.createElement('div');
                     c.className = 'mc-grid-head-cell';
@@ -856,6 +898,14 @@
                 for (let i = 0; i < 42; i++) {
                     const cellDate = new Date(start);
                     cellDate.setDate(start.getDate() + i);
+
+                    if (uiSettings.showWeekNumbers && i % 7 === 0) {
+                        const wn = document.createElement('div');
+                        wn.className = 'mc-week-num-cell';
+                        wn.textContent = String(getWeekNumber(cellDate));
+                        body.appendChild(wn);
+                    }
+
                     const cellTs = localMidnightTs(cellDate);
 
                     const cell = document.createElement('div');

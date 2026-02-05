@@ -2,7 +2,7 @@
 //
 // src/main/parsers/eventParser.ts
 //
-// npx jest tests/parsers/eventParser.test.ts --runInBand --no-cache;
+// TZ=UTC npx jest tests/parsers/eventParser.test.ts --runInBand --no-cache;
 //
 // Notes for deterministic tests:
 // - Some parsing paths (no tz + no explicit offset) depend on the machine timezone.
