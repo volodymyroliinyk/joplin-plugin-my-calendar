@@ -24,7 +24,7 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
     const tz = ev.tz || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
     if (ev.repeat !== 'none' && !ev.tz) {
-        warn('occurrence', 'Recurring event has no timezone; using device timezone:', {tz, title: ev.title, id: ev.id});
+        dbg('occurrence', 'Recurring event has no timezone; using device timezone:', {tz, title: ev.title, id: ev.id});
     }
 
     const dur = (ev.endUtc ?? ev.startUtc) - ev.startUtc;
@@ -63,12 +63,6 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
     }
 
     if (ev.repeat === 'weekly') {
-        const tz = ev.tz;
-        if (!tz) {
-            // recurring without tz cannot be expanded safely
-            return out; // or continue + warning
-        }
-
         const baseLocal = parseYmdHmsLocal(ev.startText);
         const baseWd = weekdayMon0(baseLocal.Y, baseLocal.M, baseLocal.D);
 

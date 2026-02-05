@@ -453,7 +453,9 @@ describe('pluginMain.runPlugin', () => {
         }
     });
 
-    test('helpers: weekly recurring without tz returns empty (safe behavior)', async () => {
+    test('helpers: weekly recurring without tz expands using device timezone (fallback behavior)', async () => {
+        const dbgSpy = jest.spyOn(logger, 'dbg').mockImplementation(() => undefined);
+
         (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
         (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);
 
@@ -477,7 +479,15 @@ describe('pluginMain.runPlugin', () => {
         };
 
         const out = helpers.expandAllInRange([evWeeklyNoTz], from, to);
-        expect(out).toEqual([]);
+        // Should expand using device TZ (likely UTC in test env)
+        expect(out.length).toBe(1);
+        expect(out[0].id).toBe('w1');
+        expect(out[0].occurrenceId).toContain('w1#');
+
+        // Verify debug warning was called
+        expect(dbgSpy).toHaveBeenCalledWith('occurrence', expect.stringContaining('Recurring event has no timezone'), expect.any(Object));
+
+        dbgSpy.mockRestore();
     });
 
     test('helpers: monthly with byMonthDay invalid for month is skipped', async () => {
