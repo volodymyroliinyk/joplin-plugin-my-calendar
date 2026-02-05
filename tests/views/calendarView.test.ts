@@ -2,7 +2,7 @@
 //
 // src/main/views/calendarView.ts
 //
-// npx jest tests/views/calendarView.test.ts --runInBand --no-cache;
+// TZ=UTC npx jest tests/views/calendarView.test.ts --runInBand --no-cache;
 //
 jest.mock('../../src/main/utils/logger', () => ({
     log: jest.fn(),

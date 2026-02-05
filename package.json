@@ -17,7 +17,7 @@
     "prepare": "husky",
     "clean": "rm -rf dist node_modules package-lock.json",
     "dist": "npm run build:jpl",
-    "test": "(TZ=UTC jest && echo \"$(date +%s)|PASS\" > .test-status) || (echo \"$(date +%s)|FAIL\" > .test-status && exit 1)",
+    "test": "(TZ=UTC jest --maxWorkers=50% --no-cache && echo \"$(date +%s)|PASS\" > .test-status) || (echo \"$(date +%s)|FAIL\" > .test-status && exit 1)",
     "test:watch": "jest --watch",
     "lint": "eslint .",
     "release": "standard-version",

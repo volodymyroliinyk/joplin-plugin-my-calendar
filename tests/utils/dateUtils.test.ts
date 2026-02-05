@@ -2,7 +2,7 @@
 //
 // src/main/utils/dateUtils.ts
 //
-// npx jest tests/utils/dateUtils.test.ts --runInBand --no-cache;
+// TZ=UTC npx jest tests/utils/dateUtils.test.ts --runInBand --no-cache;
 //
 
 import {

@@ -2,7 +2,7 @@
 //
 // src/main/settings/settings.ts
 //
-// npx jest tests/settings/settings.test.ts --runInBand --no-cache;
+// TZ=UTC npx jest tests/settings/settings.test.ts --runInBand --no-cache;
 //
 jest.mock('../../src/main/utils/logger', () => ({
     setDebugEnabled: jest.fn(),
@@ -160,6 +160,18 @@ describe('settings.ts logic', () => {
             await expect(settings.getDebugEnabled(mkJoplin(false))).resolves.toBe(false);
             await expect(settings.getDebugEnabled(mkJoplin(1))).resolves.toBe(true);
             await expect(settings.getDebugEnabled(mkJoplin(0))).resolves.toBe(false);
+        });
+    });
+
+    describe('getShowWeekNumbers', () => {
+        const mkJoplin = (val: any) => ({
+            settings: {value: jest.fn().mockResolvedValue(val)},
+        });
+
+        test('coerces to boolean', async () => {
+            await expect(settings.getShowWeekNumbers(mkJoplin(true))).resolves.toBe(true);
+            await expect(settings.getShowWeekNumbers(mkJoplin(false))).resolves.toBe(false);
+            await expect(settings.getShowWeekNumbers(mkJoplin(null))).resolves.toBe(false);
         });
     });
 

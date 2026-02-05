@@ -2,7 +2,7 @@
 //
 // src/main/services/eventsCache.ts
 //
-// npx jest tests/services/eventsCache.test.ts --runInBand --no-cache;
+// TZ=UTC npx jest tests/services/eventsCache.test.ts --runInBand --no-cache;
 //
 type JoplinMock = {
     data: {

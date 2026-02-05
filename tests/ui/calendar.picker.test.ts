@@ -2,7 +2,7 @@
 
 // tests/ui/calendar.picker.test.ts
 //
-// npx jest tests/ui/calendar.picker.test.ts --runInBand --no-cache;
+// TZ=UTC npx jest tests/ui/calendar.picker.test.ts --runInBand --no-cache;
 //
 
 export {};

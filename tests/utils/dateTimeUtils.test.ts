@@ -2,7 +2,7 @@
 //
 // src/main/utils/dateTimeUtils.ts
 //
-// npx jest tests/utils/dateTimeUtils.test.ts --runInBand --no-cache;
+// TZ=UTC npx jest tests/utils/dateTimeUtils.test.ts --runInBand --no-cache;
 //
 import {
     parseIsoDurationToMs,

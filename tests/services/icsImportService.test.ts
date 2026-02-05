@@ -2,7 +2,7 @@
 //
 // src/main/services/icsImportService.ts
 //
-// npx jest tests/services/icsImportService.test.ts --runInBand --no-cache;
+// TZ=UTC npx jest tests/services/icsImportService.test.ts --runInBand --no-cache;
 //
 // Coverage of the maximum possible scenarios for importIcsIntoNotes():
 // - ICS parsing (DTSTART/DTEND, TZID, VALUE=DATE => all_day, folded lines, unescape)

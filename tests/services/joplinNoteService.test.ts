@@ -2,7 +2,7 @@
 //
 // src/main/services/joplinNoteService.ts
 //
-// npx jest tests/services/joplinNoteService.test.ts --runInBand --no-cache;
+// TZ=UTC npx jest tests/services/joplinNoteService.test.ts --runInBand --no-cache;
 //
 import {deleteNote} from '../../src/main/services/joplinNoteService';
 import {createNote, getAllNotesPaged, updateNote} from '../../src/main/services/joplinNoteService';

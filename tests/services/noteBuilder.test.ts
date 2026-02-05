@@ -2,7 +2,7 @@
 //
 // src/main/services/noteBuilder.ts
 //
-// npx jest tests/services/noteBuilder.test.ts --runInBand --no-cache;
+// TZ=UTC npx jest tests/services/noteBuilder.test.ts --runInBand --no-cache;
 
 import {
     buildMyCalBlock,

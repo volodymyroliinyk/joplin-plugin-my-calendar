@@ -2,7 +2,7 @@
 //
 // src/main/utils/joplinUtils.ts
 //
-// npx jest tests/utils/joplinUtils.test.ts --runInBand --no-cache;
+// TZ=UTC npx jest tests/utils/joplinUtils.test.ts --runInBand --no-cache;
 //
 import {
     normalizeRecurrenceIdForKey,

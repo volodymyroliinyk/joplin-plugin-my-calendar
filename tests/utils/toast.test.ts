@@ -2,7 +2,7 @@
 //
 // src/main/utils/toast.ts
 //
-// npx jest tests/utils/toast.test.ts --runInBand --no-cache;
+// TZ=UTC npx jest tests/utils/toast.test.ts --runInBand --no-cache;
 //
 import {showToast} from '../../src/main/utils/toast';
 

@@ -2,7 +2,7 @@
 //
 // src/main/parsers/icsParser.ts
 //
-// npx jest tests/parsers/icsParser.test.ts --runInBand --detectOpenHandles --no-cache --verbose --forceExit;
+// TZ=UTC npx jest tests/parsers/icsParser.test.ts --runInBand --detectOpenHandles --no-cache --verbose --forceExit;
 
 jest.mock('../../src/main/utils/dateTimeUtils', () => ({
     // Minimal stub for parser tests

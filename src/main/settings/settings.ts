@@ -7,6 +7,7 @@ export const SETTING_DEBUG = 'mycalendar.debug';
 
 // Calendar
 export const SETTING_WEEK_START = 'mycalendar.weekStart';
+export const SETTING_SHOW_WEEK_NUMBERS = 'mycalendar.showWeekNumbers';
 
 // Day events
 export const SETTING_SHOW_EVENT_TIMELINE = 'mycalendar.showEventTimeline';
@@ -110,6 +111,15 @@ export async function registerSettings(joplin: any) {
                 monday: 'Monday',
                 sunday: 'Sunday',
             },
+        },
+
+        [SETTING_SHOW_WEEK_NUMBERS]: {
+            value: false,
+            type: SETTING_TYPE_BOOL,
+            section: 'mycalendar',
+            public: true,
+            label: 'Show week numbers',
+            description: 'Calendar section: Show week numbers in the calendar grid.',
         },
 
         // 4) Day events
@@ -292,6 +302,10 @@ export async function getWeekStart(joplin: any): Promise<WeekStart> {
     const raw = await joplin.settings.value(SETTING_WEEK_START);
     const v = String(raw ?? '').toLowerCase().trim();
     return (v === 'sunday' || v === 'monday') ? (v as WeekStart) : 'monday';
+}
+
+export async function getShowWeekNumbers(joplin: any): Promise<boolean> {
+    return !!(await joplin.settings.value(SETTING_SHOW_WEEK_NUMBERS));
 }
 
 // Day events

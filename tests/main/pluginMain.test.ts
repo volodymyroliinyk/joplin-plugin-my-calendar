@@ -2,7 +2,7 @@
 //
 // src/main/pluginMain.ts
 //
-// npx jest tests/main/pluginMain.test.ts --runInBand --no-cache;
+// TZ=UTC npx jest tests/main/pluginMain.test.ts --runInBand --no-cache;
 //
 import runPlugin from '../../src/main/pluginMain';
 import * as logger from '../../src/main/utils/logger';
