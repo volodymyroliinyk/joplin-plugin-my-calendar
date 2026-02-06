@@ -8,6 +8,7 @@
         dayEventsRefreshMinutes: 1,
         showEventTimeline: true,
         showWeekNumbers: false,
+        timeFormat: '24h',
     };
 
     const uiSettings = window.__mcUiSettings;
@@ -564,6 +565,7 @@
                         const prevWeekStart = uiSettings.weekStart;
                         const prevShowEventTimeline = uiSettings.showEventTimeline;
                         const prevShowWeekNumbers = uiSettings.showWeekNumbers;
+                        const prevTimeFormat = uiSettings.timeFormat;
 
                         if (msg.weekStart === 'monday' || msg.weekStart === 'sunday') {
                             uiSettings.weekStart = msg.weekStart;
@@ -589,6 +591,10 @@
                             uiSettings.showEventTimeline = msg.showEventTimeline;
                         }
 
+                        if (msg.timeFormat === '12h' || msg.timeFormat === '24h') {
+                            uiSettings.timeFormat = msg.timeFormat;
+                        }
+
                         // Apply immediately (no re-render required)
                         if (prevShowEventTimeline !== uiSettings.showEventTimeline) {
                             applyDayTimelineVisibility();
@@ -604,10 +610,11 @@
 
                         const weekStartChanged = prevWeekStart !== uiSettings.weekStart;
                         const showWeekNumbersChanged = prevShowWeekNumbers !== uiSettings.showWeekNumbers;
+                        const timeFormatChanged = prevTimeFormat !== uiSettings.timeFormat;
                         const firstSettingsArrived = !__mcHasUiSettings;
                         __mcHasUiSettings = true;
 
-                        if (weekStartChanged || showWeekNumbersChanged || (firstSettingsArrived && !gridEvents.length)) {
+                        if (weekStartChanged || showWeekNumbersChanged || timeFormatChanged || (firstSettingsArrived && !gridEvents.length)) {
                             drawMonth();
                         }
                     },
@@ -965,7 +972,7 @@
                             timeZone: tz,
                             hour: '2-digit',
                             minute: '2-digit',
-                            hour12: false,
+                            hour12: uiSettings.timeFormat === '12h',
                         }).format(new Date(ts));
                     }
                 } catch {
@@ -973,7 +980,11 @@
                 }
 
                 // fallback: environment timezone
-                return new Date(ts).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', hour12: false});
+                return new Date(ts).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: uiSettings.timeFormat === '12h'
+                });
             }
 
             // Slice an event interval into a specific local-day interval.
