@@ -1,8 +1,7 @@
 TODO:[1]:
-    - readme.md:
-    - release:
-        - npm  portal;
-        - github portal;
+    - alarms
+        - check if alarm works correctly before an event and trigger_desc is correct.
+        - alarm body design.
 TODO:[2]:
-    - multilingual support;
+    - multilingual support.
 

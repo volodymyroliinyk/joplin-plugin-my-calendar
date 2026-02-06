@@ -18,18 +18,33 @@ note-taking app.
 ## 🌟 Key Features
 
 - **Monthly Calendar Grid**: Navigate through months, view event bars, and see your schedule at a glance.
-- **Quick Month-Year Navigation**: Click the month/year header to open a picker and jump instantly to any date in the
-  past or future.
-- **Smart Day View**: Click any day to see a detailed list of scheduled events.
-- **Notes as Events**: Any note can become a calendar event simply by adding a small Markdown block.
+    - **Quick Month-Year Navigation**: Click the month/year header to open a picker and jump instantly to any date in
+      the
+      past or future.
+    - **Week Numbers**: Optional row for week numbers in the monthly grid.
+    - **Monday or Sunday**: as first week day.
+    - **Smart Day View**: Click any day to see a detailed list of scheduled events.
+        - **Day events count**
+    - **Notes as Events**: Any note can become a calendar event simply by adding a small Markdown block.
+- **Day events**
+    - **Current or chosen date**
+    - **Event**
+        - **Color indicator**
+        - **Title**: is clickable.
+        - **Color progress bar**: 24h length
+        - **Alarm Indicators**: Visual icons on the calendar and in the event list to show which events have active
+          reminders.
+        - **Time**: from-to or from.
+    - **Current time indicator:** moving vertical line.
 - **ICS Import**: Import standard `*.ics` files (from Google Calendar, Outlook, Apple, etc.) directly into your Joplin
   notebooks.
-- **Notes as Alarms**: The plugin automatically creates "Todo" notes with reminders based on your calendar alarms
-  (`VALARM`). These notes act as system notifications and link back to the original event. The sync process is optimized
-  to only update what's necessary.
-- **Recurrence Support**: Full support for daily, weekly, monthly, and yearly recurring events.
-- **Week Numbers**: Optional row for week numbers in the monthly grid.
-- **Alarm Indicators**: Visual icons on the calendar and in the event list to show which events have active reminders.
+    - **Notes as Alarms**: The plugin automatically creates "Todo" notes with reminders based on your calendar alarms
+      (`VALARM`). These notes act as system notifications and link back to the original event. The sync process is
+      optimized
+      to only update what's necessary.
+    - **Recurrence Support**: Full support for daily, weekly, monthly, and yearly recurring events.
+
+
 - **High Security**: Built-in protection against Markdown and CSS injections.
 - **Universal Sync**: Works with Joplin's built-in synchronization across all your devices.
 
@@ -161,6 +176,7 @@ Customize your experience in the Joplin Settings (`Tools` > `Options` > `My Cale
 
 - **Week starts on**: Choose between **Monday** (default) or **Sunday** for the calendar grid.
 - **Show week numbers**: Toggle the display of week numbers alongside the calendar grid. (Default: Disabled).
+- **Time format**: Choose between **24h** (default) or **12h** (AM/PM) format for event times.
 
 ### Day events
 
