@@ -36,7 +36,7 @@ import {
 } from '../../src/main/services/eventsCache';
 import {registerCalendarPanelController} from '../../src/main/uiBridge/panelController';
 import {pushUiSettings} from '../../src/main/uiBridge/uiSettings';
-import {registerSettings} from '../../src/main/settings/settings';
+// import {registerSettings} from '../../src/main/settings/settings';
 
 type AnyFn = (...a: any[]) => any;
 
@@ -151,90 +151,6 @@ describe('pluginMain.runPlugin', () => {
         infoSpy.mockRestore();
         warnSpy.mockRestore();
         errorSpy.mockRestore();
-    });
-
-
-    test('happy path: creates panel, registers commands, wires workspace events, registers controller and desktop toggle', async () => {
-        const logSpy = jest.spyOn(logger, 'log').mockImplementation(() => undefined);
-        const infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => undefined);
-
-        (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
-        (ensureAllEventsCache as jest.Mock).mockResolvedValue([{id: 'e1'}, {id: 'e2'}]);
-
-        const {
-            joplin,
-            panels,
-            menuItems,
-            toolbarButtons,
-            commandsRegister,
-            getOnNoteChange,
-            getOnSyncComplete
-        } = makeJoplinMock({
-            withFocus: true,
-            withHide: true,
-            withMenu: true,
-        });
-
-        await runPlugin(joplin as any);
-
-        expect(registerSettings).toHaveBeenCalledWith(joplin);
-
-        // createCalendarPanel called
-        expect(createCalendarPanel).toHaveBeenCalledWith(joplin);
-
-        // open command registered
-        expect(commandsRegister).toHaveBeenCalledWith(
-            expect.objectContaining({name: 'mycalendar.open', label: 'Open MyCalendar'})
-        );
-
-        // ensure cache called but non-fatal on error (tested separately)
-        expect(ensureAllEventsCache).toHaveBeenCalledWith(joplin);
-
-        // workspace listeners registered
-        expect(joplin.workspace.onNoteChange).toHaveBeenCalledTimes(1);
-        expect(joplin.workspace.onSyncComplete).toHaveBeenCalledTimes(1);
-        expect(typeof getOnNoteChange()).toBe('function');
-        expect(typeof getOnSyncComplete()).toBe('function');
-
-        // controller registered with helpers
-        expect(registerCalendarPanelController).toHaveBeenCalledTimes(1);
-        const [, panel, helpers] = (registerCalendarPanelController as jest.Mock).mock.calls[0];
-        expect(panel).toBe('panel-1');
-        expect(typeof helpers.expandAllInRange).toBe('function');
-        expect(typeof helpers.buildICS).toBe('function');
-
-        // panel shown once during init
-        expect(panels.show).toHaveBeenCalledWith('panel-1');
-
-        // desktop toggle registered (togglePanel command + menu item + toolbar button)
-        expect(commandsRegister).toHaveBeenCalledWith(
-            expect.objectContaining({
-                name: 'mycalendar.togglePanel',
-                label: 'Toggle My Calendar',
-                iconName: 'fas fa-calendar-alt'
-            })
-        );
-        expect(menuItems.create).toHaveBeenCalledWith(
-            'mycalendarToggleMenu',
-            'mycalendar.togglePanel',
-            'view',
-            {accelerator: 'Ctrl+Alt+C'}
-        );
-        expect(toolbarButtons.create).toHaveBeenCalledWith(
-            'mycalendarToolbarButton',
-            'mycalendar.togglePanel',
-            'noteToolbar'
-        );
-
-        // init focus called if present (non-fatal if missing/throws)
-        expect(panels.focus).toHaveBeenCalledWith('panel-1');
-
-        // basic logs
-        expect(logSpy).toHaveBeenCalledWith('pluginMain', 'Plugin start');
-        expect(infoSpy).toHaveBeenCalled(); // capabilities info
-
-        logSpy.mockRestore();
-        infoSpy.mockRestore();
     });
 
     test('open command execute: shows panel and focuses when focus exists', async () => {

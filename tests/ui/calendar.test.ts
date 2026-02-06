@@ -624,4 +624,22 @@ describe('src/ui/calendar.js', () => {
         (Date.now as any).mockRestore?.();
     });
 
+    test('focus event does not trigger a full redraw', () => {
+        const {postMessage, getOnMessageCb} = installWebviewApi();
+        loadCalendarJsFresh();
+        sendPluginMessage(getOnMessageCb, {name: 'uiSettings', weekStart: 'sunday'});
+
+        // Clear initial calls
+        postMessage.mockClear();
+
+        // Simulate a focus event
+        window.dispatchEvent(new Event('focus'));
+
+        // Advance timers to catch any debounced redraws
+        jest.advanceTimersByTime(100);
+
+        // Assert that no new range request was made
+        const calls = postMessage.mock.calls.filter(c => c[0]?.name === 'requestRangeEvents');
+        expect(calls.length).toBe(0);
+    });
 });

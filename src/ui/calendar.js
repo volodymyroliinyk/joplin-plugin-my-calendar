@@ -461,7 +461,7 @@
                     updateDayNowTimelineDot();
                     scheduleDayNowTimelineTick();
                 });
-                window.addEventListener('focus', () => sendUiReadyAgain());
+                // window.addEventListener('focus', () => sendUiReadyAgain());
 
             } else {
                 log('webviewApi.postMessage missing at init');

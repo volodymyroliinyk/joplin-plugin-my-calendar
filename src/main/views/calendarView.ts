@@ -63,7 +63,7 @@ export async function createCalendarPanel(joplin: JoplinLike): Promise<PanelHand
         await panels.addScript(panel, script);
     }
 
-    await panels.show(panel);
+    // await panels.show(panel);
     log('calendarView', 'Panel created');
 
     return panel;
