@@ -12,6 +12,7 @@ export const SETTING_SHOW_WEEK_NUMBERS = 'mycalendar.showWeekNumbers';
 // Day events
 export const SETTING_SHOW_EVENT_TIMELINE = 'mycalendar.showEventTimeline';
 export const SETTING_DAY_EVENTS_REFRESH_MINUTES = 'mycalendar.dayEventsRefreshMinutes';
+export const SETTING_TIME_FORMAT = 'mycalendar.timeFormat';
 
 // ICS Import
 export const SETTING_ICS_IMPORT_ALARMS_ENABLED = 'mycalendar.icsImportAlarmsEnabled';
@@ -32,6 +33,7 @@ export const SETTING_ICS_EXPORT_LINK4_URL = 'mycalendar.icsExportLink4Url';
 
 
 export type WeekStart = 'monday' | 'sunday';
+export type TimeFormat = '12h' | '24h';
 
 export type IcsExportLink = {
     title: string;
@@ -140,6 +142,19 @@ export async function registerSettings(joplin: any) {
             label: 'Day events auto-refresh (minutes)',
             description: 'Day events section: How often the list refreshes.',
         },
+        [SETTING_TIME_FORMAT]: {
+            value: '24h',
+            type: SETTING_TYPE_STRING,
+            section: 'mycalendar',
+            public: true,
+            label: 'Time format',
+            description: 'Day events section: Choose between 12-hour (AM/PM) or 24-hour format for event times.',
+            isEnum: true,
+            options: {
+                '12h': '12-hour (AM/PM)',
+                '24h': '24-hour',
+            },
+        },
 
         // 7) ICS Import
         [SETTING_ICS_IMPORT_ALARMS_ENABLED]: {
@@ -166,7 +181,6 @@ export async function registerSettings(joplin: any) {
             label: 'Empty trash after alarm cleanup',
             description: 'ICS import section: If enabled, the plugin will empty the trash after deleting old alarms. WARNING: This deletes ALL items in the trash.',
         },
-
         // 8) ICS export links (up to 4)
         [SETTING_ICS_EXPORT_LINK1_TITLE]: {
             value: '',
@@ -321,6 +335,11 @@ export async function getDayEventsRefreshMinutes(joplin: any): Promise<number> {
     const n = Number(raw);
     if (!Number.isFinite(n)) return 1;
     return Math.min(60, Math.max(1, Math.round(n)));
+}
+
+export async function getTimeFormat(joplin: any): Promise<TimeFormat> {
+    const raw = await joplin.settings.value(SETTING_TIME_FORMAT);
+    return (raw === '12h' || raw === '24h') ? raw : '24h';
 }
 
 // ICS import
