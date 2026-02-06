@@ -340,7 +340,7 @@ export default async function runPlugin(joplin: any) {
 
     await pushUiSettings(joplin, panel);
 
-    await joplin.views.panels.show(panel);
+    // await joplin.views.panels.show(panel);
 
     await joplin.settings.onChange(async () => {
         await pushUiSettings(joplin, panel);
