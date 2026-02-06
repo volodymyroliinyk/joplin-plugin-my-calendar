@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.5.0](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.4.1...v1.5.0) (2026-02-06)
+
+
+### ✨ Features
+
+* add time format setting (12h/24h) ([6a11512](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/6a115128e97b1f81babcaea1df531c4327d32ed6))
+
+
+### 🐛 Bug Fixes
+
+* prevent UI reload on panel focus ([1ee22db](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/1ee22db78c6425102e6607eaab0c69a0a027eaf2))
+
 ### [1.4.1](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.4.0...v1.4.1) (2026-02-05)
 
 
