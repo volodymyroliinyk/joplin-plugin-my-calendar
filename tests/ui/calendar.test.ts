@@ -182,7 +182,7 @@ describe('src/ui/calendar.js', () => {
         expect(msg.toUtc).toBeGreaterThan(msg.fromUtc);
     });
 
-    test('requestMonthRangeWithRetry: if rangeEvents not received within 1200ms -> retries once', () => {
+    test('requestMonthRangeWithRetry: if rangeEvents not received within 2000ms -> retries once', () => {
         const {postMessage, getOnMessageCb} = installWebviewApi();
         loadCalendarJsFresh();
         sendPluginMessage(getOnMessageCb, {name: 'uiSettings', weekStart: 'sunday'});
@@ -191,8 +191,8 @@ describe('src/ui/calendar.js', () => {
         const initial = postMessage.mock.calls.filter(c => c[0]?.name === 'requestRangeEvents').length;
         expect(initial).toBeGreaterThanOrEqual(1);
 
-        // gridEvents remains empty => after 1200ms there should be a retry
-        jest.advanceTimersByTime(1200);
+        // gridEvents remains empty => after 2000ms there should be a retry
+        jest.advanceTimersByTime(2000);
 
         const after = postMessage.mock.calls.filter(c => c[0]?.name === 'requestRangeEvents').length;
         expect(after).toBe(initial + 1);

@@ -515,10 +515,12 @@
                         if (cb) cb();
                         return;
                     }
-                    // ~5 seconds max
-                    if (attempts >= 50) {
+                    // ~15 seconds max (increased from 5s to fix Android resume race)
+                    if (attempts >= 150) {
                         clearInterval(timer);
                         log('backend still not ready after waiting; will keep UI visible, user action may trigger later');
+                        // Force stop loading spinner so it doesn't spin forever
+                        setGridLoading(false);
                     }
                 }, 100);
             }
@@ -844,21 +846,21 @@
                         fromUtc: from.getTime(),
                         toUtc: to.getTime(),
                     });
-                });
-                //If for 1200ms did not come rageevents - repeat once
-                if (rangeRequestTimer) clearTimeout(rangeRequestTimer);
-                rangeRequestTimer = setTimeout(() => {
-                    if (!Array.isArray(gridEvents) || gridEvents.length === 0) {
-                        log('rangeEvents timeout - retrying once');
-                        ensureBackendReady(() => {
+
+                    // Retry logic moved inside to ensure sequential execution
+                    if (rangeRequestTimer) clearTimeout(rangeRequestTimer);
+                    rangeRequestTimer = setTimeout(() => {
+                        if (!Array.isArray(gridEvents) || gridEvents.length === 0) {
+                            log('rangeEvents timeout - retrying once');
+                            // Backend is already confirmed ready here
                             window.webviewApi.postMessage({
                                 name: 'requestRangeEvents',
                                 fromUtc: from.getTime(),
                                 toUtc: to.getTime(),
                             });
-                        });
-                    }
-                }, 1200);
+                        }
+                    }, 2000);
+                });
             }
 
             function renderGridSkeleton() {
