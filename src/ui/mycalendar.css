@@ -852,13 +852,7 @@ select::-webkit-scrollbar-thumb:hover {
     /* Restore week number column width to original 2.2em, but keep tight padding */
     #mc-grid.mc-show-week-numbers .mc-grid-head,
     #mc-grid.mc-show-week-numbers .mc-grid-body {
-        grid-template-columns: 2.2em repeat(7, minmax(0, 1fr));
-    }
-
-    .mc-week-num-head,
-    .mc-week-num-cell {
-        padding-left: 2px !important;
-        padding-right: 2px !important;
+        grid-template-columns: 1.6em repeat(7, minmax(0, 1fr));
     }
 
     .mc-daynum {
