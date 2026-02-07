@@ -17,36 +17,26 @@ note-taking app.
 
 ## 🌟 Key Features
 
-- **Monthly Calendar Grid**: Navigate through months, view event bars, and see your schedule at a glance.
-    - **Quick Month-Year Navigation**: Click the month/year header to open a picker and jump instantly to any date in
-      the
-      past or future.
-    - **Week Numbers**: Optional row for week numbers in the monthly grid.
-    - **Monday or Sunday**: as first week day.
-    - **Smart Day View**: Click any day to see a detailed list of scheduled events.
-        - **Day events count**
-    - **Notes as Events**: Any note can become a calendar event simply by adding a small Markdown block.
-- **Day events**
-    - **Current or chosen date**
-    - **Event**
-        - **Color indicator**
-        - **Title**: is clickable.
-        - **Color progress bar**: 24h length
-        - **Alarm Indicators**: Visual icons on the calendar and in the event list to show which events have active
-          reminders.
-        - **Time**: from-to or from.
-    - **Current time indicator:** moving vertical line.
-- **ICS Import**: Import standard `*.ics` files (from Google Calendar, Outlook, Apple, etc.) directly into your Joplin
-  notebooks.
-    - **Notes as Alarms**: The plugin automatically creates "Todo" notes with reminders based on your calendar alarms
-      (`VALARM`). These notes act as system notifications and link back to the original event. The sync process is
-      optimized
-      to only update what's necessary.
-    - **Recurrence Support**: Full support for daily, weekly, monthly, and yearly recurring events.
-
-
-- **High Security**: Built-in protection against Markdown and CSS injections.
-- **Universal Sync**: Works with Joplin's built-in synchronization across all your devices.
+- **Integrated Monthly Calendar**:
+    - **Visual Grid**: View your schedule with event bars and alarm indicators.
+    - **Navigation**: Quick jump to any date via the month/year picker.
+    - **Customization**: Toggle week numbers and choose Monday or Sunday start.
+- **Smart Day View**:
+    - **Detailed Timeline**: See a chronological list of the day's events with a current time indicator.
+    - **Interactive**: Click events to open the corresponding note.
+- **Notes as Events**:
+    - **Simple Syntax**: Turn any note into an event by adding a metadata block.
+    - **Rich Details**: Support for timezones, locations, custom colors, and recurrence.
+- **Robust ICS Import**:
+    - **Broad Compatibility**: Import `.ics` files from Google Calendar, Outlook, Apple, etc.
+    - **Recurrence**: Full support for complex recurring event patterns.
+    - **Smart Sync**: Deduplicates events and preserves local changes like custom colors.
+- **Native Alarms**:
+    - **System Notifications**: Automatically converts calendar alarms into Joplin "Todo" notes, triggering native
+      reminders on Desktop and Mobile.
+- **Security & Privacy**:
+    - **Sanitized**: Protection against malicious Markdown/CSS.
+    - **Local**: Works with Joplin's existing sync; no external servers required.
 
 ### 📱 Platform Availability
 
@@ -213,11 +203,11 @@ Customize your experience in the Joplin Settings (`Tools` > `Options` > `My Cale
 
 ### Commands
 
-- `npm run build;`: Compile the project.
-- `npm pack;`: Create the `.jpl` distribution file.
-- `npm test;`: Run the extensive test suite (250+ cases).
-- `npm run lint;`: Check code style and common patterns.
-- `pkill -f jest || true;pkill -f node || true;rm -rf node_modules/.cache;rm -rf ~/.cache/jest;npx jest --clearCache;`:
+- `npm run build`: Compile the project.
+- `npm pack`: Create the `.jpl` distribution file.
+- `npm test`: Run the extensive test suite (350+ cases).
+- `npm run lint`: Check code style and common patterns.
+- `pkill -f jest || true;pkill -f node || true;rm -rf node_modules/.cache;rm -rf ~/.cache/jest;npx jest --clearCache`:
   Cache cleaning.
 
 ### Automation Scripts
@@ -246,6 +236,22 @@ Automatically shifts dates in the demo ICS file to start from today. Useful for 
 
 ```bash
 ./scripts/update-demo-ics.py;
+```
+
+#### `scripts/check-tests.sh`
+
+Verifies that tests have passed recently (within the last hour) before allowing critical operations.
+
+```bash
+bash ./scripts/check-tests.sh;
+```
+
+#### `scripts/preview-changelog.sh`
+
+Previews the changelog generation in dry-run mode without modifying files.
+
+```bash
+bash ./scripts/preview-changelog.sh [patch|minor|major];
 ```
 
 ### Development Workflow
