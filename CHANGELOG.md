@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.5.1](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.5.0...v1.5.1) (2026-02-07)
+
+
+### 🐛 Bug Fixes
+
+* resolve race condition in Android WebView initialization ([93030fc](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/93030fc945dadcb0bc8521e922cb0873784d6977))
+
 ## [1.5.0](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.4.1...v1.5.0) (2026-02-06)
 
 
