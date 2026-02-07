@@ -48,8 +48,10 @@ select::-webkit-scrollbar-thumb:hover {
     --mc-past-opacity: 0.45;
     /* Subtle weekend highlight (theme-aware) */
     --mc-weekend-head-bg: color-mix(in srgb, var(--joplin-background-color3) 70%, transparent);
-    --mc-weekend-cell-bg: color-mix(in srgb, var(--joplin-background-color3) 45%, transparent);
-
+    /* Use joplin-color (text color) for weekend background to ensure contrast in both light (darker) and dark (lighter) modes */
+    --mc-weekend-cell-bg: color-mix(in srgb, var(--joplin-color) 7%, transparent);
+    /* Count badge background: stronger contrast than weekend */
+    --mc-count-bg: color-mix(in srgb, var(--joplin-color) 20%, var(--joplin-background-color));
 }
 
 /* Outer container that will actually scroll */
@@ -414,15 +416,6 @@ select::-webkit-scrollbar-thumb:hover {
     margin-bottom: 2px;
 }
 
-.mc-dots {
-    position: absolute;
-    left: 6px;
-    bottom: 6px;
-    display: flex;
-    align-items: center;
-    gap: 3px;
-}
-
 .mc-more {
     font-size: 11px;
     opacity: 0.7;
@@ -552,14 +545,10 @@ select::-webkit-scrollbar-thumb:hover {
     line-height: 1;
     padding: 3px 4px;
     border-radius: 4px;
-    background: var(--joplin-background-color3);
+    background: var(--mc-count-bg);
     border: 0px solid var(--joplin-divider-color);
     opacity: 0.85;
     z-index: 3;
-}
-
-.mc-dots {
-    display: none;
 }
 
 .mc-calendar-nav-btn {

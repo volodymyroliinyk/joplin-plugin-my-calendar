@@ -939,11 +939,6 @@
                     n.textContent = String(cellDate.getDate());
                     cell.appendChild(n);
 
-                    const dots = document.createElement('div');
-                    dots.className = 'mc-dots';
-                    dots.dataset.utc = String(cellTs);
-                    cell.appendChild(dots);
-
                     cell.addEventListener('click', () => {
                         selectedDayUtc = cellTs;
                         window.webviewApi?.postMessage?.({name: 'dateClick', dateUtc: selectedDayUtc});
