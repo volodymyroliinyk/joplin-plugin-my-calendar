@@ -1,175 +1,16 @@
 // src/main/pluginMain.ts
 
 import {createCalendarPanel} from './views/calendarView';
-import {EventInput} from './parsers/eventParser';
 
-import {ensureAllEventsCache, invalidateNote, invalidateAllEventsCache} from './services/eventsCache';
+import {ensureAllEventsCache, invalidateAllEventsCache, refreshNoteCache} from './services/eventsCache';
 import {registerCalendarPanelController} from './uiBridge/panelController';
 import {registerSettings} from './settings/settings';
 import {pushUiSettings} from "./uiBridge/uiSettings";
-import {
-    Occurrence,
-    parseYmdHmsLocal,
-    addDaysYMD,
-    weekdayMon0,
-    getPartsInTz,
-    zonedTimeToUtcMs,
-    DAY_MS
-} from './utils/dateUtils';
+import {expandAllInRange} from './services/occurrenceService';
+import {Occurrence} from './utils/dateUtils';
+import {Joplin} from './types/joplin.interface';
 
-import {dbg, err, info, log, warn} from './utils/logger';
-
-function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number): Occurrence[] {
-    // Invariant: recurring events must have timezone
-    const tz = ev.tz || Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-    if (ev.repeat !== 'none' && !ev.tz) {
-        dbg('occurrence', 'Recurring event has no timezone; using device timezone:', {tz, title: ev.title, id: ev.id});
-    }
-
-    const dur = (ev.endUtc ?? ev.startUtc) - ev.startUtc;
-    const push = (start: number, out: Occurrence[]) => {
-        if (start > toUtc) return false;
-        const end = dur ? start + dur : start;
-        if (end < fromUtc) return true;
-        out.push({...ev, occurrenceId: `${ev.id}#${start}`, startUtc: start, endUtc: dur ? end : undefined});
-        return true;
-    };
-
-    if (ev.repeat === 'none') {
-        const end = ev.endUtc ?? ev.startUtc;
-        if (end < fromUtc || ev.startUtc > toUtc) return [];
-        return [{...ev, occurrenceId: `${ev.id}#${ev.startUtc}`}];
-    }
-
-    const out: Occurrence[] = [];
-    const base = new Date(ev.startUtc);
-    const baseY = base.getUTCFullYear(), baseM = base.getUTCMonth(), baseD = base.getUTCDate();
-    const baseH = base.getUTCHours(), baseMin = base.getUTCMinutes(), baseS = base.getUTCSeconds();
-    const until = ev.repeatUntilUtc ?? toUtc;
-    const step = Math.max(1, ev.repeatInterval || 1);
-
-    if (ev.repeat === 'daily') {
-        const from2 = fromUtc - Math.max(0, dur);
-        let k = Math.floor((from2 - ev.startUtc) / (DAY_MS * step));
-        if (ev.startUtc + k * step * DAY_MS < from2) k++;
-        if (k < 0) k = 0;
-        for (; ; k++) {
-            const start = ev.startUtc + k * step * DAY_MS;
-            if (start > until) break;
-            if (!push(start, out)) break;
-        }
-        return out;
-    }
-
-    if (ev.repeat === 'weekly') {
-        const baseLocal = parseYmdHmsLocal(ev.startText);
-        const baseWd = weekdayMon0(baseLocal.Y, baseLocal.M, baseLocal.D);
-
-        const list = ev.byWeekdays && ev.byWeekdays.length ? ev.byWeekdays : [baseWd];
-        const step = Math.max(1, ev.repeatInterval || 1);
-        const from2 = fromUtc - Math.max(0, dur);
-
-        // Monday of base week (local date)
-        const mondayBase = addDaysYMD(baseLocal.Y, baseLocal.M, baseLocal.D, -baseWd);
-
-        // Start from the week containing "fromUtc" in local TZ
-        const fromLocal = getPartsInTz(fromUtc, tz);
-        const fromWd = weekdayMon0(fromLocal.Y, fromLocal.M, fromLocal.D);
-        const mondayFrom = addDaysYMD(fromLocal.Y, fromLocal.M, fromLocal.D, -fromWd);
-
-        // Compute week index offset (in local calendar days)
-        const mondayBaseMs = Date.UTC(mondayBase.Y, mondayBase.M - 1, mondayBase.D);
-        const mondayFromMs = Date.UTC(mondayFrom.Y, mondayFrom.M - 1, mondayFrom.D);
-
-        let weeksDiff = Math.floor((mondayFromMs - mondayBaseMs) / (7 * DAY_MS));
-        if (weeksDiff < 0) weeksDiff = 0;
-
-        let weekIndex = Math.floor(weeksDiff / step);
-
-        const until = Math.min(toUtc, ev.repeatUntilUtc ?? Number.POSITIVE_INFINITY);
-
-        for (; ;) {
-            const weekStart = addDaysYMD(mondayBase.Y, mondayBase.M, mondayBase.D, weekIndex * 7 * step);
-
-            for (const wd of list) {
-                const occ = addDaysYMD(weekStart.Y, weekStart.M, weekStart.D, wd);
-
-                const start = zonedTimeToUtcMs(occ.Y, occ.M, occ.D, baseLocal.h, baseLocal.m, baseLocal.sec, tz);
-                if (start < from2 || start > until) continue;
-
-                if (!push(start, out)) return out;
-            }
-
-            // stop condition: next week start beyond range
-            const nextWeek = addDaysYMD(mondayBase.Y, mondayBase.M, mondayBase.D, (weekIndex + 1) * 7 * step);
-            const nextWeekStartUtc = zonedTimeToUtcMs(nextWeek.Y, nextWeek.M, nextWeek.D, 0, 0, 0, tz);
-            if (nextWeekStartUtc > toUtc) break;
-
-            weekIndex++;
-        }
-        return out;
-    }
-
-    if (ev.repeat === 'monthly') {
-        const dom = ev.byMonthDay ?? baseD;
-        const y = baseY;
-        let m = baseM;
-        let cursor = Date.UTC(y, m, dom, baseH, baseMin, baseS);
-        while (cursor < ev.startUtc) {
-            m += 1;
-            cursor = Date.UTC(y + Math.floor(m / 12), (m % 12 + 12) % 12, dom, baseH, baseMin, baseS);
-        }
-        for (; ;) {
-            if (cursor > until) break;
-            const cd = new Date(cursor);
-            // Ensure month is what we expect (no overflow like Jan 31 -> Feb 3)
-            const expectedM = (m % 12 + 12) % 12;
-            if (cd.getUTCMonth() === expectedM) {
-                if (!push(cursor, out)) break;
-            }
-
-            m += step;
-            cursor = Date.UTC(y + Math.floor(m / 12), (m % 12 + 12) % 12, dom, baseH, baseMin, baseS);
-            if (cursor > toUtc && cursor > until) break;
-        }
-        return out;
-    }
-
-    if (ev.repeat === 'yearly') {
-        let y = baseY;
-        let cursor = Date.UTC(y, baseM, baseD, baseH, baseMin, baseS);
-        while (cursor < ev.startUtc) {
-            y += 1;
-            cursor = Date.UTC(y, baseM, baseD, baseH, baseMin, baseS);
-        }
-        while (cursor < fromUtc) {
-            y += (step || 1);
-            cursor = Date.UTC(y, baseM, baseD, baseH, baseMin, baseS);
-        }
-        for (; ;) {
-            if (cursor > until) break;
-            const dt = new Date(cursor);
-            // Ensure month is still February (or whatever baseM was) - handles Leap Year Feb 29
-            if (dt.getUTCMonth() === baseM) {
-                if (!push(cursor, out)) break;
-            }
-            y += (step || 1);
-            cursor = Date.UTC(y, baseM, baseD, baseH, baseMin, baseS);
-            if (cursor > toUtc && cursor > until) break;
-        }
-        return out;
-    }
-
-    return out;
-}
-
-function expandAllInRange(evs: EventInput[], fromUtc: number, toUtc: number) {
-    const out: Occurrence[] = [];
-    for (const ev of evs) out.push(...expandOccurrencesInRange(ev, fromUtc, toUtc));
-    out.sort((a, b) => a.startUtc - b.startUtc || a.occurrenceId.localeCompare(b.occurrenceId));
-    return out;
-}
+import {err, info, log, warn} from './utils/logger';
 
 function pad2(n: number) {
     return String(n).padStart(2, '0');
@@ -185,89 +26,54 @@ function icsEscape(s: string) {
     return (s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
 }
 
+function foldIcsLine(line: string, limit = 75): string[] {
+    if (line.length <= limit) return [line];
+    const out: string[] = [];
+    let i = 0;
+    while (i < line.length) {
+        const chunk = line.slice(i, i + limit);
+        if (i === 0) out.push(chunk);
+        else out.push(` ${chunk}`);
+        i += limit;
+    }
+    return out;
+}
+
 function buildICS(events: Occurrence[], prodId = '-//MyCalendar//Joplin//EN') {
-    const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', `PRODID:${prodId}`, 'CALSCALE:GREGORIAN'];
+    const lines: string[] = [];
+    const push = (line: string) => {
+        for (const l of foldIcsLine(line)) lines.push(l);
+    };
+
+    push('BEGIN:VCALENDAR');
+    push('VERSION:2.0');
+    push(`PRODID:${prodId}`);
+    push('CALSCALE:GREGORIAN');
+
     for (const ev of events) {
         const uid = ev.occurrenceId || `${ev.id}@mycalendar`;
-        lines.push('BEGIN:VEVENT');
-        lines.push(`UID:${icsEscape(uid)}`);
-        lines.push(`DTSTAMP:${fmtICS(Date.now())}`);
-        lines.push(`DTSTART:${fmtICS(ev.startUtc)}`);
-        if (ev.endUtc) lines.push(`DTEND:${fmtICS(ev.endUtc)}`);
-        lines.push(`SUMMARY:${icsEscape(ev.title || 'Event')}`);
-        if (ev.location) lines.push(`LOCATION:${icsEscape(ev.location)}`);
-        if (ev.description) lines.push(`DESCRIPTION:${icsEscape(ev.description)}`);
-        if (ev.color) lines.push(`X-COLOR:${icsEscape(ev.color)}`);
-        lines.push('END:VEVENT');
+        push('BEGIN:VEVENT');
+        push(`UID:${icsEscape(uid)}`);
+        push(`DTSTAMP:${fmtICS(Date.now())}`);
+        push(`DTSTART:${fmtICS(ev.startUtc)}`);
+        if (ev.endUtc) push(`DTEND:${fmtICS(ev.endUtc)}`);
+        push(`SUMMARY:${icsEscape(ev.title || 'Event')}`);
+        if (ev.location) push(`LOCATION:${icsEscape(ev.location)}`);
+        if (ev.description) push(`DESCRIPTION:${icsEscape(ev.description)}`);
+        if (ev.color) push(`X-COLOR:${icsEscape(ev.color)}`);
+        push('END:VEVENT');
     }
-    lines.push('END:VCALENDAR');
+    push('END:VCALENDAR');
     return lines.join('\r\n');
 }
 
-function getPanelsAny(joplin: any) {
-    return (joplin as any)?.views?.panels;
-}
-
-async function safePostMessage(joplin: any, panelId: string, message: unknown): Promise<void> {
+async function safePostMessage(joplin: Joplin, panelId: string, message: unknown): Promise<void> {
     const pm = joplin?.views?.panels?.postMessage;
     if (typeof pm === 'function') await pm(panelId, message);
 }
 
-// Ensure UI always receives current settings when the webview (re)initializes.
-async function registerUiMessageHandlers(joplin: any, panelId: string) {
-    const onMessage = getPanelsAny(joplin)?.onMessage;
-    if (typeof onMessage !== 'function') return;
 
-    await onMessage(panelId, async (msg: any) => {
-        // Joplin sometimes wraps payload as { message: <payload> }
-        if (msg && typeof msg === 'object' && 'message' in msg && (msg as any).message) {
-            msg = (msg as any).message;
-        }
-        if (!msg || !msg.name) return;
-
-        if (msg.name === 'uiLog') {
-            const source = msg.source ? `[UI:${msg.source}]` : '[UI]';
-            const level = msg.level || 'log';
-            const args = Array.isArray(msg.args) ? msg.args : [];
-
-            const restored = args.map((a: any) => {
-                if (a && typeof a === 'object' && a.__error) {
-                    const e = new Error(a.message || 'UI error');
-                    (e as any).stack = a.stack;
-                    return e;
-                }
-                return a;
-            });
-
-            switch (level) {
-                case 'debug':
-                    dbg(source, ...restored);
-                    break;
-                case 'info':
-                    info(source, ...restored);
-                    break;
-                case 'warn':
-                    warn(source, ...restored);
-                    break;
-                case 'error':
-                    err(source, ...restored);
-                    break;
-                default:
-                    log(source, ...restored);
-                    break;
-            }
-            return;
-        }
-
-        if (msg.name === 'uiReady') {
-            await pushUiSettings(joplin, panelId);
-            return;
-        }
-    });
-}
-
-
-export default async function runPlugin(joplin: any) {
+export default async function runPlugin(joplin: Joplin) {
 
     log('pluginMain', 'Plugin start');
 
@@ -275,7 +81,6 @@ export default async function runPlugin(joplin: any) {
 
     const panel = await createCalendarPanel(joplin);
     log('pluginMain', 'Panel created:', panel);
-    await registerUiMessageHandlers(joplin, panel);
 
     await registerCalendarPanelController(joplin, panel, {
         expandAllInRange,
@@ -330,11 +135,11 @@ export default async function runPlugin(joplin: any) {
         },
     });
 
-    await joplin.workspace.onNoteChange(async ({id}: { id?: string }) => {
-        if (id) invalidateNote(id);
+    await joplin.workspace?.onNoteChange?.(async ({id}: { id?: string }) => {
+        if (id) await refreshNoteCache(joplin, id);
     });
 
-    await joplin.workspace.onSyncComplete(async () => {
+    await joplin.workspace?.onSyncComplete?.(async () => {
         invalidateAllEventsCache();
     });
 
@@ -363,7 +168,7 @@ export default async function runPlugin(joplin: any) {
 
 // Register the toggle command once. The label is intentionally static because
 // dynamic label updates are not reliably supported by Joplin's menu API.
-async function registerToggleCommand(joplin: any, panel: string, toggleState: { visible: boolean }) {
+async function registerToggleCommand(joplin: Joplin, panel: string, toggleState: { visible: boolean }) {
     await joplin.commands.register({
         name: 'mycalendar.togglePanel',
         label: 'Toggle My Calendar',
@@ -384,7 +189,10 @@ async function registerToggleCommand(joplin: any, panel: string, toggleState: { 
 }
 
 // === MyCalendar: safe desktop toggle helper ===
-async function registerDesktopToggle(joplin: any, panel: string, toggleState: any) {
+async function registerDesktopToggle(joplin: Joplin, panel: string, toggleState: {
+    visible: boolean;
+    active?: boolean
+}) {
     try {
         const canShow = !!joplin?.views?.panels?.show;
         const canHide = !!joplin?.views?.panels?.hide;
@@ -401,27 +209,33 @@ async function registerDesktopToggle(joplin: any, panel: string, toggleState: an
         // Initial update to ensure label is correct
         // (no-op) label is intentionally static
 
-        try {
-            await joplin.views.menuItems.create(
-                'mycalendarToggleMenu',
-                'mycalendar.togglePanel',
-                'view',
-                {accelerator: 'Ctrl+Alt+C'}
-            );
-            log('pluginMain', 'Toggle menu item registered');
-        } catch (e) {
-            warn('pluginMain', 'Menu create failed (non-fatal):', e);
+        const menuCreate = joplin.views?.menuItems?.create;
+        if (typeof menuCreate === 'function') {
+            try {
+                await menuCreate(
+                    'mycalendarToggleMenu',
+                    'mycalendar.togglePanel',
+                    'view',
+                    {accelerator: 'Ctrl+Alt+C'}
+                );
+                log('pluginMain', 'Toggle menu item registered');
+            } catch (e) {
+                warn('pluginMain', 'Menu create failed (non-fatal):', e);
+            }
         }
 
-        try {
-            await joplin.views.toolbarButtons.create(
-                'mycalendarToolbarButton',
-                'mycalendar.togglePanel',
-                'noteToolbar'
-            );
-            log('pluginMain', 'Toolbar button registered');
-        } catch (e) {
-            warn('pluginMain', 'Toolbar button create failed (non-fatal):', e);
+        const toolbarCreate = joplin.views?.toolbarButtons?.create;
+        if (typeof toolbarCreate === 'function') {
+            try {
+                await toolbarCreate(
+                    'mycalendarToolbarButton',
+                    'mycalendar.togglePanel',
+                    'noteToolbar'
+                );
+                log('pluginMain', 'Toolbar button registered');
+            } catch (e) {
+                warn('pluginMain', 'Toolbar button create failed (non-fatal):', e);
+            }
         }
 
     } catch (e) {
