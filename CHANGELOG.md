@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.5.3](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.5.2...v1.5.3) (2026-02-10)
+
+
+### 🐛 Bug Fixes
+
+* add per-note cache refresh for events ([8e0663f](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/8e0663f6fb8a716a0c14ebd2d30d80c3e026e044))
+* fold ics lines to 75 chars ([efcae52](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/efcae52757a12a572adb8653c14a436960a3d3d5))
+* persist todo flags during ics import ([80905e9](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/80905e950f4bde791221b5cd4a14ad45f3fe0aa1))
+* preserve escaped hash in ics values ([ee5bdc6](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/ee5bdc67a93f8ade039d78df8dfcf64d8ae98010))
+* restore ui log routing and unwrap panel messages ([5f71841](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/5f7184101d520bccdb3669a58b7ec5273f3d91ee))
+* retain recent alarms and sync todo fields ([f7f55bf](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/f7f55bfbd59ba524e6f39497c07876dc7ecd8efa))
+* support multiline descriptions and ignore empty fields ([21340ac](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/21340acfb71b3a1e52d7964766ae47a4fe16bfbc))
+
 ### [1.5.2](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.5.1...v1.5.2) (2026-02-07)
 
 ### [1.5.1](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.5.0...v1.5.1) (2026-02-07)
