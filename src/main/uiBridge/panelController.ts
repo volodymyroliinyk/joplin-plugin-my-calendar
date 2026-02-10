@@ -4,7 +4,7 @@ import {ensureAllEventsCache, invalidateAllEventsCache} from '../services/events
 import {importIcsIntoNotes} from '../services/icsImportService';
 import {showToast} from '../utils/toast';
 import {pushUiSettings} from './uiSettings';
-import {err} from '../utils/logger';
+import {dbg, err, info, log, warn} from '../utils/logger';
 import {getIcsImportAlarmRangeDays} from '../settings/settings';
 import {Joplin} from '../types/joplin.interface';
 import {getAllFolders, flattenFolderTree} from '../services/folderService';
@@ -26,6 +26,7 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 }
 
 const KNOWN_MSG_NAMES = [
+    'uiLog',
     'uiReady',
     'requestRangeEvents',
     'dateClick',
@@ -42,6 +43,12 @@ function isKnownMsgName(v: unknown): v is KnownMsgName {
 }
 
 type PanelMsg =
+    | {
+    name: 'uiLog';
+    source?: string;
+    level?: string;
+    args?: unknown[];
+}
     | { name: 'uiReady' }
     | { name: 'requestRangeEvents'; fromUtc: number; toUtc: number }
     | { name: 'dateClick'; dateUtc: number }
@@ -61,6 +68,46 @@ function buildRangeIcsFilename(fromUtc: number, toUtc: number): string {
     return `mycalendar_${isoDate(fromUtc)}_${isoDate(toUtc)}.ics`;
 }
 
+function unwrapMessage(rawMsg: unknown): unknown {
+    if (isRecord(rawMsg) && 'message' in rawMsg && (rawMsg as any).message) {
+        return (rawMsg as any).message;
+    }
+    return rawMsg;
+}
+
+function handleUiLog(msg: Extract<PanelMsg, { name: 'uiLog' }>) {
+    const source = msg.source ? `[UI:${msg.source}]` : '[UI]';
+    const level = msg.level || 'log';
+    const args = Array.isArray(msg.args) ? msg.args : [];
+
+    const restored = args.map((a: any) => {
+        if (a && typeof a === 'object' && a.__error) {
+            const e = new Error(a.message || 'UI error');
+            (e as any).stack = a.stack;
+            return e;
+        }
+        return a;
+    });
+
+    switch (level) {
+        case 'debug':
+            dbg(source, ...restored);
+            break;
+        case 'info':
+            info(source, ...restored);
+            break;
+        case 'warn':
+            warn(source, ...restored);
+            break;
+        case 'error':
+            err(source, ...restored);
+            break;
+        default:
+            log(source, ...restored);
+            break;
+    }
+}
+
 export async function registerCalendarPanelController(
     joplin: Joplin,
     panel: string,
@@ -73,10 +120,16 @@ export async function registerCalendarPanelController(
 
     await joplin.views.panels.onMessage(panel, async (rawMsg: unknown) => {
         try {
-            if (!isRecord(rawMsg) || !isKnownMsgName(rawMsg.name)) return;
-            const msg = rawMsg as PanelMsg;
+            const unwrapped = unwrapMessage(rawMsg);
+            if (!isRecord(unwrapped) || !isKnownMsgName(unwrapped.name)) return;
+            const msg = unwrapped as PanelMsg;
 
             switch (msg.name) {
+                case 'uiLog': {
+                    handleUiLog(msg);
+                    return;
+                }
+
                 case 'uiReady': {
                     await pushUiSettings(joplin, panel);
                     return;
