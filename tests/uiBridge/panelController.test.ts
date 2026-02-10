@@ -27,6 +27,10 @@ jest.mock('../../src/main/utils/toast', () => ({
 }));
 
 jest.mock('../../src/main/utils/logger', () => ({
+    dbg: jest.fn(),
+    info: jest.fn(),
+    log: jest.fn(),
+    warn: jest.fn(),
     err: jest.fn(),
 }));
 
@@ -34,7 +38,7 @@ import {ensureAllEventsCache, invalidateAllEventsCache} from '../../src/main/ser
 import {importIcsIntoNotes} from '../../src/main/services/icsImportService';
 import {showToast} from '../../src/main/utils/toast';
 import {pushUiSettings} from '../../src/main/uiBridge/uiSettings';
-import {err} from '../../src/main/utils/logger';
+import {err, warn} from '../../src/main/utils/logger';
 import {SETTING_DEBUG, SETTING_WEEK_START, SETTING_ICS_IMPORT_ALARM_RANGE_DAYS} from "../../src/main/settings/settings";
 
 type AnyFn = (...args: any[]) => any;
@@ -118,6 +122,23 @@ describe('panelController', () => {
 
     });
 
+    test('uiLog -> forwards to logger with restored error', async () => {
+        const {handler} = await setup();
+
+        await handler({
+            name: 'uiLog',
+            source: 'calendar',
+            level: 'warn',
+            args: [{__error: true, message: 'boom', stack: 'STACK'}],
+        });
+
+        expect(warn).toHaveBeenCalledTimes(1);
+        const [prefix, errObj] = (warn as jest.Mock).mock.calls[0];
+        expect(prefix).toBe('[UI:calendar]');
+        expect(errObj).toBeInstanceOf(Error);
+        expect((errObj as Error).message).toBe('boom');
+    });
+
     test('requestRangeEvents -> ensures cache, expands range, posts rangeEvents', async () => {
         const {handler, postMessage, helpers} = await setup();
 
@@ -132,6 +153,21 @@ describe('panelController', () => {
         expect(postMessage).toHaveBeenCalledWith('panel-1', {
             name: 'rangeEvents',
             events: [{id: 2}],
+        });
+    });
+
+    test('requestRangeEvents -> works with wrapped message payload', async () => {
+        const {handler, postMessage, helpers} = await setup();
+
+        (ensureAllEventsCache as jest.Mock).mockResolvedValue([{id: 1}]);
+        helpers.expandAllInRange.mockReturnValue([{id: 1}]);
+
+        await handler({message: {name: 'requestRangeEvents', fromUtc: 10, toUtc: 20}});
+
+        expect(helpers.expandAllInRange).toHaveBeenCalledWith([{id: 1}], 10, 20);
+        expect(postMessage).toHaveBeenCalledWith('panel-1', {
+            name: 'rangeEvents',
+            events: [{id: 1}],
         });
     });
 
