@@ -67,6 +67,18 @@ export function getPartsInTz(msUtc: number, tz: string): { Y: number; M: number;
     return {Y: mp.year, M: mp.month, D: mp.day};
 }
 
+export function getPartsInTzHms(msUtc: number, tz: string): {
+    Y: number;
+    M: number;
+    D: number;
+    h: number;
+    m: number;
+    sec: number
+} {
+    const mp = formatToNumberParts(getFmtYmdHms(tz), msUtc);
+    return {Y: mp.year, M: mp.month, D: mp.day, h: mp.hour, m: mp.minute, sec: mp.second};
+}
+
 const fmtYmdByTz = new Map<string, Intl.DateTimeFormat>();
 const fmtYmdHmsByTz = new Map<string, Intl.DateTimeFormat>();
 

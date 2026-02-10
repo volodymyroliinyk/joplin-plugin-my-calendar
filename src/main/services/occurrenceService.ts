@@ -1,14 +1,43 @@
 import {IcsEvent} from '../types/icsTypes';
+import {EventInput} from '../parsers/eventParser';
 import {
     parseYmdHmsLocal,
     zonedTimeToUtcMs,
     addDaysYMD,
     getPartsInTz,
+    getPartsInTzHms,
     weekdayMon0,
-    DAY_MS
+    DAY_MS,
+    Occurrence as UiOccurrence
 } from '../utils/dateUtils';
+import {dbg} from '../utils/logger';
 
 export type Occurrence = { start: Date; end: Date; recurrence_id?: string };
+
+const WD_MAP_MON0: Record<string, number> = {MO: 0, TU: 1, WE: 2, TH: 3, FR: 4, SA: 5, SU: 6};
+
+function pad2(n: number): string {
+    return String(n).padStart(2, '0');
+}
+
+function formatLocalYmdHms(msUtc: number, tz: string): string {
+    const p = getPartsInTzHms(msUtc, tz);
+    return `${p.Y}-${pad2(p.M)}-${pad2(p.D)} ${pad2(p.h)}:${pad2(p.m)}:${pad2(p.sec)}`;
+}
+
+function parseByWeekdaysStrToMon0(v?: string): number[] | undefined {
+    if (!v) return undefined;
+    const arr = v.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+    const out: number[] = [];
+    for (const t of arr) if (t in WD_MAP_MON0) out.push(WD_MAP_MON0[t]);
+    return out.length ? out : undefined;
+}
+
+function parseByMonthDaySafe(v?: string): number | undefined {
+    if (!v) return undefined;
+    const n = parseInt(v, 10);
+    return Number.isFinite(n) && n >= 1 && n <= 31 ? n : undefined;
+}
 
 function parseTzSafe(tz?: string): string {
     const fallback = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -40,153 +69,194 @@ export function expandOccurrences(ev: IcsEvent, windowStart: Date, windowEnd: Da
         endUtc = startUtc;
     }
 
-    const durMs = endUtc - startUtc;
-
-    let hardEndUtc = windowEnd.getTime();
+    let repeatUntilUtc: number | undefined;
     if (ev.repeat_until) {
         try {
             const untilLocal = parseYmdHmsLocal(ev.repeat_until);
-            const untilUtc = zonedTimeToUtcMs(untilLocal.Y, untilLocal.M, untilLocal.D, untilLocal.h, untilLocal.m, untilLocal.sec, tz);
-            if (untilUtc < hardEndUtc) hardEndUtc = untilUtc;
+            repeatUntilUtc = zonedTimeToUtcMs(
+                untilLocal.Y,
+                untilLocal.M,
+                untilLocal.D,
+                untilLocal.h,
+                untilLocal.m,
+                untilLocal.sec,
+                tz
+            );
         } catch { /* ignore */
         }
     }
 
-    const interval = ev.repeat_interval && ev.repeat_interval >= 1 ? ev.repeat_interval : 1;
-    const occs: Occurrence[] = [];
-
-    const pushIfInRange = (sUtc: number) => {
-        const eUtc = sUtc + durMs;
-        if (sUtc > hardEndUtc) return;
-        if (eUtc < windowStart.getTime()) return;
-        if (sUtc > windowEnd.getTime()) return;
-        occs.push({start: new Date(sUtc), end: new Date(eUtc), recurrence_id: undefined});
+    const eventInput: EventInput = {
+        id: ev.uid || 'ics',
+        title: ev.title || 'Event',
+        startUtc,
+        endUtc,
+        tz,
+        startText: formatLocalYmdHms(startUtc, tz),
+        endText: ev.end,
+        repeat: ev.repeat || 'none',
+        repeatInterval: ev.repeat_interval && ev.repeat_interval >= 1 ? ev.repeat_interval : 1,
+        repeatUntilUtc,
+        byWeekdays: parseByWeekdaysStrToMon0(ev.byweekday),
+        byMonthDay: parseByMonthDaySafe(ev.bymonthday),
     };
 
-    if (!ev.repeat || ev.repeat === 'none') {
-        pushIfInRange(startUtc);
-        return occs;
+    const occs = expandOccurrencesInRange(eventInput, windowStart.getTime(), windowEnd.getTime());
+    return occs.map((o: UiOccurrence) => ({
+        start: new Date(o.startUtc),
+        end: new Date(o.endUtc ?? o.startUtc),
+        recurrence_id: undefined,
+    }));
+}
+
+function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number): UiOccurrence[] {
+    // Invariant: recurring events must have timezone
+    const tz = ev.tz || Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    if (ev.repeat !== 'none' && !ev.tz) {
+        dbg('occurrence', 'Recurring event has no timezone; using device timezone:', {tz, title: ev.title, id: ev.id});
     }
 
+    const dur = (ev.endUtc ?? ev.startUtc) - ev.startUtc;
+    const push = (start: number, out: UiOccurrence[]) => {
+        if (start > toUtc) return false;
+        const end = dur ? start + dur : start;
+        if (end < fromUtc) return true;
+        out.push({...ev, occurrenceId: `${ev.id}#${start}`, startUtc: start, endUtc: dur ? end : undefined});
+        return true;
+    };
+
+    if (ev.repeat === 'none') {
+        const end = ev.endUtc ?? ev.startUtc;
+        if (end < fromUtc || ev.startUtc > toUtc) return [];
+        return [{...ev, occurrenceId: `${ev.id}#${ev.startUtc}`}];
+    }
+
+    const out: UiOccurrence[] = [];
+    const base = new Date(ev.startUtc);
+    const baseY = base.getUTCFullYear(), baseM = base.getUTCMonth(), baseD = base.getUTCDate();
+    const baseH = base.getUTCHours(), baseMin = base.getUTCMinutes(), baseS = base.getUTCSeconds();
+    const until = ev.repeatUntilUtc ?? toUtc;
+    const step = Math.max(1, ev.repeatInterval || 1);
+
     if (ev.repeat === 'daily') {
-        const curLocal = {Y: baseLocal.Y, M: baseLocal.M, D: baseLocal.D};
-        let k = 0;
-        while (true) {
-            const occ = addDaysYMD(curLocal.Y, curLocal.M, curLocal.D, k * interval);
-            try {
-                const s = zonedTimeToUtcMs(occ.Y, occ.M, occ.D, baseLocal.h, baseLocal.m, baseLocal.sec, tz);
-                if (s > hardEndUtc && s > windowEnd.getTime()) break;
-                pushIfInRange(s);
-            } catch { /* skip non-existent hours during DST spring forward */
-            }
-            k++;
-            if (k > 5000) break; // safety
+        const from2 = fromUtc - Math.max(0, dur);
+        let k = Math.floor((from2 - ev.startUtc) / (DAY_MS * step));
+        if (ev.startUtc + k * step * DAY_MS < from2) k++;
+        if (k < 0) k = 0;
+        for (; ; k++) {
+            const start = ev.startUtc + k * step * DAY_MS;
+            if (start > until) break;
+            if (!push(start, out)) break;
         }
-        return sortAndDedupe(occs);
+        return out;
     }
 
     if (ev.repeat === 'weekly') {
-        const days = (ev.byweekday ? ev.byweekday.split(',') : []).map(d => d.trim()).filter(Boolean);
-        const wdBase = weekdayMon0(baseLocal.Y, baseLocal.M, baseLocal.D);
+        const baseLocal = parseYmdHmsLocal(ev.startText);
+        const baseWd = weekdayMon0(baseLocal.Y, baseLocal.M, baseLocal.D);
 
-        // Convert WD strings to Mon=0 indices
-        const WD_MAP_MON0: Record<string, number> = {MO: 0, TU: 1, WE: 2, TH: 3, FR: 4, SA: 5, SU: 6};
-        const targetDays = (days.length ? days.map(d => WD_MAP_MON0[d.toUpperCase()]) : [wdBase])
-            .filter((n): n is number => typeof n === 'number')
-            .sort((a, b) => a - b);
+        const list = ev.byWeekdays && ev.byWeekdays.length ? ev.byWeekdays : [baseWd];
+        const step = Math.max(1, ev.repeatInterval || 1);
+        const from2 = fromUtc - Math.max(0, dur);
 
-        const mondayBase = addDaysYMD(baseLocal.Y, baseLocal.M, baseLocal.D, -wdBase);
+        // Monday of base week (local date)
+        const mondayBase = addDaysYMD(baseLocal.Y, baseLocal.M, baseLocal.D, -baseWd);
 
-        // Optimization: start from the week containing windowStart
-        const winStartLocal = getPartsInTz(windowStart.getTime(), tz);
-        const wdWinStart = weekdayMon0(winStartLocal.Y, winStartLocal.M, winStartLocal.D);
-        const mondayWinStart = addDaysYMD(winStartLocal.Y, winStartLocal.M, winStartLocal.D, -wdWinStart);
+        // Start from the week containing "fromUtc" in local TZ
+        const fromLocal = getPartsInTz(fromUtc, tz);
+        const fromWd = weekdayMon0(fromLocal.Y, fromLocal.M, fromLocal.D);
+        const mondayFrom = addDaysYMD(fromLocal.Y, fromLocal.M, fromLocal.D, -fromWd);
 
+        // Compute week index offset (in local calendar days)
         const mondayBaseMs = Date.UTC(mondayBase.Y, mondayBase.M - 1, mondayBase.D);
-        const mondayWinStartMs = Date.UTC(mondayWinStart.Y, mondayWinStart.M - 1, mondayWinStart.D);
+        const mondayFromMs = Date.UTC(mondayFrom.Y, mondayFrom.M - 1, mondayFrom.D);
 
-        const weeksDiff = Math.floor((mondayWinStartMs - mondayBaseMs) / (7 * DAY_MS));
-        let weekIndex = Math.max(0, Math.floor(weeksDiff / interval));
+        let weeksDiff = Math.floor((mondayFromMs - mondayBaseMs) / (7 * DAY_MS));
+        if (weeksDiff < 0) weeksDiff = 0;
 
-        while (true) {
-            const weekStart = addDaysYMD(mondayBase.Y, mondayBase.M, mondayBase.D, weekIndex * interval * 7);
-            let allPastEnd = true;
+        let weekIndex = Math.floor(weeksDiff / step);
 
-            for (const wd of targetDays) {
+        const until = Math.min(toUtc, ev.repeatUntilUtc ?? Number.POSITIVE_INFINITY);
+
+        for (; ;) {
+            const weekStart = addDaysYMD(mondayBase.Y, mondayBase.M, mondayBase.D, weekIndex * 7 * step);
+
+            for (const wd of list) {
                 const occ = addDaysYMD(weekStart.Y, weekStart.M, weekStart.D, wd);
-                try {
-                    const s = zonedTimeToUtcMs(occ.Y, occ.M, occ.D, baseLocal.h, baseLocal.m, baseLocal.sec, tz);
-                    if (s < startUtc) continue;
-                    if (s <= hardEndUtc && s <= windowEnd.getTime()) {
-                        pushIfInRange(s);
-                    }
-                    if (s <= windowEnd.getTime()) allPastEnd = false;
-                } catch { /* DST gap */
-                }
+
+                const start = zonedTimeToUtcMs(occ.Y, occ.M, occ.D, baseLocal.h, baseLocal.m, baseLocal.sec, tz);
+                if (start < from2 || start > until) continue;
+
+                if (!push(start, out)) return out;
             }
 
-            if (allPastEnd && weekIndex > 0) break;
+            // stop condition: next week start beyond range
+            const nextWeek = addDaysYMD(mondayBase.Y, mondayBase.M, mondayBase.D, (weekIndex + 1) * 7 * step);
+            const nextWeekStartUtc = zonedTimeToUtcMs(nextWeek.Y, nextWeek.M, nextWeek.D, 0, 0, 0, tz);
+            if (nextWeekStartUtc > toUtc) break;
+
             weekIndex++;
-            if (weekIndex > 1000) break; // safety
         }
-        return sortAndDedupe(occs);
+        return out;
     }
 
     if (ev.repeat === 'monthly') {
-        const day = ev.bymonthday ? parseInt(ev.bymonthday, 10) : baseLocal.D;
-        let mIdx = 0;
-        while (true) {
-            const y = baseLocal.Y + Math.floor((baseLocal.M - 1 + mIdx * interval) / 12);
-            const m = (baseLocal.M - 1 + mIdx * interval) % 12 + 1;
-
-            // Check if day exists in month
-            const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
-            if (day <= lastDay) {
-                try {
-                    const s = zonedTimeToUtcMs(y, m, day, baseLocal.h, baseLocal.m, baseLocal.sec, tz);
-                    if (s > hardEndUtc && s > windowEnd.getTime()) break;
-                    if (s >= startUtc) pushIfInRange(s);
-                } catch { /* skip non-existent hour */
-                }
-            }
-            mIdx++;
-            if (mIdx > 1000) break; // safety
+        const dom = ev.byMonthDay ?? baseD;
+        const y = baseY;
+        let m = baseM;
+        let cursor = Date.UTC(y, m, dom, baseH, baseMin, baseS);
+        while (cursor < ev.startUtc) {
+            m += 1;
+            cursor = Date.UTC(y + Math.floor(m / 12), (m % 12 + 12) % 12, dom, baseH, baseMin, baseS);
         }
-        return sortAndDedupe(occs);
+        for (; ;) {
+            if (cursor > until) break;
+            const cd = new Date(cursor);
+            // Ensure month is what we expect (no overflow like Jan 31 -> Feb 3)
+            const expectedM = (m % 12 + 12) % 12;
+            if (cd.getUTCMonth() === expectedM) {
+                if (!push(cursor, out)) break;
+            }
+
+            m += step;
+            cursor = Date.UTC(y + Math.floor(m / 12), (m % 12 + 12) % 12, dom, baseH, baseMin, baseS);
+            if (cursor > toUtc && cursor > until) break;
+        }
+        return out;
     }
 
     if (ev.repeat === 'yearly') {
-        let yIdx = 0;
-        while (true) {
-            const y = baseLocal.Y + yIdx * interval;
-            // Handle Feb 29
-            const lastDay = new Date(Date.UTC(y, baseLocal.M, 0)).getUTCDate();
-            if (baseLocal.D <= lastDay) {
-                try {
-                    const s = zonedTimeToUtcMs(y, baseLocal.M, baseLocal.D, baseLocal.h, baseLocal.m, baseLocal.sec, tz);
-                    if (s > hardEndUtc && s > windowEnd.getTime()) break;
-                    if (s >= startUtc) pushIfInRange(s);
-                } catch { /* skip non-existent hour */
-                }
-            }
-            yIdx++;
-            if (yIdx > 200) break; // safety
+        let y = baseY;
+        let cursor = Date.UTC(y, baseM, baseD, baseH, baseMin, baseS);
+        while (cursor < ev.startUtc) {
+            y += 1;
+            cursor = Date.UTC(y, baseM, baseD, baseH, baseMin, baseS);
         }
-        return sortAndDedupe(occs);
+        while (cursor < fromUtc) {
+            y += (step || 1);
+            cursor = Date.UTC(y, baseM, baseD, baseH, baseMin, baseS);
+        }
+        for (; ;) {
+            if (cursor > until) break;
+            const dt = new Date(cursor);
+            // Ensure month is still February (or whatever baseM was) - handles Leap Year Feb 29
+            if (dt.getUTCMonth() === baseM) {
+                if (!push(cursor, out)) break;
+            }
+            y += (step || 1);
+            cursor = Date.UTC(y, baseM, baseD, baseH, baseMin, baseS);
+            if (cursor > toUtc && cursor > until) break;
+        }
+        return out;
     }
 
-    return sortAndDedupe(occs);
+    return out;
 }
 
-function sortAndDedupe(list: Occurrence[]): Occurrence[] {
-    const sorted = [...list].sort((a, b) => a.start.getTime() - b.start.getTime());
-    const out: Occurrence[] = [];
-    let prev: number | null = null;
-    for (const o of sorted) {
-        const t = o.start.getTime();
-        if (prev === t) continue;
-        out.push(o);
-        prev = t;
-    }
+export function expandAllInRange(evs: EventInput[], fromUtc: number, toUtc: number): UiOccurrence[] {
+    const out: UiOccurrence[] = [];
+    for (const ev of evs) out.push(...expandOccurrencesInRange(ev, fromUtc, toUtc));
+    out.sort((a, b) => a.startUtc - b.startUtc || a.occurrenceId.localeCompare(b.occurrenceId));
     return out;
 }
