@@ -64,7 +64,7 @@ describe('alarmService', () => {
         jest.useRealTimers();
     });
 
-    it('should delete outdated alarms (< now)', async () => {
+    it('should delete outdated alarms (< now - 24h)', async () => {
         const events: IcsEvent[] = [{
             uid: 'uid1',
             recurrence_id: '',
@@ -77,9 +77,10 @@ describe('alarmService', () => {
             [key]: {id: 'note1', title: 'Event 1', parent_id: 'folder1'}
         };
 
-        const pastDate = new Date().getTime() - 10000;
+        // Alarm due more than 24h ago
+        const pastDate = new Date().getTime() - (25 * 60 * 60 * 1000);
         const existingAlarms = {
-            [key]: [{id: 'alarm1', todo_due: pastDate, body: ''}]
+            [key]: [{id: 'alarm1', todo_due: pastDate, body: '', is_todo: 1, todo_completed: 0, title: 'Alarm 1'}]
         };
 
         await syncAlarmsForEvents(
@@ -91,6 +92,36 @@ describe('alarmService', () => {
         );
 
         expect(mockDeleteNote).toHaveBeenCalledWith(mockJoplin, 'alarm1');
+    });
+
+    it('should NOT delete recent past alarms (< now but > now - 24h)', async () => {
+        const events: IcsEvent[] = [{
+            uid: 'uid1',
+            recurrence_id: '',
+            start: '2025-01-01 10:00',
+            valarms: []
+        }];
+        const key = 'uid1|';
+
+        const importedEventNotes = {
+            [key]: {id: 'note1', title: 'Event 1', parent_id: 'folder1'}
+        };
+
+        // Alarm due 1 hour ago
+        const pastDate = new Date().getTime() - (1 * 60 * 60 * 1000);
+        const existingAlarms = {
+            [key]: [{id: 'alarm1', todo_due: pastDate, body: '', is_todo: 1, todo_completed: 0, title: 'Alarm 1'}]
+        };
+
+        await syncAlarmsForEvents(
+            mockJoplin,
+            events,
+            importedEventNotes,
+            existingAlarms,
+            'folder1'
+        );
+
+        expect(mockDeleteNote).not.toHaveBeenCalledWith(mockJoplin, 'alarm1');
     });
 
     it('should update existing alarm if body is outdated', async () => {
@@ -116,7 +147,14 @@ describe('alarmService', () => {
         };
 
         const existingAlarms = {
-            [key]: [{id: 'alarm1', todo_due: new Date('2026-01-30T11:45:00.000Z').getTime(), body: 'old body'}]
+            [key]: [{
+                id: 'alarm1',
+                todo_due: new Date('2026-01-30T11:45:00.000Z').getTime(),
+                body: 'old body',
+                is_todo: 1,
+                todo_completed: 0,
+                title: 'Alarm 1'
+            }]
         };
         // Make sure buildAlarmBody returns something that contains trigger_desc (this test asserts it)
         (noteBuilder.buildAlarmBody as jest.Mock).mockReturnValue('trigger_desc: 15 minutes before');
@@ -133,7 +171,7 @@ describe('alarmService', () => {
         );
 
         expect(mockUpdateNote).toHaveBeenCalledTimes(1);
-        expect(mockUpdateNote).toHaveBeenCalledWith(mockJoplin, 'alarm1', {body: expect.any(String)});
+        expect(mockUpdateNote).toHaveBeenCalledWith(mockJoplin, 'alarm1', expect.objectContaining({body: expect.any(String)}));
         const updatedBody = mockUpdateNote.mock.calls[0][2].body;
         expect(updatedBody).toContain('trigger_desc: 15 minutes before');
 
@@ -141,7 +179,58 @@ describe('alarmService', () => {
         expect(mockCreateNote).not.toHaveBeenCalled();
     });
 
-    it('should NOT update existing alarm if body is already up-to-date', async () => {
+    it('should update existing alarm if it is not a todo', async () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2026-01-30T10:00:00.000Z'));
+
+        const events: IcsEvent[] = [{
+            uid: 'uid1',
+            recurrence_id: '',
+            title: 'Test Event',
+            start: '2026-01-30 12:00',
+            valarms: [{
+                action: 'DISPLAY',
+                trigger: '-PT15M',
+                related: 'START'
+            }]
+        }];
+
+        const key = 'uid1|';
+        const importedEventNotes = {
+            [key]: {id: 'note1', title: 'Test Event', parent_id: 'folder1'}
+        };
+
+        // Existing alarm has correct body but is_todo=0
+        const existingAlarms = {
+            [key]: [{
+                id: 'alarm1',
+                todo_due: new Date('2026-01-30T11:45:00.000Z').getTime(),
+                body: 'BODY_V1',
+                is_todo: 0,
+                todo_completed: 0,
+                title: 'Alarm 1'
+            }]
+        };
+
+        await syncAlarmsForEvents(
+            mockJoplin,
+            events,
+            importedEventNotes,
+            existingAlarms,
+            'folder1',
+            undefined,
+            undefined, // importAlarmRangeDays
+            true // alarmsEnabled
+        );
+
+        expect(mockUpdateNote).toHaveBeenCalledTimes(1);
+        expect(mockUpdateNote).toHaveBeenCalledWith(mockJoplin, 'alarm1', expect.objectContaining({
+            is_todo: 1,
+            todo_completed: 0
+        }));
+    });
+
+    it('should NOT update existing alarm if body and todo status are already up-to-date', async () => {
         jest.useFakeTimers();
         jest.setSystemTime(new Date('2026-01-30T10:00:00.000Z'));
 
@@ -157,7 +246,14 @@ describe('alarmService', () => {
 
         // buildAlarmBody mocked to BODY_V1, so set existing body to same value
         const existingAlarms = {
-            [key]: [{id: 'alarm1', todo_due: new Date('2026-01-30T11:45:00.000Z').getTime(), body: 'BODY_V1'}]
+            [key]: [{
+                id: 'alarm1',
+                todo_due: new Date('2026-01-30T11:45:00.000Z').getTime(),
+                body: 'BODY_V1',
+                is_todo: 1,
+                todo_completed: 0,
+                title: 'Test Event at 12:00'
+            }]
         };
 
         await syncAlarmsForEvents(mockJoplin, events, importedEventNotes, existingAlarms, 'folder1', undefined, undefined, true);
@@ -185,7 +281,14 @@ describe('alarmService', () => {
 
         // existing alarm has different todo_due, so it should be deleted as "invalid"
         const existingAlarms = {
-            [key]: [{id: 'alarm1', todo_due: new Date('2026-01-30T11:40:00.000Z').getTime(), body: 'old'}]
+            [key]: [{
+                id: 'alarm1',
+                todo_due: new Date('2026-01-30T11:40:00.000Z').getTime(),
+                body: 'old',
+                is_todo: 1,
+                todo_completed: 0,
+                title: 'Alarm 1'
+            }]
         };
 
         await syncAlarmsForEvents(mockJoplin, events, importedEventNotes, existingAlarms, 'folder1', undefined, undefined, true);
@@ -219,12 +322,13 @@ describe('alarmService', () => {
             parent_id: 'folder1',
             is_todo: 1,
             todo_due: new Date('2026-01-30T11:45:00.000Z').getTime(),
-            alarm_time: new Date('2026-01-30T11:45:00.000Z').getTime(),
+            todo_completed: 0,
         });
         // todo_due post-update saved (if we leave the workaround)
         expect(mockUpdateNote).toHaveBeenCalledWith(mockJoplin, 'newAlarm1', {
             todo_due: new Date('2026-01-30T11:45:00.000Z').getTime(),
-            alarm_time: new Date('2026-01-30T11:45:00.000Z').getTime()
+            todo_completed: 0,
+            is_todo: 1,
         });
     });
 
@@ -237,7 +341,10 @@ describe('alarmService', () => {
             [key]: [{
                 id: 'alarm1',
                 todo_due: new Date('2000-01-01T00:00:00.000Z').getTime(),
-                body: ''
+                body: '',
+                is_todo: 1,
+                todo_completed: 0,
+                title: 'Alarm 1'
             }]
         };
 
@@ -282,7 +389,14 @@ describe('alarmService', () => {
 
         // Existing alarm matches the event
         const existingAlarms = {
-            [key]: [{id: 'alarm1', todo_due: new Date('2026-01-30T11:45:00.000Z').getTime(), body: 'some body'}]
+            [key]: [{
+                id: 'alarm1',
+                todo_due: new Date('2026-01-30T11:45:00.000Z').getTime(),
+                body: 'some body',
+                is_todo: 1,
+                todo_completed: 0,
+                title: 'Alarm 1'
+            }]
         };
 
         // Call with alarmsEnabled = false
@@ -319,7 +433,14 @@ describe('alarmService', () => {
         const key = 'uid1|';
         const importedEventNotes = {[key]: {id: 'note1', title: 'Test Event', parent_id: 'folder1'}};
         const existingAlarms = {
-            [key]: [{id: 'alarm1', todo_due: new Date('2026-01-30T11:45:00.000Z').getTime(), body: 'old'}],
+            [key]: [{
+                id: 'alarm1',
+                todo_due: new Date('2026-01-30T11:45:00.000Z').getTime(),
+                body: 'old',
+                is_todo: 1,
+                todo_completed: 0,
+                title: 'Alarm 1'
+            }],
         };
 
         await syncAlarmsForEvents(
