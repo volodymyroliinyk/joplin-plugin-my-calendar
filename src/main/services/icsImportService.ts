@@ -65,7 +65,14 @@ function indexExistingNotes(allNotes: any[]): {
         if (n.body.includes('```mycalendar-alarm')) {
             const metas = extractAllAlarmKeysFromBody(n.body);
             for (const meta of metas) {
-                (existingAlarms[meta.key] ??= []).push({id: n.id, todo_due: n.todo_due || 0, body: n.body});
+                (existingAlarms[meta.key] ??= []).push({
+                    id: n.id,
+                    todo_due: n.todo_due || 0,
+                    body: n.body,
+                    todo_completed: n.todo_completed || 0,
+                    is_todo: n.is_todo || 0,
+                    title: n.title || ''
+                });
             }
         }
     }
@@ -107,7 +114,7 @@ export async function importIcsIntoNotes(
     await say(`Parsed ${events.length} VEVENT(s)`);
 
     // Request todo_due to optimize alarm syncing
-    const allNotes = await getAllNotesPaged(joplin, ['id', 'title', 'body', 'parent_id', 'todo_due']);
+    const allNotes = await getAllNotesPaged(joplin, ['id', 'title', 'body', 'parent_id', 'todo_due', 'todo_completed', 'is_todo']);
 
     const {existingByKey: existing, existingAlarms, noteIdToKeys} = indexExistingNotes(allNotes);
 
