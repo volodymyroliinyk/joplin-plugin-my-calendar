@@ -15,8 +15,8 @@ jest.mock('../../src/main/views/calendarView', () => ({
 
 jest.mock('../../src/main/services/eventsCache', () => ({
     ensureAllEventsCache: jest.fn().mockResolvedValue([]),
-    invalidateNote: jest.fn().mockResolvedValue(undefined),
     invalidateAllEventsCache: jest.fn().mockResolvedValue(undefined),
+    refreshNoteCache: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock('../../src/main/uiBridge/panelController', () => ({
