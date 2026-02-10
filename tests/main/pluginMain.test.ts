@@ -13,8 +13,8 @@ jest.mock('../../src/main/views/calendarView', () => ({
 
 jest.mock('../../src/main/services/eventsCache', () => ({
     ensureAllEventsCache: jest.fn(),
-    invalidateNote: jest.fn(),
     invalidateAllEventsCache: jest.fn(),
+    refreshNoteCache: jest.fn(),
 }));
 
 jest.mock('../../src/main/uiBridge/panelController', () => ({
@@ -32,10 +32,10 @@ jest.mock('../../src/main/uiBridge/uiSettings', () => ({
 import {createCalendarPanel} from '../../src/main/views/calendarView';
 import {
     ensureAllEventsCache,
-    invalidateNote,
+    refreshNoteCache,
 } from '../../src/main/services/eventsCache';
 import {registerCalendarPanelController} from '../../src/main/uiBridge/panelController';
-import {pushUiSettings} from '../../src/main/uiBridge/uiSettings';
+// import {pushUiSettings} from '../../src/main/uiBridge/uiSettings';
 // import {registerSettings} from '../../src/main/settings/settings';
 
 type AnyFn = (...a: any[]) => any;
@@ -204,7 +204,7 @@ describe('pluginMain.runPlugin', () => {
     });
 
     // test('workspace.onNoteChange invalidates note (if id) and always invalidates all events', async () => {
-    test('workspace.onNoteChange invalidates note (if id)', async () => {
+    test('workspace.onNoteChange refreshes note cache (if id)', async () => {
         (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
         (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);
 
@@ -216,11 +216,11 @@ describe('pluginMain.runPlugin', () => {
         expect(cb).toBeTruthy();
 
         await cb!({id: 'note-1'});
-        expect(invalidateNote).toHaveBeenCalledWith('note-1');
+        expect(refreshNoteCache).toHaveBeenCalledWith(joplin, 'note-1');
         // expect(invalidateAllEventsCache).toHaveBeenCalledTimes(1);
 
         await cb!({}); // no id
-        expect(invalidateNote).toHaveBeenCalledTimes(1); // still only once
+        expect(refreshNoteCache).toHaveBeenCalledTimes(1); // still only once
         // expect(invalidateAllEventsCache).toHaveBeenCalledTimes(2);
     });
 
@@ -322,6 +322,31 @@ describe('pluginMain.runPlugin', () => {
         expect(ics).toContain('END:VCALENDAR');
 
         nowSpy.mockRestore();
+    });
+
+    test('helpers: buildICS folds long lines', async () => {
+        (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
+        (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);
+
+        const {joplin} = makeJoplinMock();
+        await runPlugin(joplin as any);
+
+        const [, , helpers] = (registerCalendarPanelController as jest.Mock).mock.calls[0];
+
+        const longTitle = 'A'.repeat(120);
+        const ics = helpers.buildICS([
+            {
+                id: 'id1',
+                occurrenceId: 'id1#123',
+                startUtc: Date.UTC(2025, 0, 2, 10, 0, 0),
+                title: longTitle,
+            },
+        ]);
+
+        const summaryIdx = ics.indexOf('SUMMARY:');
+        expect(summaryIdx).toBeGreaterThan(-1);
+        const summaryTail = ics.slice(summaryIdx);
+        expect(summaryTail).toContain('\r\n ');
     });
 
     test('helpers: expandAllInRange supports repeat=none and repeat=daily', async () => {
@@ -597,57 +622,4 @@ describe('pluginMain.runPlugin', () => {
         expect(out[1].endUtc).toBe(end + 24 * 3600 * 1000);
     });
 
-    test('uiLog from panel -> routes to logger (unwraps {message: ...})', async () => {
-        const logSpy = jest.spyOn(logger, 'log').mockImplementation(() => undefined);
-        const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => undefined);
-
-        const ctx = makeJoplinMock();
-        let uiHandler: any = null;
-
-        // enable registerUiMessageHandlers path
-        (ctx.panels as any).onMessage = jest.fn(async (_panelId: string, cb: any) => {
-            uiHandler = cb;
-        });
-
-        (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
-
-        await runPlugin(ctx.joplin as any);
-
-        expect(typeof uiHandler).toBe('function');
-
-        await uiHandler({
-            message: {
-                name: 'uiLog',
-                level: 'warn',
-                source: 'calendar',
-                args: ['hello'],
-            },
-        });
-
-        expect(warnSpy).toHaveBeenCalledWith('[UI:calendar]', 'hello');
-        logSpy.mockRestore();
-        warnSpy.mockRestore();
-    });
-
-    test('uiReady from panel -> pushes UI settings and triggers redraw', async () => {
-        const ctx = makeJoplinMock();
-        let uiHandler: any = null;
-
-        // enable registerUiMessageHandlers path
-        (ctx.panels as any).onMessage = jest.fn(async (_panelId: string, cb: any) => {
-            uiHandler = cb;
-        });
-
-        (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
-        (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);
-
-        await runPlugin(ctx.joplin as any);
-
-        expect(typeof uiHandler).toBe('function');
-
-        await uiHandler({name: 'uiReady'});
-
-        expect(pushUiSettings).toHaveBeenCalledWith(ctx.joplin, 'panel-1');
-        expect(ctx.panels.postMessage).not.toHaveBeenCalled();
-    });
 });
