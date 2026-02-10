@@ -112,6 +112,21 @@ describe('eventParser.parseEventsFromBody', () => {
         expect(ev.color).toBe('#3366ff');
     });
 
+    test('parses multiline description until next key', () => {
+        const body = block([
+            'title: Multiline',
+            'description: line1',
+            'line2',
+            'line3',
+            'location: Office',
+            'start: 2025-01-15T10:00:00Z',
+        ]);
+
+        const [ev] = parseEventsFromBody(noteId, fallbackTitle, body);
+        expect(ev.description).toBe('line1\nline2\nline3');
+        expect(ev.location).toBe('Office');
+    });
+
     test('skips an event when start is missing', () => {
         const body = block([
             'title: Missing start',

@@ -41,7 +41,9 @@ const WD_MAP: Record<string, number> = {MO: 0, TU: 1, WE: 2, TH: 3, FR: 4, SA: 5
 
 function parseKeyVal(line: string): [string, string] | null {
     const m = line.match(/^\s*([a-zA-Z_]+)\s*:\s*(.+)\s*$/);
-    return m ? [m[1].toLowerCase(), m[2]] : null;
+    if (!m) return null;
+    if (!m[2] || !m[2].trim()) return null;
+    return [m[1].toLowerCase(), m[2]];
 }
 
 function parseByWeekdays(v: string): number[] | undefined {
@@ -193,7 +195,7 @@ export function parseEventsFromBody(noteId: string, titleFallback: string, body:
         // IMPORTANT: reset per block (do not leak across blocks)
 
         const block = m[1];
-        const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
+        const lines = block.split('\n').map(l => l.replace(/\r$/, ''));
 
         type ParsedBlockFields = {
             title?: string;
@@ -213,12 +215,21 @@ export function parseEventsFromBody(noteId: string, titleFallback: string, body:
         };
 
         const fields: ParsedBlockFields = {};
-        for (const line of lines) {
-            const kv = parseKeyVal(line);
-            if (!kv) continue;
-            const [k, v] = kv;
-            // store raw string values; interpret later (order-independent)
-            (fields as any)[k] = v;
+        let currentKey: string | null = null;
+        const multilineKeys = new Set(['description']);
+
+        for (const rawLine of lines) {
+            const kv = parseKeyVal(rawLine);
+            if (kv) {
+                const [k, v] = kv;
+                (fields as any)[k] = v;
+                currentKey = multilineKeys.has(k) ? k : null;
+                continue;
+            }
+            if (currentKey && multilineKeys.has(currentKey)) {
+                const existing = (fields as any)[currentKey] ?? '';
+                (fields as any)[currentKey] = existing ? `${existing}\n${rawLine}` : rawLine;
+            }
         }
 
         const title = (fields.title?.trim() ? fields.title.trim() : titleFallback);
