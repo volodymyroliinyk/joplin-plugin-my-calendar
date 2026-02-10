@@ -106,10 +106,14 @@ export function parseRRule(rrule?: string): Partial<IcsEvent> {
 }
 
 function stripInlineComment(line: string): string {
-    const i = line.indexOf('#');
-    if (i < 0) return line;
-    const before = line.slice(0, i);
-    if (/\s$/.test(before)) return before.trimEnd();
+    for (let i = 0; i < line.length; i++) {
+        if (line[i] !== '#') continue;
+        const prev = i > 0 ? line[i - 1] : '';
+        if (prev === '\\') continue;
+        if (i > 0 && /\s/.test(prev)) {
+            return line.slice(0, i).trimEnd();
+        }
+    }
     return line;
 }
 

@@ -119,12 +119,12 @@ describe('icsImportService.importIcsIntoNotes', () => {
         // existing scan paginates
         expect(joplin.data.get).toHaveBeenCalledTimes(2);
         expect(joplin.data.get).toHaveBeenNthCalledWith(1, ['notes'], {
-            fields: ['id', 'title', 'body', 'parent_id', 'todo_due'],
+            fields: ['id', 'title', 'body', 'parent_id', 'todo_due', 'todo_completed', 'is_todo'],
             limit: 100,
             page: 1,
         });
         expect(joplin.data.get).toHaveBeenNthCalledWith(2, ['notes'], {
-            fields: ['id', 'title', 'body', 'parent_id', 'todo_due'],
+            fields: ['id', 'title', 'body', 'parent_id', 'todo_due', 'todo_completed', 'is_todo'],
             limit: 100,
             page: 2,
         });
@@ -252,7 +252,8 @@ describe('icsImportService.importIcsIntoNotes', () => {
         // ensure alarm fields are persisted reliably via PUT after POST
         expect((joplin.data.put as any)).toHaveBeenCalledWith(['notes', 'alarm-note-id'], null, {
             todo_due: new Date('2025-01-15T09:00:00.000Z').getTime(),
-            alarm_time: new Date('2025-01-15T09:00:00.000Z').getTime(),
+            todo_completed: 0,
+            is_todo: 1,
         });
         expect(String(alarmNote.body)).toContain('```mycalendar-alarm');
         expect(String(alarmNote.body)).toContain('uid: u-valarm2');
@@ -297,6 +298,8 @@ describe('icsImportService.importIcsIntoNotes', () => {
                 '[With alarm](:/event-note-id)',
             ].join('\n'),
             todo_due: new Date('2025-01-15T09:00:00.000Z').getTime(),
+            is_todo: 1,
+            todo_completed: 0,
         };
 
         const ics = [
@@ -1015,6 +1018,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
         const importText = [
             'title: A#B',
             'description: Hello # this is a comment',
+            'location: Room \\#5',
             'start: 2025-01-01 00:00:00+00:00',
             'uid: u_hash',
         ].join('\n');
@@ -1030,6 +1034,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
         expect(body).toContain('title: A#B');
         expect(body).toContain('description: Hello');
         expect(body).not.toContain('# this is a comment');
+        expect(body).toContain('location: Room \\#5');
     });
 
     test('RRULE with unsupported FREQ or invalid INTERVAL/UNTIL does not emit repeat section', async () => {
@@ -1217,6 +1222,8 @@ describe('icsImportService.importIcsIntoNotes', () => {
                 '',
                 '[Occ with alarm](:/event-note-id)',
             ].join('\n'),
+            is_todo: 1,
+            todo_completed: 0
         };
 
         const ics = [
@@ -1335,6 +1342,8 @@ describe('icsImportService.importIcsIntoNotes', () => {
             title: 'Alarm',
             body: '```mycalendar-alarm\nuid: u1\n```',
             todo_due: new Date().getTime() + 100000, // future, but will be invalid
+            is_todo: 1,
+            todo_completed: 0
         };
 
         const onStatus = jest.fn();
@@ -1405,6 +1414,8 @@ describe('icsImportService.importIcsIntoNotes', () => {
             title: 'Alarm',
             body: '```mycalendar-alarm\nuid: u1\nrecurrence_id: \n```',
             todo_due: new Date().getTime() + 100000, // future
+            is_todo: 1,
+            todo_completed: 0
         };
 
         const joplin = mkJoplin({
