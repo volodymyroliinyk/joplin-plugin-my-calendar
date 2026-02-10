@@ -215,6 +215,73 @@ describe('eventsCache.ts', () => {
         await Promise.all([p1, p2]);
     });
 
+    test('refreshNoteCache updates per-note and aggregated cache without full rebuild', async () => {
+        const parseEventsFromBody = jest.fn()
+            .mockReturnValueOnce([
+                {id: 'note-1', title: 'E1', startText: '2025-01-01T00:00:00Z', startUtc: 1},
+            ])
+            .mockReturnValueOnce([
+                {id: 'note-1', title: 'E2', startText: '2025-01-02T00:00:00Z', startUtc: 2},
+            ]);
+
+        const mod = await loadModuleWithMockedParser({parseEventsFromBody});
+
+        const get = jest
+            .fn()
+            // initial full scan
+            .mockResolvedValueOnce({
+                items: [{id: 'note-1', title: 'Note', body: 'body'}],
+                has_more: false,
+            })
+            // refresh single note
+            .mockResolvedValueOnce({id: 'note-1', title: 'Note', body: 'body-2'});
+
+        const joplin = mkJoplin(get);
+
+        const all1 = await mod.ensureAllEventsCache(joplin);
+        expect(all1).toHaveLength(1);
+        expect(all1[0].title).toBe('E1');
+
+        await mod.refreshNoteCache(joplin, 'note-1');
+
+        const all2 = await mod.ensureAllEventsCache(joplin);
+        expect(all2).toHaveLength(1);
+        expect(all2[0].title).toBe('E2');
+
+        // One full scan + one direct note fetch
+        expect(get).toHaveBeenCalledTimes(2);
+        expect(get).toHaveBeenNthCalledWith(2, ['notes', 'note-1'], {fields: ['id', 'title', 'body']});
+    });
+
+    test('refreshNoteCache removes events when note is deleted or inaccessible', async () => {
+        const parseEventsFromBody = jest.fn()
+            .mockReturnValueOnce([
+                {id: 'note-1', title: 'E1', startText: '2025-01-01T00:00:00Z', startUtc: 1},
+            ]);
+
+        const mod = await loadModuleWithMockedParser({parseEventsFromBody});
+
+        const get = jest
+            .fn()
+            // initial full scan
+            .mockResolvedValueOnce({
+                items: [{id: 'note-1', title: 'Note', body: 'body'}],
+                has_more: false,
+            })
+            // refresh single note fails (deleted)
+            .mockRejectedValueOnce(new Error('not found'));
+
+        const joplin = mkJoplin(get);
+
+        const all1 = await mod.ensureAllEventsCache(joplin);
+        expect(all1).toHaveLength(1);
+
+        await mod.refreshNoteCache(joplin, 'note-1');
+
+        const all2 = await mod.ensureAllEventsCache(joplin);
+        expect(all2).toEqual([]);
+    });
+
     test('on error: rebuild catches (no throw), keeps cache usable, and releases rebuilding flag so rebuild can be called again', async () => {
         // 1) arrange
         const parseEventsFromBody = jest.fn().mockReturnValue([]);

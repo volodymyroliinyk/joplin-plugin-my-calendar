@@ -7,8 +7,8 @@ type JoplinLike = {
     data: {
         get: (
             path: any[],
-            query: { fields: string[]; limit: number; page: number }
-        ) => Promise<{ items?: any[]; has_more?: boolean }>;
+            query?: { fields?: string[]; limit?: number; page?: number }
+        ) => Promise<{ items?: any[]; has_more?: boolean } | any>;
     };
 };
 
@@ -29,6 +29,40 @@ export function invalidateAllEventsCache(): void {
 export function invalidateNote(noteId: string): void {
     eventCacheByNote.delete(noteId);
     allEventsCache = null;
+}
+
+export async function refreshNoteCache(joplin: JoplinLike, noteId: string): Promise<void> {
+    // Avoid races with full rebuild.
+    if (rebuildPromise) {
+        await rebuildPromise;
+    }
+
+    // If cache isn't built yet, keep it invalidated and let the next read rebuild.
+    if (!allEventsCache) {
+        eventCacheByNote.delete(noteId);
+        return;
+    }
+
+    try {
+        const res = await joplin.data.get(['notes', noteId], {fields: [...NOTE_FIELDS]});
+        const extracted = extractEventsFromNote(res);
+
+        // Update per-note cache
+        if (extracted) {
+            eventCacheByNote.set(noteId, extracted.events);
+        } else {
+            eventCacheByNote.delete(noteId);
+        }
+
+        // Rebuild aggregated cache incrementally
+        const filtered = allEventsCache.filter(e => e.id !== noteId);
+        allEventsCache = extracted ? filtered.concat(extracted.events) : filtered;
+    } catch (error) {
+        // Note could be deleted or not accessible; remove its cache entries.
+        eventCacheByNote.delete(noteId);
+        allEventsCache = allEventsCache.filter(e => e.id !== noteId);
+        err('eventsCache', 'Error refreshing note cache:', error);
+    }
 }
 
 async function fetchAllNotes(joplin: JoplinLike): Promise<any[]> {
