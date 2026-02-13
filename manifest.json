@@ -19,6 +19,9 @@
     "import",
     "ical"
   ],
+  "categories": [
+    "productivity"
+  ],
   "platforms": [
     "desktop",
     "mobile"
