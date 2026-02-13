@@ -257,7 +257,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
         });
         expect(String(alarmNote.body)).toContain('```mycalendar-alarm');
         expect(String(alarmNote.body)).toContain('uid: u-valarm2');
-        expect(String(alarmNote.body)).toContain('[With alarm at 2025-01-15 10:00](:/event-note-id)');
+        expect(String(alarmNote.body)).toContain('[With alarm](:/event-note-id)');
 
         jest.useRealTimers();
     });
@@ -283,14 +283,13 @@ describe('icsImportService.importIcsIntoNotes', () => {
 
         const existingAlarm = {
             id: 'old-alarm-id',
-            title: 'With alarm at 2025-01-15 09:00',
+            title: 'With alarm',
             parent_id: 'nb1',
             body: [
                 '```mycalendar-alarm',
-                'title: With alarm at 2025-01-15 09:00',
                 'uid: u-del',
                 'recurrence_id: ',
-                'when: 2025-01-15 09:00:00+00:00',
+                'alarm_at: 2025-01-15 09:00:00+00:00',
                 '```',
                 '',
                 '---',
@@ -1174,7 +1173,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
         const expectedMs = new Date('2026-03-17T16:15:00Z').getTime();
 
         // 1. Check body "when" property
-        expect(noteBody.body).toContain(`when: ${expectedTimeStr}`);
+        expect(noteBody.body).toContain(`alarm_at: ${expectedTimeStr}`);
 
         // 2. Check system todo_due property
         expect(noteBody.todo_due).toBe(expectedMs);
@@ -1215,7 +1214,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
                 'title: Occ with alarm at 2025-01-15 13:00',
                 'uid: u-rid',
                 'recurrence_id: 20250115T090000',
-                'when: 2025-01-15 13:00:00+00:00',
+                'alarm_at: 2025-01-15 13:00:00+00:00',
                 '```',
                 '',
                 '---',

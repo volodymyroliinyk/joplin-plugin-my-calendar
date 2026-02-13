@@ -134,22 +134,26 @@ export function buildAlarmBody(
     todoTitle: string,
     uid: string,
     rid: string,
-    when: string,
+    alarm_at: string,
     triggerDesc: string
 ): string {
     const safeEventTitle = sanitizeForMarkdownBlock(eventTitle);
-    const safeEventTimeStr = sanitizeForMarkdownBlock(eventTimeStr);
+    // const safeEventTimeStr = sanitizeForMarkdownBlock(eventTimeStr);
     const safeNoteId = isValidJoplinNoteId(eventNoteId) ? eventNoteId : sanitizeForMarkdownBlock(eventNoteId);
-    const safeWhen = sanitizeForMarkdownBlock(when);
+    const safeAlarmAt = sanitizeForMarkdownBlock(alarm_at);
     const safeTriggerDesc = sanitizeForMarkdownBlock(triggerDesc);
 
     return [
-        `[${safeEventTitle} at ${safeEventTimeStr}](:/${safeNoteId})`,
+        '',
+        '',
+        '',
+        `[${safeEventTitle}](:/${safeNoteId})`,
+        '',
+        '',
         '',
         '```mycalendar-alarm',
-        `title: ${sanitizeForMarkdownBlock(todoTitle).slice(0, MAX_TITLE_LEN)}`,
         `trigger_desc: ${safeTriggerDesc}`,
-        `when: ${safeWhen}`,
+        `alarm_at: ${safeAlarmAt}`,
         `uid: ${sanitizeForMarkdownBlock(uid)}`,
         `recurrence_id: ${sanitizeForMarkdownBlock(rid)}`,
         '```',

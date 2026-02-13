@@ -49,7 +49,7 @@ describe('Alarm Deletion Safety', () => {
             title: 'Alarm A',
             parent_id: 'folder-1',
             todo_due: new Date('2025-01-15T09:00:00.000Z').getTime(),
-            body: '```mycalendar-alarm\nuid: uid-a\nwhen: 2025-01-15 09:00:00+00:00\n```'
+            body: '```mycalendar-alarm\nuid: uid-a\nalarm_at: 2025-01-15 09:00:00+00:00\n```'
         };
         const unrelatedNote = {
             id: 'unrelated',
@@ -62,7 +62,7 @@ describe('Alarm Deletion Safety', () => {
             title: 'Alarm B',
             parent_id: 'folder-1',
             todo_due: new Date('2025-01-15T11:00:00.000Z').getTime(),
-            body: '```mycalendar-alarm\nuid: uid-b\nwhen: 2025-01-15 11:00:00+00:00\n```'
+            body: '```mycalendar-alarm\nuid: uid-b\nalarm_at: 2025-01-15 11:00:00+00:00\n```'
         };
 
         // 2. New ICS data for Event A only (with DIFFERENT alarm time)
@@ -121,7 +121,7 @@ describe('Alarm Deletion Safety', () => {
             title: 'Alarm C',
             parent_id: 'folder-1',
             todo_due: new Date('2025-01-15T12:00:00.000Z').getTime(),
-            body: '```mycalendar-alarm\nuid: uid-c\nwhen: 2025-01-15 12:00:00+00:00\n```'
+            body: '```mycalendar-alarm\nuid: uid-c\nalarm_at: 2025-01-15 12:00:00+00:00\n```'
         };
 
         const icsForA = [
@@ -166,7 +166,7 @@ describe('Alarm Deletion Safety', () => {
             id: 'corrupted',
             title: 'Broken Alarm',
             parent_id: 'folder-1',
-            body: '```mycalendar-alarm\nwhen: 2025-01-15 12:00:00+00:00\n```' // NO UID
+            body: '```mycalendar-alarm\nalarm_at: 2025-01-15 12:00:00+00:00\n```' // NO UID
         };
 
         const icsForA = [
