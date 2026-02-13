@@ -72,6 +72,18 @@ async function safePostMessage(joplin: Joplin, panelId: string, message: unknown
     if (typeof pm === 'function') await pm(panelId, message);
 }
 
+async function focusPanelIfSupported(joplin: Joplin, panelId: string): Promise<void> {
+    try {
+        const focus = joplin?.views?.panels?.focus;
+        if (typeof focus === 'function') {
+            await focus(panelId);
+        }
+    } catch {
+        // On mobile this method may be missing - it's expected.
+        log('pluginMain', 'panels.focus not available on this platform');
+    }
+}
+
 
 export default async function runPlugin(joplin: Joplin) {
 
@@ -119,15 +131,7 @@ export default async function runPlugin(joplin: Joplin) {
             } catch (_err) {
                 // ignore
             }
-            try {
-                const panelsAny = (joplin as any).views?.panels;
-                if (panelsAny && typeof panelsAny.focus === 'function') {
-                    await panelsAny.focus(panel);
-                }
-            } catch {
-                // The mobile method is missing - it's expected
-                log('pluginMain', 'panels.focus not available on this platform');
-            }
+            await focusPanelIfSupported(joplin, panel);
 
             // Sync toggle state
             toggleState.visible = true;
@@ -155,15 +159,7 @@ export default async function runPlugin(joplin: Joplin) {
 
     // --- Create the import panel (desktop)
 
-    try {
-        const panelsAny = (joplin as any).views?.panels;
-        if (panelsAny && typeof panelsAny.focus === 'function') {
-            await panelsAny.focus(panel);
-        }
-    } catch {
-        // On mobile this method may be missing - it's expected
-        log('pluginMain', 'panels.focus not available on this platform');
-    }
+    await focusPanelIfSupported(joplin, panel);
 }
 
 // Register the toggle command once. The label is intentionally static because

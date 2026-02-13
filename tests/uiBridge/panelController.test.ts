@@ -38,7 +38,7 @@ import {ensureAllEventsCache, invalidateAllEventsCache} from '../../src/main/ser
 import {importIcsIntoNotes} from '../../src/main/services/icsImportService';
 import {showToast} from '../../src/main/utils/toast';
 import {pushUiSettings} from '../../src/main/uiBridge/uiSettings';
-import {err, warn} from '../../src/main/utils/logger';
+import {dbg, err, info, log, warn} from '../../src/main/utils/logger';
 import {SETTING_DEBUG, SETTING_WEEK_START, SETTING_ICS_IMPORT_ALARM_RANGE_DAYS} from "../../src/main/settings/settings";
 
 type AnyFn = (...args: any[]) => any;
@@ -139,6 +139,20 @@ describe('panelController', () => {
         expect((errObj as Error).message).toBe('boom');
     });
 
+    test('uiLog -> routes debug/info/error/default to matching logger methods', async () => {
+        const {handler} = await setup();
+
+        await handler({name: 'uiLog', level: 'debug', args: ['d']});
+        await handler({name: 'uiLog', level: 'info', args: ['i']});
+        await handler({name: 'uiLog', level: 'error', args: ['e']});
+        await handler({name: 'uiLog', level: 'custom', args: ['x']});
+
+        expect(dbg).toHaveBeenCalledWith('[UI]', 'd');
+        expect(info).toHaveBeenCalledWith('[UI]', 'i');
+        expect(err).toHaveBeenCalledWith('[UI]', 'e');
+        expect(log).toHaveBeenCalledWith('[UI]', 'x');
+    });
+
     test('requestRangeEvents -> ensures cache, expands range, posts rangeEvents', async () => {
         const {handler, postMessage, helpers} = await setup();
 
@@ -169,6 +183,15 @@ describe('panelController', () => {
             name: 'rangeEvents',
             events: [{id: 1}],
         });
+    });
+
+    test('uiReady -> works with wrapped message payload', async () => {
+        const {handler, joplin} = await setup();
+        (pushUiSettings as jest.Mock).mockResolvedValue(undefined);
+
+        await handler({message: {name: 'uiReady'}});
+
+        expect(pushUiSettings).toHaveBeenCalledWith(joplin, 'panel-1');
     });
 
     test('requestRangeEvents -> ignores when from/to are missing (no-op)', async () => {

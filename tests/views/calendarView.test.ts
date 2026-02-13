@@ -11,8 +11,9 @@ jest.mock('../../src/main/utils/logger', () => ({
 import {log} from '../../src/main/utils/logger';
 import {
     createCalendarPanel,
-    // CALENDAR_PANEL_ID,
-    // CALENDAR_PANEL_SCRIPTS,
+    CALENDAR_PANEL_HTML,
+    CALENDAR_PANEL_ID,
+    CALENDAR_PANEL_SCRIPTS,
 } from '../../src/main/views/calendarView';
 
 type MockedPanels = {
@@ -125,5 +126,24 @@ describe('calendarView.createCalendarPanel', () => {
         expect(panels.addScript).toHaveBeenCalledTimes(3);
         expect(panels.show).not.toHaveBeenCalled();
         expect(log).not.toHaveBeenCalled();
+    });
+
+    test('creates panel, sets html, adds scripts in order and logs success', async () => {
+        const {joplin, panels} = makeJoplinMock();
+        panels.create.mockResolvedValue('panel-123');
+        panels.setHtml.mockResolvedValue(undefined);
+        panels.addScript.mockResolvedValue(undefined);
+
+        const panel = await createCalendarPanel(joplin);
+
+        expect(panel).toBe('panel-123');
+        expect(panels.create).toHaveBeenCalledWith(CALENDAR_PANEL_ID);
+        expect(panels.setHtml).toHaveBeenCalledWith('panel-123', CALENDAR_PANEL_HTML);
+        expect(panels.addScript).toHaveBeenCalledTimes(CALENDAR_PANEL_SCRIPTS.length);
+        for (const [idx, script] of CALENDAR_PANEL_SCRIPTS.entries()) {
+            expect(panels.addScript).toHaveBeenNthCalledWith(idx + 1, 'panel-123', script);
+        }
+        expect(log).toHaveBeenCalledWith('calendarView', 'Panel created');
+        expect(panels.show).not.toHaveBeenCalled();
     });
 });
