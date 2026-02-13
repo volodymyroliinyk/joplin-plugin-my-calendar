@@ -3,7 +3,7 @@
 import {IcsEvent} from '../types/icsTypes';
 import {expandOccurrences} from './occurrenceService';
 import {
-    computeAlarmWhen,
+    computeAlarmAt,
     formatAlarmTitleTime,
     formatDateForAlarm,
     addDays,
@@ -71,12 +71,12 @@ function buildDesiredAlarmsForEvent(ev: IcsEvent, now: Date, windowEnd: Date): D
     const occs = expandOccurrences(ev, now, windowEnd);
     for (const occ of occs) {
         for (const a of ev.valarms) {
-            const when = computeAlarmWhen(a, occ);
-            if (!when) continue;
+            const alarmAt = computeAlarmAt(a, occ);
+            if (!alarmAt) continue;
 
-            const whenMs = when.getTime();
-            if (whenMs >= nowMs && whenMs <= windowEndMs) {
-                desired.push({alarmTime: whenMs, eventTime: occ.start, trigger: a.trigger});
+            const alarmAtMs = alarmAt.getTime();
+            if (alarmAtMs >= nowMs && alarmAtMs <= windowEndMs) {
+                desired.push({alarmTime: alarmAtMs, eventTime: occ.start, trigger: a.trigger});
             }
         }
     }
@@ -197,7 +197,8 @@ export async function syncAlarmsForEvents(
                 matchedDesiredIndices.add(matchIndex);
                 const {alarmTime, eventTime, trigger} = desiredAlarms[matchIndex];
                 const eventTitle = ev.title || 'Event';
-                const todoTitle = `${eventTitle} at ${formatAlarmTitleTime(eventTime)}`;
+                const triggerDesc = formatTriggerDescription(trigger);
+                const todoTitle = `🔔  ${eventTitle} - ${formatAlarmTitleTime(eventTime)} (${triggerDesc})`;
                 const newBody = buildAlarmNoteBody({
                     eventTitle,
                     eventTime,
@@ -245,7 +246,8 @@ export async function syncAlarmsForEvents(
 
             const {alarmTime, eventTime, trigger} = desiredAlarms[i];
             const eventTitle = ev.title || 'Event';
-            const todoTitle = `${eventTitle} at ${formatAlarmTitleTime(eventTime)}`;
+            const triggerDesc = formatTriggerDescription(trigger);
+            const todoTitle = `🔔 ${eventTitle} - ${formatAlarmTitleTime(eventTime)} (${triggerDesc})`;
             const body = buildAlarmNoteBody({
                 eventTitle,
                 eventTime,

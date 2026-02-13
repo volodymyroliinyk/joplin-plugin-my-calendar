@@ -118,7 +118,7 @@ export function icsDateToMyCalText(icsValue: string): string | undefined {
     return undefined;
 }
 
-export function computeAlarmWhen(alarm: { trigger: string; related?: 'START' | 'END' }, occ: {
+export function computeAlarmAt(alarm: { trigger: string; related?: 'START' | 'END' }, occ: {
     start: Date;
     end: Date
 }): Date | null {

@@ -15,7 +15,7 @@ import {
     weekdayToJs,
     formatDateForAlarm,
     icsDateToMyCalText,
-    computeAlarmWhen
+    computeAlarmAt
 } from '../../src/main/utils/dateTimeUtils';
 
 describe('dateTimeUtils', () => {
@@ -153,7 +153,7 @@ describe('dateTimeUtils', () => {
         });
     });
 
-    describe('computeAlarmWhen', () => {
+    describe('computeAlarmAt', () => {
         const occ = {
             start: new Date(Date.UTC(2025, 0, 1, 10, 0, 0)),
             end: new Date(Date.UTC(2025, 0, 1, 12, 0, 0))
@@ -161,25 +161,25 @@ describe('dateTimeUtils', () => {
 
         test('computes relative start', () => {
             const alarm = {trigger: '-PT1H', related: 'START' as const};
-            const when = computeAlarmWhen(alarm, occ);
-            expect(when?.toISOString()).toBe(new Date(Date.UTC(2025, 0, 1, 9, 0, 0)).toISOString());
+            const alarmAt = computeAlarmAt(alarm, occ);
+            expect(alarmAt?.toISOString()).toBe(new Date(Date.UTC(2025, 0, 1, 9, 0, 0)).toISOString());
         });
 
         test('computes relative end', () => {
             const alarm = {trigger: '-PT30M', related: 'END' as const};
-            const when = computeAlarmWhen(alarm, occ);
-            expect(when?.toISOString()).toBe(new Date(Date.UTC(2025, 0, 1, 11, 30, 0)).toISOString());
+            const alarmAt = computeAlarmAt(alarm, occ);
+            expect(alarmAt?.toISOString()).toBe(new Date(Date.UTC(2025, 0, 1, 11, 30, 0)).toISOString());
         });
 
         test('computes absolute trigger', () => {
             const alarm = {trigger: '20250101T080000Z'};
-            const when = computeAlarmWhen(alarm, occ);
-            expect(when?.toISOString()).toBe(new Date(Date.UTC(2025, 0, 1, 8, 0, 0)).toISOString());
+            const alarmAt = computeAlarmAt(alarm, occ);
+            expect(alarmAt?.toISOString()).toBe(new Date(Date.UTC(2025, 0, 1, 8, 0, 0)).toISOString());
         });
 
         test('returns null for invalid triggers', () => {
-            expect(computeAlarmWhen({trigger: 'not-a-trigger'}, occ)).toBeNull();
-            expect(computeAlarmWhen({trigger: ''}, occ)).toBeNull();
+            expect(computeAlarmAt({trigger: 'not-a-trigger'}, occ)).toBeNull();
+            expect(computeAlarmAt({trigger: ''}, occ)).toBeNull();
         });
     });
 });

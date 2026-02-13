@@ -49,7 +49,7 @@ describe('alarmService', () => {
         (occurrenceService.expandOccurrences as jest.Mock).mockImplementation((_ev, _now, _end) => {
             return [{start: new Date('2026-01-30T12:00:00.000Z')}];
         });
-        (dateTimeUtils.computeAlarmWhen as jest.Mock).mockImplementation((_alarm, occ) => {
+        (dateTimeUtils.computeAlarmAt as jest.Mock).mockImplementation((_alarm, occ) => {
             // Alarm at 11:45Z (15 minutes before 12:00Z)
             return new Date((occ.start as Date).getTime() - 15 * 60_000);
         });
@@ -252,7 +252,7 @@ describe('alarmService', () => {
                 body: 'BODY_V1',
                 is_todo: 1,
                 todo_completed: 0,
-                title: 'Test Event at 12:00'
+                title: '🔔  Test Event - 12:00 (15 minutes before)'
             }]
         };
 
@@ -267,7 +267,7 @@ describe('alarmService', () => {
         jest.useFakeTimers();
         jest.setSystemTime(new Date('2026-01-30T10:00:00.000Z'));
 
-        (dateTimeUtils.computeAlarmWhen as jest.Mock).mockReturnValueOnce(new Date('2026-01-30T11:45:00.000Z'));
+        (dateTimeUtils.computeAlarmAt as jest.Mock).mockReturnValueOnce(new Date('2026-01-30T11:45:00.000Z'));
 
         const events: IcsEvent[] = [{
             uid: 'uid1',
@@ -474,8 +474,8 @@ describe('alarmService', () => {
         const importedEventNotes = {[key]: {id: 'note1', title: 'Test Event', parent_id: 'folder1'}};
         const existingAlarms = {[key]: []};
 
-        // computeAlarmWhen mock returns start-15m by default; override to return exactly now (within window)
-        (dateTimeUtils.computeAlarmWhen as jest.Mock).mockReturnValueOnce(new Date('2026-01-30T10:00:00.000Z'));
+        // computeAlarmAt mock returns start-15m by default; override to return exactly now (within window)
+        (dateTimeUtils.computeAlarmAt as jest.Mock).mockReturnValueOnce(new Date('2026-01-30T10:00:00.000Z'));
 
         await syncAlarmsForEvents(
             mockJoplin,

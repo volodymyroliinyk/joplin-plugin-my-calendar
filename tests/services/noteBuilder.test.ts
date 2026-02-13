@@ -150,11 +150,10 @@ describe('noteBuilder', () => {
                 'Trigger ``` desc\nX'
             );
 
-            expect(body).toContain("[My ''' Event at 2025-01-15 10:00 UTC](:/0123456789abcdef0123456789abcdef)");
+            expect(body).toContain("[My ''' Event](:/0123456789abcdef0123456789abcdef)");
             expect(body).toContain('```mycalendar-alarm');
-            expect(body).toContain("title: Todo ''' title");
             expect(body).toContain("trigger_desc: Trigger ''' desc X");
-            expect(body).toContain('when: 2025-01-15 09:45 UTC');
+            expect(body).toContain('alarm_at: 2025-01-15 09:45 UTC');
             expect(body).toContain("uid: uid'''");
             expect(body).toContain("recurrence_id: rid'''");
             expect(body.trimEnd().endsWith('```')).toBe(true);
@@ -168,7 +167,7 @@ describe('noteBuilder', () => {
                 'Todo',
                 'uid',
                 'rid',
-                'when',
+                'alarm at',
                 'desc'
             );
             expect(body).toContain("](:/bad'''id)");
