@@ -8,6 +8,8 @@ import {dbg, err, info, log, warn} from '../utils/logger';
 import {getIcsImportAlarmRangeDays} from '../settings/settings';
 import {Joplin} from '../types/joplin.interface';
 import {getAllFolders, flattenFolderTree} from '../services/folderService';
+import {EventInput} from '../parsers/eventParser';
+import {Occurrence} from '../utils/dateUtils';
 
 function isoDate(utc: number): string {
     return new Date(utc).toISOString().slice(0, 10);
@@ -63,16 +65,36 @@ type PanelMsg =
 }
     | { name: 'requestFolders' };
 
+type UiErrorPayload = { __error: true; message?: string; stack?: string };
+type ImportResultLike = {
+    added: number;
+    updated: number;
+    skipped: number;
+    errors: number;
+    alarmsCreated: number;
+    alarmsDeleted: number;
+};
 
 function buildRangeIcsFilename(fromUtc: number, toUtc: number): string {
     return `mycalendar_${isoDate(fromUtc)}_${isoDate(toUtc)}.ics`;
 }
 
 function unwrapMessage(rawMsg: unknown): unknown {
-    if (isRecord(rawMsg) && 'message' in rawMsg && (rawMsg as any).message) {
-        return (rawMsg as any).message;
+    if (isRecord(rawMsg) && 'message' in rawMsg) {
+        return rawMsg.message;
     }
     return rawMsg;
+}
+
+function isUiErrorPayload(v: unknown): v is UiErrorPayload {
+    return isRecord(v) && v.__error === true;
+}
+
+function restoreUiLogArg(arg: unknown): unknown {
+    if (!isUiErrorPayload(arg)) return arg;
+    const e = new Error(arg.message || 'UI error');
+    e.stack = arg.stack;
+    return e;
 }
 
 function handleUiLog(msg: Extract<PanelMsg, { name: 'uiLog' }>) {
@@ -80,14 +102,7 @@ function handleUiLog(msg: Extract<PanelMsg, { name: 'uiLog' }>) {
     const level = msg.level || 'log';
     const args = Array.isArray(msg.args) ? msg.args : [];
 
-    const restored = args.map((a: any) => {
-        if (a && typeof a === 'object' && a.__error) {
-            const e = new Error(a.message || 'UI error');
-            (e as any).stack = a.stack;
-            return e;
-        }
-        return a;
-    });
+    const restored = args.map(restoreUiLogArg);
 
     switch (level) {
         case 'debug':
@@ -112,11 +127,11 @@ export async function registerCalendarPanelController(
     joplin: Joplin,
     panel: string,
     helpers: {
-        expandAllInRange: (events: any[], fromUtc: number, toUtc: number) => any[];
-        buildICS: (events: any[]) => string;
+        expandAllInRange: (events: EventInput[], fromUtc: number, toUtc: number) => Occurrence[];
+        buildICS: (events: Occurrence[]) => string;
     }
 ) {
-    const post = (message: any) => joplin.views.panels.postMessage(panel, message);
+    const post = (message: unknown) => joplin.views.panels.postMessage(panel, message);
 
     await joplin.views.panels.onMessage(panel, async (rawMsg: unknown) => {
         try {
@@ -152,7 +167,9 @@ export async function registerCalendarPanelController(
                     const all = await ensureAllEventsCache(joplin);
                     const list = helpers
                         .expandAllInRange(all, dayStart, dayEnd)
-                        .filter((e: any) => isNumber(e?.startUtc) && e.startUtc >= dayStart && e.startUtc <= dayEnd);
+                        .filter((e) => {
+                            return isNumber(e.startUtc) && e.startUtc >= dayStart && e.startUtc <= dayEnd;
+                        });
 
                     await post({
                         name: 'showEvents',
@@ -216,15 +233,15 @@ export async function registerCalendarPanelController(
                             preserveLocalColor,
                             importDefaultColor,
                             importAlarmRangeDays
-                        );
+                        ) as ImportResultLike;
 
                         invalidateAllEventsCache();
                         await post({name: 'importDone', ...res});
 
                         const doneText = `ICS import finished: added=${res.added}, updated=${res.updated}, skipped=${res.skipped}, errors=${res.errors}, alarmsCreated=${res.alarmsCreated}, alarmsDeleted=${res.alarmsDeleted}`;
                         await showToast(res.errors > 0 ? 'warning' : 'success', doneText, 5000);
-                    } catch (e: any) {
-                        const errText = String(e?.message || e);
+                    } catch (e: unknown) {
+                        const errText = String((e as { message?: string })?.message || e);
                         await post({name: 'importError', error: errText});
                         await showToast('error', `ICS import failed: ${errText}`, 5000);
                     }

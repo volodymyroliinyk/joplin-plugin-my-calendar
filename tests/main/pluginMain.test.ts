@@ -32,10 +32,11 @@ jest.mock('../../src/main/uiBridge/uiSettings', () => ({
 import {createCalendarPanel} from '../../src/main/views/calendarView';
 import {
     ensureAllEventsCache,
+    invalidateAllEventsCache,
     refreshNoteCache,
 } from '../../src/main/services/eventsCache';
 import {registerCalendarPanelController} from '../../src/main/uiBridge/panelController';
-// import {pushUiSettings} from '../../src/main/uiBridge/uiSettings';
+import {pushUiSettings} from '../../src/main/uiBridge/uiSettings';
 // import {registerSettings} from '../../src/main/settings/settings';
 
 type AnyFn = (...a: any[]) => any;
@@ -224,6 +225,40 @@ describe('pluginMain.runPlugin', () => {
         // expect(invalidateAllEventsCache).toHaveBeenCalledTimes(2);
     });
 
+    test('workspace.onSyncComplete invalidates events cache', async () => {
+        (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
+        (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);
+
+        const {joplin, getOnSyncComplete} = makeJoplinMock();
+        await runPlugin(joplin as any);
+
+        const cb = getOnSyncComplete();
+        expect(cb).toBeTruthy();
+        await cb!();
+
+        expect(invalidateAllEventsCache).toHaveBeenCalledTimes(1);
+    });
+
+    test('settings.onChange callback pushes updated UI settings', async () => {
+        (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
+        (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);
+        (pushUiSettings as jest.Mock).mockResolvedValue(undefined);
+
+        let onChangeCb: AnyFn | null = null;
+        const {joplin} = makeJoplinMock();
+        (joplin.settings.onChange as jest.Mock).mockImplementation(async (cb: AnyFn) => {
+            onChangeCb = cb;
+        });
+
+        await runPlugin(joplin as any);
+        (pushUiSettings as jest.Mock).mockClear();
+
+        expect(onChangeCb).toBeTruthy();
+        await onChangeCb!({});
+
+        expect(pushUiSettings).toHaveBeenCalledWith(joplin, 'panel-1');
+    });
+
     test('desktop toggle: execute hides then shows (stateful)', async () => {
         const logSpy = jest.spyOn(logger, 'log').mockImplementation(() => undefined);
 
@@ -280,6 +315,45 @@ describe('pluginMain.runPlugin', () => {
         expect(infoSpy).toHaveBeenCalledWith('pluginMain', 'Toggle: panels.show/hide not available - skip');
 
         infoSpy.mockRestore();
+    });
+
+    test('desktop toggle tolerates menu/toolbar creation failures', async () => {
+        const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => undefined);
+
+        (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
+        (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);
+
+        const {joplin, menuItems, toolbarButtons} = makeJoplinMock({withHide: true, withMenu: true});
+        menuItems.create.mockRejectedValue(new Error('menu fail'));
+        toolbarButtons.create.mockRejectedValue(new Error('toolbar fail'));
+
+        await runPlugin(joplin as any);
+
+        expect(warnSpy).toHaveBeenCalledWith('pluginMain', 'Menu create failed (non-fatal):', expect.any(Error));
+        expect(warnSpy).toHaveBeenCalledWith('pluginMain', 'Toolbar button create failed (non-fatal):', expect.any(Error));
+
+        warnSpy.mockRestore();
+    });
+
+    test('desktop toggle outer try/catch logs when views access throws', async () => {
+        const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => undefined);
+
+        (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
+        (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);
+
+        const {joplin} = makeJoplinMock({withHide: true, withMenu: true});
+        Object.defineProperty(joplin.views, 'menuItems', {
+            configurable: true,
+            get() {
+                throw new Error('menu getter fail');
+            },
+        });
+
+        await runPlugin(joplin as any);
+
+        expect(warnSpy).toHaveBeenCalledWith('pluginMain', 'registerDesktopToggle failed (non-fatal):', expect.any(Error));
+
+        warnSpy.mockRestore();
     });
 
     test('helpers: buildICS escapes special chars and includes optional fields', async () => {
