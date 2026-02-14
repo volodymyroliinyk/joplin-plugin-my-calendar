@@ -9,6 +9,7 @@
         showEventTimeline: true,
         showWeekNumbers: false,
         timeFormat: '24h',
+        dayEventsViewMode: 'single',
     };
 
     const uiSettings = window.__mcUiSettings;
@@ -316,10 +317,14 @@
                 const now = Date.now();
 
                 ul.querySelectorAll('.mc-event').forEach((li) => {
-                    const end = Number(li.dataset.endUtc || li.dataset.startUtc || '');
-                    const isPast = Number.isFinite(end) && end < now;
+                    const start = Number(li.dataset.startUtc || '');
+                    const fallback = Number.isFinite(start) ? start : Number(li.dataset.endUtc || '');
+                    const end = Number(li.dataset.endUtc || fallback || '');
+                    const isPast = Number.isFinite(end) && end <= now;
                     li.classList.toggle('mc-event-past', isPast);
                 });
+
+                regroupDayEventsByStatus(ul, now);
             }
 
             function scheduleDayEventsRefresh() {
@@ -328,7 +333,7 @@
 
                 // When event timeline is hidden, skip scheduling these UI update timers.
                 // They depend on dayEventsRefreshMinutes and are only useful when timeline markers are shown.
-                if (uiSettings.showEventTimeline === false) {
+                if (uiSettings.showEventTimeline === false && uiSettings.dayEventsViewMode !== 'grouped') {
                     return;
                 }
 
@@ -339,8 +344,14 @@
                 let nextChange = Number.POSITIVE_INFINITY;
 
                 ul.querySelectorAll('.mc-event').forEach((li) => {
-                    const end = Number(li.dataset.endUtc || li.dataset.startUtc || '');
+                    const start = Number(li.dataset.startUtc || '');
+                    const fallback = Number.isFinite(start) ? start : Number(li.dataset.endUtc || '');
+                    const end = Number(li.dataset.endUtc || fallback || '');
                     if (!Number.isFinite(end)) return;
+
+                    if (uiSettings.dayEventsViewMode === 'grouped' && Number.isFinite(start)) {
+                        if (start >= now && start < nextChange) nextChange = start;
+                    }
                     if (end >= now && end < nextChange) nextChange = end;
                 });
 
@@ -376,6 +387,74 @@
             function clampPct(p) {
                 if (!Number.isFinite(p)) return 0;
                 return Math.max(0, Math.min(100, p));
+            }
+
+            function getDayEventsViewMode() {
+                return uiSettings.dayEventsViewMode === 'grouped' ? 'grouped' : 'single';
+            }
+
+            function getEventStatus(startUtc, endUtc, now) {
+                if (!Number.isFinite(startUtc) || !Number.isFinite(endUtc)) return 'past';
+                if (now < startUtc) return 'feature';
+                if (now < endUtc) return 'ongoing';
+                return 'past';
+            }
+
+            function createGroupSection(label, status) {
+                const section = document.createElement('li');
+                section.className = 'mc-day-events-group';
+                section.dataset.group = status;
+
+                const title = document.createElement('div');
+                title.className = 'mc-day-events-group-title';
+                title.textContent = label;
+
+                const list = document.createElement('ul');
+                list.className = 'mc-day-events-group-list';
+                list.dataset.groupList = status;
+
+                section.appendChild(title);
+                section.appendChild(list);
+                return section;
+            }
+
+            function getGroupedLists(ul) {
+                return {
+                    ongoing: ul.querySelector('[data-group-list="ongoing"]'),
+                    feature: ul.querySelector('[data-group-list="feature"]'),
+                    past: ul.querySelector('[data-group-list="past"]'),
+                };
+            }
+
+            function appendEventToGroup(ul, li, status) {
+                const lists = getGroupedLists(ul);
+                const list = lists[status];
+                if (!list) return;
+                list.appendChild(li);
+            }
+
+            function updateGroupedSectionVisibility(ul) {
+                if (getDayEventsViewMode() !== 'grouped') return;
+                const sections = Array.from(ul.querySelectorAll('.mc-day-events-group'));
+                for (const section of sections) {
+                    const list = section.querySelector('.mc-day-events-group-list');
+                    if (!list) continue;
+                    const hasEvents = list.querySelector('.mc-event') !== null;
+                    section.style.display = hasEvents ? '' : 'none';
+                }
+            }
+
+            function regroupDayEventsByStatus(ul, now) {
+                if (getDayEventsViewMode() !== 'grouped') return;
+                const events = Array.from(ul.querySelectorAll('.mc-event'));
+                for (const li of events) {
+                    const start = Number(li.dataset.startUtc || '');
+                    const fallback = Number.isFinite(start) ? start : Number(li.dataset.endUtc || '');
+                    const end = Number(li.dataset.endUtc || fallback || '');
+                    const status = getEventStatus(start, end, now);
+                    appendEventToGroup(ul, li, status);
+                }
+                updateGroupedSectionVisibility(ul);
             }
 
             function updateDayNowTimelineDot() {
@@ -568,6 +647,7 @@
                         const prevShowEventTimeline = uiSettings.showEventTimeline;
                         const prevShowWeekNumbers = uiSettings.showWeekNumbers;
                         const prevTimeFormat = uiSettings.timeFormat;
+                        const prevDayEventsViewMode = getDayEventsViewMode();
 
                         if (msg.weekStart === 'monday' || msg.weekStart === 'sunday') {
                             uiSettings.weekStart = msg.weekStart;
@@ -597,18 +677,29 @@
                             uiSettings.timeFormat = msg.timeFormat;
                         }
 
+                        if (msg.dayEventsViewMode === 'single' || msg.dayEventsViewMode === 'grouped') {
+                            uiSettings.dayEventsViewMode = msg.dayEventsViewMode;
+                        }
+
                         // Apply immediately (no re-render required)
                         if (prevShowEventTimeline !== uiSettings.showEventTimeline) {
                             applyDayTimelineVisibility();
                         }
 
+                        const dayEventsViewModeChanged = prevDayEventsViewMode !== getDayEventsViewMode();
+                        if (dayEventsViewModeChanged) {
+                            renderDayEvents(selectedDayUtc);
+                        }
+
                         // Recompute day-list UI markers and timers according to new settings
-                        clearDayEventsRefreshTimer();
-                        clearDayNowTimelineTimer();
-                        markPastDayEvents();
-                        updateDayNowTimelineDot();
-                        scheduleDayNowTimelineTick();
-                        scheduleDayEventsRefresh();
+                        if (!dayEventsViewModeChanged) {
+                            clearDayEventsRefreshTimer();
+                            clearDayNowTimelineTimer();
+                            markPastDayEvents();
+                            updateDayNowTimelineDot();
+                            scheduleDayNowTimelineTick();
+                            scheduleDayEventsRefresh();
+                        }
 
                         const weekStartChanged = prevWeekStart !== uiSettings.weekStart;
                         const showWeekNumbersChanged = prevShowWeekNumbers !== uiSettings.showWeekNumbers;
@@ -1112,6 +1203,13 @@
                     ul.appendChild(wrap);
                 }
 
+                const isGrouped = getDayEventsViewMode() === 'grouped';
+                if (isGrouped) {
+                    ul.appendChild(createGroupSection('Ongoing', 'ongoing'));
+                    ul.appendChild(createGroupSection('Feature', 'feature'));
+                    ul.appendChild(createGroupSection('Past', 'past'));
+                }
+
                 for (const item of daySlices) {
                     const ev = item.ev;
                     const slice = item.slice;
@@ -1171,12 +1269,17 @@
                     li.dataset.startUtc = String(slice.startUtc);
                     li.dataset.endUtc = String(slice.endUtc ?? slice.startUtc);
 
-
-                    ul.appendChild(li);
+                    if (isGrouped) {
+                        const status = getEventStatus(slice.startUtc, slice.endUtc ?? slice.startUtc, Date.now());
+                        appendEventToGroup(ul, li, status);
+                    } else {
+                        ul.appendChild(li);
+                    }
 
                     // log('DAY ev.title=', ev.title, 'ev.tz=', ev.tz, 'startUtc=', ev.startUtc);
                 }
 
+                updateGroupedSectionVisibility(ul);
                 updateDayNowTimelineDot();
                 scheduleDayNowTimelineTick();
 

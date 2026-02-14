@@ -515,6 +515,33 @@ select::-webkit-scrollbar-thumb:hover {
     padding: 6px;
 }
 
+.mc-day-events-group {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.mc-day-events-group + .mc-day-events-group {
+    margin-top: 8px;
+}
+
+.mc-day-events-group-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    opacity: 0.72;
+    text-transform: uppercase;
+    margin: 0 6px 4px;
+    position: relative;
+    z-index: 2;
+}
+
+.mc-day-events-group-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
 
 /* The container of strips in the cell */
 .mc-bars {

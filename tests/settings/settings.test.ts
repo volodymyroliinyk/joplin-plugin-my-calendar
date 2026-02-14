@@ -109,6 +109,21 @@ describe('settings.ts logic', () => {
         });
     });
 
+    describe('getDayEventsViewMode logic', () => {
+        const mkJoplin = (val: any) => ({
+            settings: {value: jest.fn().mockResolvedValue(val)}
+        });
+
+        test('returns grouped only for supported enum value', async () => {
+            expect(await settings.getDayEventsViewMode(mkJoplin('grouped'))).toBe('grouped');
+        });
+
+        test('falls back to single for invalid or missing value', async () => {
+            expect(await settings.getDayEventsViewMode(mkJoplin('other'))).toBe('single');
+            expect(await settings.getDayEventsViewMode(mkJoplin(null))).toBe('single');
+        });
+    });
+
     describe('getIcsExportLinks filtering and sanitization', () => {
         test('filters out invalid URLs and sanitizes titles', async () => {
             const mockJoplin = {
@@ -258,6 +273,9 @@ describe('settings.ts logic', () => {
             expect(arg[settings.SETTING_ICS_IMPORT_ALARMS_ENABLED]).toBeDefined();
             expect(arg[settings.SETTING_ICS_IMPORT_ALARMS_ENABLED].value).toBe(false);
             expect(arg[settings.SETTING_ICS_IMPORT_ALARMS_ENABLED].type).toBe(3); // bool
+            expect(arg[settings.SETTING_DAY_EVENTS_VIEW_MODE]).toBeDefined();
+            expect(arg[settings.SETTING_DAY_EVENTS_VIEW_MODE].value).toBe('single');
+            expect(arg[settings.SETTING_DAY_EVENTS_VIEW_MODE].isEnum).toBe(true);
         });
     });
 });
