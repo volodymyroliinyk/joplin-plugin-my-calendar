@@ -10,9 +10,10 @@ export const SETTING_WEEK_START = 'mycalendar.weekStart';
 export const SETTING_SHOW_WEEK_NUMBERS = 'mycalendar.showWeekNumbers';
 
 // Day events
-export const SETTING_SHOW_EVENT_TIMELINE = 'mycalendar.showEventTimeline';
-export const SETTING_DAY_EVENTS_REFRESH_MINUTES = 'mycalendar.dayEventsRefreshMinutes';
+export const SETTING_DAY_EVENTS_VIEW_MODE = 'mycalendar.dayEventsViewMode';
 export const SETTING_TIME_FORMAT = 'mycalendar.timeFormat';
+export const SETTING_DAY_EVENTS_REFRESH_MINUTES = 'mycalendar.dayEventsRefreshMinutes';
+export const SETTING_SHOW_EVENT_TIMELINE = 'mycalendar.showEventTimeline';
 
 // ICS Import
 export const SETTING_ICS_IMPORT_ALARMS_ENABLED = 'mycalendar.icsImportAlarmsEnabled';
@@ -34,6 +35,7 @@ export const SETTING_ICS_EXPORT_LINK4_URL = 'mycalendar.icsExportLink4Url';
 
 export type WeekStart = 'monday' | 'sunday';
 export type TimeFormat = '12h' | '24h';
+export type DayEventsViewMode = 'single' | 'grouped';
 
 export type IcsExportLink = {
     title: string;
@@ -125,22 +127,18 @@ export async function registerSettings(joplin: any) {
         },
 
         // 4) Day events
-        [SETTING_SHOW_EVENT_TIMELINE]: {
-            value: true,
-            type: SETTING_TYPE_BOOL, // bool
+        [SETTING_DAY_EVENTS_VIEW_MODE]: {
+            value: 'single',
+            type: SETTING_TYPE_STRING,
             section: 'mycalendar',
             public: true,
-            label: 'Show event timeline',
-            description: 'Day events section: Show a visual timeline bar under each event in the day list. Disabling this also stops related UI update timers (now dot / past status refresh).',
-        },
-        // 5) Day events auto-refresh (minutes)
-        [SETTING_DAY_EVENTS_REFRESH_MINUTES]: {
-            value: 1,
-            type: SETTING_TYPE_INT, // int
-            section: 'mycalendar',
-            public: true,
-            label: 'Day events auto-refresh (minutes)',
-            description: 'Day events section: How often the list refreshes.',
+            label: 'Day events view mode',
+            description: 'Day events section: Show events in a single list or grouped by ongoing/feature/past.',
+            isEnum: true,
+            options: {
+                single: 'Single list',
+                grouped: 'Grouped (ongoing/feature/past)',
+            },
         },
         [SETTING_TIME_FORMAT]: {
             value: '24h',
@@ -154,6 +152,23 @@ export async function registerSettings(joplin: any) {
                 '12h': '12-hour (AM/PM)',
                 '24h': '24-hour',
             },
+        },
+        // 5) Day events auto-refresh (minutes)
+        [SETTING_DAY_EVENTS_REFRESH_MINUTES]: {
+            value: 1,
+            type: SETTING_TYPE_INT, // int
+            section: 'mycalendar',
+            public: true,
+            label: 'Day events auto-refresh (minutes)',
+            description: 'Day events section: How often the list refreshes.',
+        },
+        [SETTING_SHOW_EVENT_TIMELINE]: {
+            value: true,
+            type: SETTING_TYPE_BOOL, // bool
+            section: 'mycalendar',
+            public: true,
+            label: 'Show event timeline',
+            description: 'Day events section: Show a visual timeline bar under each event in the day list. Disabling this also stops related UI update timers (now dot / past status refresh).',
         },
 
         // 7) ICS Import
@@ -179,7 +194,7 @@ export async function registerSettings(joplin: any) {
             section: 'mycalendar',
             public: !mobile,
             label: 'Empty trash after alarm cleanup',
-            description: 'ICS import section: If enabled, the plugin will empty the trash after deleting old alarms. WARNING: This deletes ALL items in the trash.',
+            description: 'ICS import section: If enabled, the plugin will empty the trash after deleting old alarms. WARNING: This deletes ALL items in the trash bin.',
         },
         // 8) ICS export links (up to 4)
         [SETTING_ICS_EXPORT_LINK1_TITLE]: {
@@ -340,6 +355,11 @@ export async function getDayEventsRefreshMinutes(joplin: any): Promise<number> {
 export async function getTimeFormat(joplin: any): Promise<TimeFormat> {
     const raw = await joplin.settings.value(SETTING_TIME_FORMAT);
     return (raw === '12h' || raw === '24h') ? raw : '24h';
+}
+
+export async function getDayEventsViewMode(joplin: any): Promise<DayEventsViewMode> {
+    const raw = await joplin.settings.value(SETTING_DAY_EVENTS_VIEW_MODE);
+    return raw === 'grouped' ? 'grouped' : 'single';
 }
 
 // ICS import

@@ -12,6 +12,7 @@ type SettingsMock = {
     getShowEventTimeline: jest.Mock<any, any>;
     getShowWeekNumbers: jest.Mock<any, any>;
     getTimeFormat: jest.Mock<any, any>;
+    getDayEventsViewMode?: jest.Mock<any, any>;
     // can be function or any other value to test compat branch
     getIcsExportLinks?: any;
 };
@@ -35,6 +36,7 @@ const loadModuleWithMocks = async (
         getShowEventTimeline: settingsMock.getShowEventTimeline,
         getShowWeekNumbers: settingsMock.getShowWeekNumbers,
         getTimeFormat: settingsMock.getTimeFormat,
+        getDayEventsViewMode: settingsMock.getDayEventsViewMode || jest.fn().mockResolvedValue('single'),
         ...(settingsMock.getIcsExportLinks ? {getIcsExportLinks: settingsMock.getIcsExportLinks} : {}),
     };
     // Important: include getIcsExportLinks even if it is NOT a function
@@ -65,6 +67,7 @@ describe('uiSettings.buildUiSettingsMessage', () => {
             getShowEventTimeline: jest.fn().mockResolvedValue(true),
             getShowWeekNumbers: jest.fn().mockResolvedValue(false),
             getTimeFormat: jest.fn().mockResolvedValue('24h'),
+            getDayEventsViewMode: jest.fn().mockResolvedValue('single'),
         };
         const loggerMock: LoggerMock = {
             setDebugEnabled: jest.fn(),
@@ -86,6 +89,7 @@ describe('uiSettings.buildUiSettingsMessage', () => {
             showEventTimeline: true,
             showWeekNumbers: false,
             timeFormat: '24h',
+            dayEventsViewMode: 'single',
         });
     });
 
@@ -97,6 +101,7 @@ describe('uiSettings.buildUiSettingsMessage', () => {
             getShowEventTimeline: jest.fn().mockResolvedValue(true),
             getShowWeekNumbers: jest.fn().mockResolvedValue(false),
             getTimeFormat: jest.fn().mockResolvedValue('24h'),
+            getDayEventsViewMode: jest.fn().mockResolvedValue('grouped'),
         };
         const loggerMock: LoggerMock = {
             setDebugEnabled: jest.fn(),
@@ -122,6 +127,7 @@ describe('uiSettings.pushUiSettings', () => {
             getShowEventTimeline: jest.fn().mockResolvedValue(true),
             getShowWeekNumbers: jest.fn().mockResolvedValue(false),
             getTimeFormat: jest.fn().mockResolvedValue('24h'),
+            getDayEventsViewMode: jest.fn().mockResolvedValue('grouped'),
         };
         const loggerMock: LoggerMock = {
             setDebugEnabled: jest.fn(),
@@ -144,6 +150,8 @@ describe('uiSettings.pushUiSettings', () => {
         expect(settingsMock.getShowEventTimeline).toHaveBeenCalledWith(joplin);
         expect(settingsMock.getTimeFormat).toHaveBeenCalledTimes(1);
         expect(settingsMock.getTimeFormat).toHaveBeenCalledWith(joplin);
+        expect(settingsMock.getDayEventsViewMode).toHaveBeenCalledTimes(1);
+        expect(settingsMock.getDayEventsViewMode).toHaveBeenCalledWith(joplin);
 
 
         expect(loggerMock.setDebugEnabled).toHaveBeenCalledWith(true);
@@ -158,6 +166,7 @@ describe('uiSettings.pushUiSettings', () => {
             showEventTimeline: true,
             showWeekNumbers: false,
             timeFormat: '24h',
+            dayEventsViewMode: 'grouped',
         });
     });
 
@@ -195,6 +204,7 @@ describe('uiSettings.pushUiSettings', () => {
             showEventTimeline: true,
             showWeekNumbers: false,
             timeFormat: '24h',
+            dayEventsViewMode: 'single',
         });
 
         expect(settingsMock.getIcsExportLinks).toHaveBeenCalledTimes(1);

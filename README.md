@@ -166,14 +166,16 @@ Customize your experience in the Joplin Settings (`Tools` > `Options` > `My Cale
 
 - **Week starts on**: Choose between **Monday** (default) or **Sunday** for the calendar grid.
 - **Show week numbers**: Toggle the display of week numbers alongside the calendar grid. (Default: Disabled).
-- **Time format**: Choose between **24h** (default) or **12h** (AM/PM) format for event times.
 
 ### Day events
 
-- **Show event timeline**: Show a visual timeline bar under each event in the day list. Disabling this also stops
-  related UI update timers. (Default: Enabled).
+- **Day events view mode**: Show events as one list, or grouped into **Ongoing / Feature / Past** with auto-moves as
+  time changes. (Default: Single list).
+- **Time format**: Choose between **24h** (default) or **12h** (AM/PM) format for event times.
 - **Day events auto-refresh**: Set the interval (in minutes) for how often the day's event list updates. (Default: 1
   min).
+- **Show event timeline**: Show a visual timeline bar under each event in the day list. Disabling this also stops
+  related UI update timers. (Default: Enabled).
 
 ### ICS Import (Desktop only)
 
