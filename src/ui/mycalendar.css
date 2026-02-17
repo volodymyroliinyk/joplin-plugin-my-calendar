@@ -594,6 +594,13 @@ select::-webkit-scrollbar-thumb:hover {
     /* lighter when creeping */
 }
 
+.mc-cache-clear-btn {
+    min-width: 32px;
+    padding: 4px 6px;
+    font-size: 14px;
+    line-height: 1;
+}
+
 /* --- Events panel layout: list scroll + import at bottom --- */
 
 

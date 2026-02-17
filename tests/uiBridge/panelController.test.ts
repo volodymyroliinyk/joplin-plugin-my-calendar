@@ -479,6 +479,16 @@ describe('panelController', () => {
         expect(showToast).toHaveBeenCalledWith('error', 'ICS import failed: nope', 5000);
     });
 
+    test('clearEventsCache -> invalidates cache, requests redraw and shows toast', async () => {
+        const {handler, postMessage} = await setup();
+
+        await handler({name: 'clearEventsCache'});
+
+        expect(invalidateAllEventsCache).toHaveBeenCalledTimes(1);
+        expect(postMessage).toHaveBeenCalledWith('panel-1', {name: 'redrawMonth'});
+        expect(showToast).toHaveBeenCalledWith('info', 'Events cache cleared', 3000);
+    });
+
     test('requestFolders -> paginates folders, flattens tree, sorts, and posts folders options', async () => {
         const {handler, dataGet, postMessage} = await setup();
 

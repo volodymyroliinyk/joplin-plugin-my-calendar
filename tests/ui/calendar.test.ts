@@ -296,6 +296,20 @@ describe('src/ui/calendar.js', () => {
         expect(after).toBeGreaterThan(before);
     });
 
+    test('toolbar clear-cache button posts clearEventsCache', () => {
+        const {getOnMessageCb, postMessage} = installWebviewApi();
+        loadCalendarJsFresh();
+        sendPluginMessage(getOnMessageCb, {name: 'uiSettings', weekStart: 'sunday'});
+
+        const btn = document.querySelector('#mc-toolbar button[title="Clear events cache"]') as HTMLElement;
+        expect(btn).toBeTruthy();
+        btn.click();
+
+        const calls = postMessage.mock.calls.filter(c => c[0]?.name === 'clearEventsCache');
+        expect(calls.length).toBe(1);
+        expect(calls[0][0]).toEqual({name: 'clearEventsCache'});
+    });
+
     test('clicking a grid cell posts dateClick and updates selection class', () => {
         const {postMessage, getOnMessageCb} = installWebviewApi();
         loadCalendarJsFresh();
