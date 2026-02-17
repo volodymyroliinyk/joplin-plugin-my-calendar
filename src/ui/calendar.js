@@ -26,6 +26,7 @@
         RANGE_EVENTS: 'rangeEvents',
         SHOW_EVENTS: 'showEvents',
         RANGE_ICS: 'rangeIcs',
+        CLEAR_EVENTS_CACHE: 'clearEventsCache',
     });
 
 
@@ -896,6 +897,16 @@
                 wrap.appendChild(btnToday);
                 wrap.appendChild(btnNext);
                 wrap.appendChild(title);
+
+                const btnClearCache = button('⟳', 'Clear events cache', () => {
+                    isPickerOpen = false;
+                    gridEvents = [];
+                    setGridLoading(true);
+                    window.webviewApi?.postMessage?.({name: MSG.CLEAR_EVENTS_CACHE});
+                });
+                btnClearCache.classList.add('mc-cache-clear-btn');
+                btnClearCache.setAttribute('aria-label', 'Clear events cache');
+                wrap.appendChild(btnClearCache);
 
                 if (isPickerOpen) {
                     const picker = renderMonthYearPicker();

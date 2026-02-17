@@ -35,6 +35,7 @@ const KNOWN_MSG_NAMES = [
     'openNote',
     'exportRangeIcs',
     'icsImport',
+    'clearEventsCache',
     'requestFolders',
 ] as const;
 
@@ -63,6 +64,7 @@ type PanelMsg =
     preserveLocalColor?: boolean;
     importDefaultColor?: unknown;
 }
+    | { name: 'clearEventsCache' }
     | { name: 'requestFolders' };
 
 type UiErrorPayload = { __error: true; message?: string; stack?: string };
@@ -245,6 +247,13 @@ export async function registerCalendarPanelController(
                         await post({name: 'importError', error: errText});
                         await showToast('error', `ICS import failed: ${errText}`, 5000);
                     }
+                    return;
+                }
+
+                case 'clearEventsCache': {
+                    invalidateAllEventsCache();
+                    await post({name: 'redrawMonth'});
+                    await showToast('info', 'Events cache cleared', 3000);
                     return;
                 }
 
