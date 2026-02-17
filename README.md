@@ -20,9 +20,11 @@ note-taking app.
 - **Integrated Monthly Calendar**:
     - **Visual Grid**: View your schedule with event bars and alarm indicators.
     - **Navigation**: Quick jump to any date via the month/year picker.
+  - **Quick Recovery**: Use `⟳` in the toolbar to clear cached events and instantly refresh the month.
     - **Customization**: Toggle week numbers and choose Monday or Sunday start.
 - **Smart Day View**:
     - **Detailed Timeline**: See a chronological list of the day's events with a current time indicator.
+  - **Grouped Mode**: Optional grouping into **Ongoing / Feature / Past** with dynamic reclassification.
     - **Interactive**: Click events to open the corresponding note.
 - **Notes as Events**:
     - **Simple Syntax**: Turn any note into an event by adding a metadata block.
@@ -107,6 +109,8 @@ The plugin features a robust import system designed for performance and reliabil
   These todos
   appear in your standard Joplin tasks and trigger native notifications. The sync process is smart: it only deletes
   outdated alarms and creates new ones, minimizing sync traffic.
+- **Improved Format Compatibility**: Handles folded ICS lines, multiline descriptions, and escaped values more
+  reliably.
 
 ---
 
