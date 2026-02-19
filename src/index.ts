@@ -4,7 +4,9 @@
 // Only take API from a global object that plays Joplin Runner.
 
 (function bootstrap() {
-    const j: any = (globalThis as any).joplin || (window as any).joplin;
+    const j: any =
+        (globalThis as any).joplin ||
+        (typeof window !== 'undefined' ? (window as any).joplin : undefined);
 
     if (!j) {
         // We are not in the plugin-wounder (or Runner have not yet thrown Joplin)-we do nothing.

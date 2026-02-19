@@ -760,13 +760,6 @@
                 if (handler) handler();
             }
 
-            if (window.webviewApi?.onMessage) {
-                mcRegisterOnMessage(onPluginMessage);
-
-            } else {
-                log('webviewApi.onMessage missing');
-            }
-
             function button(text, title, onClick) {
                 const b = document.createElement('button');
                 b.className = 'mc-btn';

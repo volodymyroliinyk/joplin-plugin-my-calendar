@@ -206,6 +206,16 @@ describe('panelController', () => {
         expect(postMessage).not.toHaveBeenCalled();
         expect(ensureAllEventsCache).not.toHaveBeenCalled();
     });
+
+    test('requestRangeEvents -> ignores inverted range (fromUtc > toUtc)', async () => {
+        const {handler, helpers, postMessage} = await setup();
+
+        await handler({name: 'requestRangeEvents', fromUtc: 200, toUtc: 100});
+
+        expect(ensureAllEventsCache).not.toHaveBeenCalled();
+        expect(helpers.expandAllInRange).not.toHaveBeenCalled();
+        expect(postMessage).not.toHaveBeenCalled();
+    });
     test('dateClick -> expands day range and filters by startUtc inside [dayStart..dayEnd]', async () => {
         const {handler, postMessage, helpers} = await setup();
 
@@ -279,6 +289,17 @@ describe('panelController', () => {
 
         await handler({name: 'exportRangeIcs', fromUtc: '10', toUtc: 20});
 
+        expect(postMessage).not.toHaveBeenCalled();
+    });
+
+    test('exportRangeIcs -> ignores inverted range (fromUtc > toUtc)', async () => {
+        const {handler, helpers, postMessage} = await setup();
+
+        await handler({name: 'exportRangeIcs', fromUtc: 200, toUtc: 100});
+
+        expect(ensureAllEventsCache).not.toHaveBeenCalled();
+        expect(helpers.expandAllInRange).not.toHaveBeenCalled();
+        expect(helpers.buildICS).not.toHaveBeenCalled();
         expect(postMessage).not.toHaveBeenCalled();
     });
 
