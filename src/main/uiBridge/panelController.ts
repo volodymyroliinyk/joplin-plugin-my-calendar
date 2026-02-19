@@ -154,6 +154,7 @@ export async function registerCalendarPanelController(
 
                 case 'requestRangeEvents': {
                     if (!isNumber(msg.fromUtc) || !isNumber(msg.toUtc)) return;
+                    if (msg.fromUtc > msg.toUtc) return;
                     const all = await ensureAllEventsCache(joplin);
                     const list = helpers.expandAllInRange(all, msg.fromUtc, msg.toUtc);
                     await post({name: 'rangeEvents', events: list});
@@ -190,6 +191,7 @@ export async function registerCalendarPanelController(
 
                 case 'exportRangeIcs': {
                     if (!isNumber(msg.fromUtc) || !isNumber(msg.toUtc)) return;
+                    if (msg.fromUtc > msg.toUtc) return;
 
                     const all = await ensureAllEventsCache(joplin);
                     const list = helpers.expandAllInRange(all, msg.fromUtc, msg.toUtc);
