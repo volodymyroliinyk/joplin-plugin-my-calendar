@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.6.0](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.5.3...v1.6.0) (2026-02-19)
+
+
+### ✨ Features
+
+* add clear events cache toolbar button ([f16efab](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/f16efabbd5a45efb00c68879f5be34d61962f95c))
+* **day-events:** add grouped mode with ongoing/feature/past and hide empty sections ([b07c2f4](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/b07c2f4cf5c714ff230bfcbb657897de74efc9b1))
+
+
+### 🐛 Bug Fixes
+
+* handle missing panel focus on mobile and improve UI error logging ([a6e847d](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/a6e847dcb19030886d8f859604bf6ed38290d746))
+* validate date ranges and improve env compatibility ([89989e0](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/89989e04dd9498ccdd6522e9ec8d9daa8f4bc754))
+
 ### [1.5.3](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.5.2...v1.5.3) (2026-02-10)
 
 
