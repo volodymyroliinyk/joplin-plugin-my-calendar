@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.6.1](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.6.0...v1.6.1) (2026-03-06)
+
+
+### 🐛 Bug Fixes
+
+* harden Toggle My Calendar registration for menu toolbar and hotkey ([79e4221](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/79e42211ce70356174444d63d175c47c986c619f))
+
 ## [1.6.0](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.5.3...v1.6.0) (2026-02-19)
 
 
