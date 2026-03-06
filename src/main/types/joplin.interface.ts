@@ -31,7 +31,6 @@ export interface Joplin {
             focus?: (panelId: string) => Promise<void>;
         };
         dialogs: {
-            showMessageBox: (message: string) => Promise<void>;
             showToast: (payload: any) => Promise<void>;
         };
         menuItems?: {

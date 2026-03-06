@@ -115,7 +115,16 @@ export default async function runPlugin(joplin: Joplin) {
         active: false,
     };
 
-    await registerToggleCommand(joplin, panel, toggleState);
+    let toggleCommandName = '';
+    let toggleCommandError: string | undefined;
+    try {
+        toggleCommandName = await registerToggleCommand(joplin, panel, toggleState);
+    } catch (e) {
+        toggleCommandError = String(e);
+        warn('pluginMain', 'Toggle command registration failed (non-fatal):', e);
+    }
+
+    await registerDesktopToggle(joplin, panel, toggleState, toggleCommandName, toggleCommandError);
 
     await joplin.commands.register({
         name: 'mycalendar.open',
@@ -123,7 +132,11 @@ export default async function runPlugin(joplin: Joplin) {
         execute: async () => {
             await joplin.views.panels.show(panel);
             // Ensure the UI gets the latest weekStart when the panel becomes visible.
-            await pushUiSettings(joplin, panel);
+            try {
+                await pushUiSettings(joplin, panel);
+            } catch (e) {
+                warn('pluginMain', 'pushUiSettings failed in open command (non-fatal):', e);
+            }
             try {
                 // const pm = joplin?.views?.panels?.postMessage;
                 // if (typeof pm === 'function') await pm(panel, {name: 'redrawMonth'});
@@ -147,15 +160,32 @@ export default async function runPlugin(joplin: Joplin) {
         invalidateAllEventsCache();
     });
 
-    await pushUiSettings(joplin, panel);
+    try {
+        await pushUiSettings(joplin, panel);
+    } catch (e) {
+        warn('pluginMain', 'Initial pushUiSettings failed (non-fatal):', e);
+    }
 
     // await joplin.views.panels.show(panel);
 
-    await joplin.settings.onChange(async () => {
-        await pushUiSettings(joplin, panel);
-    });
+    const onSettingsChange = joplin?.settings?.onChange;
+    if (typeof onSettingsChange === 'function') {
+        try {
+            await onSettingsChange(async () => {
+                await pushUiSettings(joplin, panel);
+            });
+        } catch (e) {
+            warn('pluginMain', 'settings.onChange registration failed (non-fatal):', e);
+        }
+    } else {
+        info('pluginMain', 'settings.onChange not available - skip');
+    }
 
-    await registerDesktopToggle(joplin, panel, toggleState);
+    try {
+        await pushUiSettings(joplin, panel);
+    } catch (e) {
+        warn('pluginMain', 'pushUiSettings after toggle setup failed (non-fatal):', e);
+    }
 
     // --- Create the import panel (desktop)
 
@@ -164,40 +194,98 @@ export default async function runPlugin(joplin: Joplin) {
 
 // Register the toggle command once. The label is intentionally static because
 // dynamic label updates are not reliably supported by Joplin's menu API.
-async function registerToggleCommand(joplin: Joplin, panel: string, toggleState: { visible: boolean }) {
-    await joplin.commands.register({
-        name: 'mycalendar.togglePanel',
-        label: 'Toggle My Calendar',
-        iconName: 'fas fa-calendar-alt',
-        execute: async () => {
-            toggleState.visible = !toggleState.visible;
-            if (toggleState.visible) {
-                await joplin.views.panels.show(panel);
-                log('pluginMain', 'Toggle: Show');
-            } else {
-                if (joplin.views?.panels?.hide) {
-                    await joplin.views.panels.hide(panel);
-                }
+async function registerToggleCommand(joplin: Joplin, panel: string, toggleState: {
+    visible: boolean
+}): Promise<string> {
+    const execute = async () => {
+        const nextVisible = !toggleState.visible;
+        if (nextVisible) {
+            await joplin.views.panels.show(panel);
+            toggleState.visible = true;
+            log('pluginMain', 'Toggle: Show');
+        } else {
+            const hide = joplin.views?.panels?.hide;
+            if (typeof hide === 'function') {
+                await hide(panel);
+                toggleState.visible = false;
                 log('pluginMain', 'Toggle: Hide');
+                return;
             }
-        },
-    });
+
+            // Fallback for Joplin builds where `panels.hide` is not exposed.
+            const show = joplin.views?.panels?.show as ((panelId: string, visible?: boolean) => Promise<void>) | undefined;
+            if (typeof show === 'function') {
+                try {
+                    await show(panel, false);
+                    toggleState.visible = false;
+                    log('pluginMain', 'Toggle: Hide');
+                    return;
+                } catch {
+                    // keep previous state when hide attempt fails
+                    toggleState.visible = true;
+                }
+            }
+
+            info('pluginMain', 'Toggle: hide not available - panel remains visible');
+        }
+    };
+
+    const registerByName = async (name: string): Promise<boolean> => {
+        const commandWithIcon = {
+            name,
+            label: 'Toggle My Calendar',
+            iconName: 'fas fa-calendar-alt',
+            execute,
+        };
+
+        try {
+            await joplin.commands.register(commandWithIcon);
+            return true;
+        } catch (e) {
+            warn('pluginMain', `Toggle command register with icon failed for "${name}", retrying without icon:`, e);
+        }
+
+        try {
+            await joplin.commands.register({
+                name,
+                label: 'Toggle My Calendar',
+                execute,
+            });
+            return true;
+        } catch (e) {
+            warn('pluginMain', `Toggle command register without icon failed for "${name}":`, e);
+            return false;
+        }
+    };
+
+    const candidates = ['mycalendar.togglePanel', 'mycalendar.togglePanelV2'];
+    for (const name of candidates) {
+        if (await registerByName(name)) {
+            return name;
+        }
+    }
+
+    throw new Error('Failed to register toggle command');
 }
 
 // === MyCalendar: safe desktop toggle helper ===
 async function registerDesktopToggle(joplin: Joplin, panel: string, toggleState: {
     visible: boolean;
     active?: boolean
-}) {
+}, toggleCommandName: string, toggleCommandError?: string) {
     try {
         const canShow = !!joplin?.views?.panels?.show;
-        const canHide = !!joplin?.views?.panels?.hide;
         const canMenu = !!joplin?.views?.menuItems?.create;
+        const canToolbar = !!joplin?.views?.toolbarButtons?.create;
 
-        info('pluginMain', 'Toggle capabilities:', {canShow, canHide, canMenu, panel});
+        info('pluginMain', 'Toggle capabilities:', {canShow, canMenu, canToolbar, panel, toggleCommandName});
 
-        if (!canShow || !canHide) {
-            info('pluginMain', 'Toggle: panels.show/hide not available - skip');
+        if (!canShow) {
+            info('pluginMain', 'Toggle: panels.show not available - skip');
+            return;
+        }
+        if (!toggleCommandName) {
+            warn('pluginMain', 'Toggle command is missing - skip menu/toolbar registration', toggleCommandError);
             return;
         }
 
@@ -207,30 +295,52 @@ async function registerDesktopToggle(joplin: Joplin, panel: string, toggleState:
 
         const menuCreate = joplin.views?.menuItems?.create;
         if (typeof menuCreate === 'function') {
-            try {
-                await menuCreate(
-                    'mycalendarToggleMenu',
-                    'mycalendar.togglePanel',
-                    'view',
-                    {accelerator: 'Ctrl+Alt+C'}
-                );
-                log('pluginMain', 'Toggle menu item registered');
-            } catch (e) {
-                warn('pluginMain', 'Menu create failed (non-fatal):', e);
+            const menuTargets = [
+                {id: 'mycalendarToggleMenuView', location: 'view'},
+                {id: 'mycalendarToggleMenuTools', location: 'tools'},
+            ];
+            let menuRegisteredCount = 0;
+            for (const target of menuTargets) {
+                try {
+                    await menuCreate(
+                        target.id,
+                        toggleCommandName,
+                        target.location,
+                        {accelerator: 'Ctrl+Alt+C'}
+                    );
+                    menuRegisteredCount += 1;
+                    log('pluginMain', `Toggle menu item registered at "${target.location}"`);
+                } catch (e) {
+                    warn('pluginMain', `Menu create failed for location "${target.location}" (non-fatal):`, e);
+                }
+            }
+            if (menuRegisteredCount === 0) {
+                warn('pluginMain', 'Menu create failed for all known locations (non-fatal)');
             }
         }
 
         const toolbarCreate = joplin.views?.toolbarButtons?.create;
         if (typeof toolbarCreate === 'function') {
-            try {
-                await toolbarCreate(
-                    'mycalendarToolbarButton',
-                    'mycalendar.togglePanel',
-                    'noteToolbar'
-                );
-                log('pluginMain', 'Toolbar button registered');
-            } catch (e) {
-                warn('pluginMain', 'Toolbar button create failed (non-fatal):', e);
+            const toolbarTargets = [
+                {id: 'mycalendarToolbarButtonNote', location: 'noteToolbar'},
+                {id: 'mycalendarToolbarButtonEditor', location: 'editorToolbar'},
+            ];
+            let toolbarRegisteredCount = 0;
+            for (const target of toolbarTargets) {
+                try {
+                    await toolbarCreate(
+                        target.id,
+                        toggleCommandName,
+                        target.location
+                    );
+                    toolbarRegisteredCount += 1;
+                    log('pluginMain', `Toolbar button registered at "${target.location}"`);
+                } catch (e) {
+                    warn('pluginMain', `Toolbar button create failed for location "${target.location}" (non-fatal):`, e);
+                }
+            }
+            if (toolbarRegisteredCount === 0) {
+                warn('pluginMain', 'Toolbar button create failed for all known locations (non-fatal)');
             }
         }
 

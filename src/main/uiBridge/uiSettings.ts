@@ -57,7 +57,7 @@ export async function buildUiSettingsMessage(joplin: unknown): Promise<UiSetting
     // Main-side logger should follow the same setting
     setDebugEnabled(debugEnabled);
 
-    return {
+    const message: UiSettingsMessage = {
         name: UI_SETTINGS_MESSAGE_NAME,
         weekStart,
         debug: debugEnabled,
@@ -68,6 +68,8 @@ export async function buildUiSettingsMessage(joplin: unknown): Promise<UiSetting
         timeFormat,
         dayEventsViewMode,
     };
+
+    return message;
 }
 
 export async function pushUiSettings(joplin: JoplinLike, panel: string): Promise<void> {
