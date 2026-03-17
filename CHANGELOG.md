@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.6.2](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.6.1...v1.6.2) (2026-03-17)
+
+
+### 🐛 Bug Fixes
+
+* **ui:** handle DST day boundaries when slicing calendar events ([6d3bc3a](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/6d3bc3a1de3db4bb245a6fb33fd6fe68939d01bd))
+
 ### [1.6.1](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.6.0...v1.6.1) (2026-03-06)
 
 
