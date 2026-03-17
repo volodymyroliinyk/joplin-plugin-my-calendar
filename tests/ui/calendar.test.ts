@@ -360,6 +360,52 @@ describe('src/ui/calendar.js', () => {
         expect(empty.textContent).toContain('There are no events');
     });
 
+    test('DST boundary: next-day early event is not counted in previous local day list or badge', () => {
+        const prevTz = process.env.TZ;
+        process.env.TZ = 'America/Toronto';
+        jest.setSystemTime(new Date('2025-03-09T12:00:00.000Z'));
+
+        try {
+            const {getOnMessageCb} = installWebviewApi();
+            loadCalendarJsFresh();
+            sendPluginMessage(getOnMessageCb, {name: 'uiSettings', weekStart: 'sunday'});
+
+            const selected = findSelectedCell();
+            expect(selected).toBeTruthy();
+
+            const dayTs = Number(selected!.dataset.utc);
+            const nextDayTs = new Date(2025, 2, 10).getTime();
+            const nextDayEarlyStart = new Date(2025, 2, 10, 0, 30, 0, 0).getTime();
+            const nextDayEarlyEnd = new Date(2025, 2, 10, 1, 0, 0, 0).getTime();
+
+            sendPluginMessage(getOnMessageCb, {
+                name: 'rangeEvents',
+                events: [{
+                    id: 'dst-next-day',
+                    title: 'Next day after DST jump',
+                    startUtc: nextDayEarlyStart,
+                    endUtc: nextDayEarlyEnd,
+                    tz: 'America/Toronto',
+                }],
+            });
+
+            expect(dayTs).toBe(new Date(2025, 2, 9).getTime());
+
+            const dayItems = document.querySelectorAll('#mc-events-list .mc-event');
+            expect(dayItems.length).toBe(0);
+            expect(document.querySelector('#mc-events-list .mc-empty')?.textContent).toContain('There are no events');
+
+            const previousDayBadge = selected!.querySelector('.mc-count') as HTMLElement | null;
+            expect(previousDayBadge).toBeNull();
+
+            const nextDayCell = document.querySelector(`.mc-cell[data-utc="${nextDayTs}"]`) as HTMLElement | null;
+            expect(nextDayCell).toBeTruthy();
+            expect(nextDayCell!.querySelector('.mc-count')?.textContent).toBe('1');
+        } finally {
+            process.env.TZ = prevTz;
+        }
+    });
+
     test('clicking day event list item posts openNote with event id', () => {
         const {getOnMessageCb, postMessage} = installWebviewApi();
         loadCalendarJsFresh();

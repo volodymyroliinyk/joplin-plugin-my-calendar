@@ -216,6 +216,12 @@
                 return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
             }
 
+            function nextLocalMidnightTs(dayStartTs) {
+                const d = new Date(dayStartTs);
+                d.setDate(d.getDate() + 1);
+                return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+            }
+
             // The first day of the month (locally)
             function startOfMonthLocal(d) {
                 return new Date(d.getFullYear(), d.getMonth(), 1);
@@ -1083,7 +1089,7 @@
             // dayStartTs is epoch ms for local midnight of the day cell.
             // Returns null if the event does not intersect the day.
             function sliceEventForDay(ev, dayStartTs) {
-                const dayEndTs = dayStartTs + 24 * 3600 * 1000 - 1;
+                const dayEndTs = nextLocalMidnightTs(dayStartTs) - 1;
                 const evStart = ev.startUtc;
                 const evEnd = (ev.endUtc ?? ev.startUtc);
                 const segStart = Math.max(evStart, dayStartTs);
@@ -1108,7 +1114,7 @@
                 for (const ev of gridEvents) {
                     const startDay = localMidnightTs(new Date(ev.startUtc));
                     const endDay = localMidnightTs(new Date((ev.endUtc ?? ev.startUtc)));
-                    for (let ts = startDay; ts <= endDay; ts += 24 * 3600 * 1000) {
+                    for (let ts = startDay; ts <= endDay; ts = nextLocalMidnightTs(ts)) {
                         const slice = sliceEventForDay(ev, ts);
                         if (!slice) continue;
                         if (!byDay.has(ts)) byDay.set(ts, []);
