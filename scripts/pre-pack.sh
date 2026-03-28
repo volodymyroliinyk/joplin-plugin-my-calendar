@@ -3,10 +3,13 @@
 # Pre-pack Script
 #
 # This script ensures code quality before packaging the plugin.
-# It runs the linter (failing on any warnings) and then executes the test suite.
-# Only if both pass will the plugin be packed into a .jpl file.
+# It can optionally apply npm audit fixes, then runs the linter
+# (failing on any warnings), and finally executes the test suite.
+# Only if all steps pass will the plugin be packed.
 #
-# Usage: npm run pre-pack (usually invoked via 'npm run pack' if configured, or manually)
+# Usage:
+#   npm run pre-pack
+#   npm run pre-pack -- --audit-fix
 #
 
 set -e
@@ -16,6 +19,29 @@ GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
+
+RUN_AUDIT_FIX=false
+
+for arg in "$@"; do
+    case "$arg" in
+        --audit-fix)
+            RUN_AUDIT_FIX=true
+            ;;
+        *)
+            echo -e "${RED}❌ Unknown argument: $arg${NC}"
+            echo "Usage: $0 [--audit-fix]"
+            exit 1
+            ;;
+    esac
+done
+
+if [ "$RUN_AUDIT_FIX" = true ]; then
+    echo -e "${YELLOW}🔐 Applying security fixes with npm audit...${NC}"
+    npm audit fix --force
+    echo -e "${GREEN}✅ Security fixes applied.${NC}"
+else
+    echo -e "${YELLOW}⏭️ Skipping npm audit fix. Use --audit-fix to enable it.${NC}"
+fi
 
 echo -e "${YELLOW}🔍 Running Lint...${NC}"
 

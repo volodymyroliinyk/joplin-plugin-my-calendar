@@ -1,7 +1,6 @@
 TODO:[1]:
-    - alarms
-        - check if alarm works correctly before an event and trigger_desc is correct.
-        - alarm body design.
+    - ics import:
+        - from url like https://calendar.google.com/calendar/ical/<usere mail>/private-<id>/basic.ics every N minutes
 TODO:[2]:
     - multilingual support.
 
