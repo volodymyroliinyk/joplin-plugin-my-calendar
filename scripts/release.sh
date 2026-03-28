@@ -93,4 +93,6 @@ fi
 echo -e "${YELLOW}📦 Publishing to NPM...${NC}"
 npm publish
 
+echo "https://www.npmjs.com/package/joplin-plugin-my-calendar?activeTab=readme"
+
 echo -e "${GREEN}✨ Release v$NEW_VERSION completed successfully!${NC}"

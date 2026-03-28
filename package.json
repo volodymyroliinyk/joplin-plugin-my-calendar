@@ -13,6 +13,7 @@
   "scripts": {
     "build": "webpack",
     "build:jpl": "npm run build && mkdir -p publish && cd dist && tar --format=ustar -cf ../publish/com.volodymyroliinyk.joplin.plugin.my-calendar.jpl manifest.json index.js ui && cp manifest.json ../publish/com.volodymyroliinyk.joplin.plugin.my-calendar.json",
+    "pre-pack": "bash scripts/pre-pack.sh",
     "prepack": "npm run build:jpl",
     "prepare": "husky",
     "clean": "rm -rf dist node_modules package-lock.json",

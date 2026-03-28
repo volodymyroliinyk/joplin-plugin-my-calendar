@@ -211,6 +211,7 @@ Customize your experience in the Joplin Settings (`Tools` > `Options` > `My Cale
 
 - `npm run build`: Compile the project.
 - `npm pack`: Create the `.jpl` distribution file.
+- `npm run pre-pack`: Run the pre-pack validation flow.
 - `npm test`: Run the extensive test suite (350+ cases).
 - `npm run lint`: Check code style and common patterns.
 - `pkill -f jest || true;pkill -f node || true;rm -rf node_modules/.cache;rm -rf ~/.cache/jest;npx jest --clearCache`:
@@ -222,10 +223,17 @@ The project includes helper scripts in the `scripts/` directory to streamline de
 
 #### `scripts/pre-pack.sh`
 
-Ensures code quality before packaging. It runs the linter (failing on warnings) and the full test suite.
+Ensures code quality before packaging. By default it runs the linter (failing on warnings), the full test suite, and
+then creates the package. Security fixes via `npm audit fix --force` are optional and must be enabled explicitly.
 
 ```bash
-bash ./scripts/pre-pack.sh;
+npm run pre-pack
+```
+
+To include forced audit fixes before validation:
+
+```bash
+npm run pre-pack -- --audit-fix
 ```
 
 #### `scripts/release.sh`
