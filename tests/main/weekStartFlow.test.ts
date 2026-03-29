@@ -7,7 +7,7 @@
 // Backend-focused tests for weekStart propagation.
 // NOTE: mocks ensureAllEventsCache returns [] to avoid noisy console errors.
 //
-import runPlugin from '../../src/main/pluginMain';
+import runPlugin, {__resetPluginMainForTests} from '../../src/main/pluginMain';
 
 jest.mock('../../src/main/views/calendarView', () => ({
     createCalendarPanel: jest.fn(),
@@ -23,7 +23,15 @@ jest.mock('../../src/main/uiBridge/panelController', () => ({
     registerCalendarPanelController: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('../../src/main/services/automatedIcsImportService', () => ({
+    startAutomatedIcsImport: jest.fn().mockResolvedValue({
+        refresh: jest.fn().mockResolvedValue(undefined),
+        stop: jest.fn(),
+    }),
+}));
+
 jest.mock('../../src/main/settings/settings', () => ({
+    AUTOMATED_ICS_IMPORT_SETTING_KEYS: ['mycalendar.icsAutoImportPairs'],
     registerSettings: jest.fn().mockResolvedValue(undefined),
     getWeekStart: jest.fn(),
     getDebugEnabled: jest.fn().mockResolvedValue(false),
@@ -89,6 +97,7 @@ function makeJoplinMock() {
 describe('weekStart flow (backend)', () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        __resetPluginMainForTests();
     });
 
     test('pushes uiSettings on startup (initial weekStart)', async () => {

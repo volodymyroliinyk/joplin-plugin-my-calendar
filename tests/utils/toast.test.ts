@@ -4,13 +4,14 @@
 //
 // TZ=UTC npx jest tests/utils/toast.test.ts --runInBand --no-cache;
 //
-import {showToast} from '../../src/main/utils/toast';
+import {__resetToastCacheForTests, clearToastCache, showToast} from '../../src/main/utils/toast';
 
 describe('toast', () => {
     let showToastSpy: jest.Mock;
     let nowSpy: jest.SpyInstance;
 
     beforeEach(() => {
+        __resetToastCacheForTests();
         showToastSpy = jest.fn().mockResolvedValue(undefined);
 
         // mock global joplin used by toast.ts
@@ -27,6 +28,7 @@ describe('toast', () => {
     });
 
     afterEach(() => {
+        __resetToastCacheForTests();
         nowSpy.mockRestore();
         delete (global as any).joplin;
         jest.clearAllMocks();
@@ -40,7 +42,6 @@ describe('toast', () => {
             type: 'success',
             message: 'Done',
             duration: 5000,
-            timestamp: 1700000000000,
         });
     });
 
@@ -51,7 +52,6 @@ describe('toast', () => {
             type: 'error',
             message: 'Failed',
             duration: 5000,
-            timestamp: 1700000000000,
         });
     });
 
@@ -59,5 +59,30 @@ describe('toast', () => {
         showToastSpy.mockRejectedValueOnce(new Error('boom'));
 
         await expect(showToast('info', 'Test')).rejects.toThrow('boom');
+    });
+
+    test('suppresses an identical toast while it is still in the recent-toast cache window', async () => {
+        await showToast('success', 'Done', 5000);
+        await showToast('success', 'Done', 5000);
+
+        expect(showToastSpy).toHaveBeenCalledTimes(1);
+    });
+
+    test('allows the same toast again after the dedupe window expires', async () => {
+        await showToast('success', 'Done', 5000);
+        nowSpy.mockReturnValue(1700000006001);
+
+        await showToast('success', 'Done', 5000);
+
+        expect(showToastSpy).toHaveBeenCalledTimes(2);
+    });
+
+    test('clearToastCache drops the recent-toast dedupe state immediately', async () => {
+        await showToast('success', 'Done', 5000);
+        clearToastCache();
+
+        await showToast('success', 'Done', 5000);
+
+        expect(showToastSpy).toHaveBeenCalledTimes(2);
     });
 });

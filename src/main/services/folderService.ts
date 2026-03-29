@@ -5,6 +5,7 @@ import {Joplin} from '../types/joplin.interface';
 export type FolderRow = { id: string; title: string; parent_id?: string | null };
 type FolderNode = { id: string; title: string; parent_id: string | null; children: FolderNode[] };
 export type FolderOption = { id: string; title: string; parent_id: string | null; depth: number };
+export type FolderPathOption = FolderOption & { pathTitle: string };
 
 const FOLDERS_PAGE_LIMIT = 100;
 
@@ -91,4 +92,52 @@ export function flattenFolderTree(rows: FolderRow[]): FolderOption[] {
     }
 
     return acc;
+}
+
+export function buildFolderPathOptions(rows: FolderRow[]): FolderPathOption[] {
+    const flat = flattenFolderTree(rows);
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    const cache = new Map<string, string>();
+
+    const buildPathTitle = (id: string, visiting: Set<string> = new Set()): string => {
+        const cached = cache.get(id);
+        if (cached) return cached;
+
+        const row = byId.get(id);
+        if (!row) return '';
+        if (visiting.has(id)) return row.title;
+
+        visiting.add(id);
+        const parentId = row.parent_id ?? null;
+        const pathTitle = parentId && byId.has(parentId)
+            ? `${buildPathTitle(parentId, visiting)} / ${row.title}`
+            : row.title;
+        visiting.delete(id);
+        cache.set(id, pathTitle);
+        return pathTitle;
+    };
+
+    return flat.map((item) => ({
+        ...item,
+        pathTitle: buildPathTitle(item.id),
+    }));
+}
+
+export function resolveFolderIdByTitle(rows: FolderRow[], requestedTitle: string): {
+    folderId?: string;
+    reason?: string
+} {
+    const safeTitle = String(requestedTitle ?? '').trim().toLowerCase();
+    if (!safeTitle) return {reason: 'Notebook title is empty'};
+
+    const options = buildFolderPathOptions(rows);
+    const pathMatches = options.filter((item) => item.pathTitle.trim().toLowerCase() === safeTitle);
+    if (pathMatches.length === 1) return {folderId: pathMatches[0].id};
+    if (pathMatches.length > 1) return {reason: `Notebook title "${requestedTitle}" is ambiguous`};
+
+    const titleMatches = options.filter((item) => item.title.trim().toLowerCase() === safeTitle);
+    if (titleMatches.length === 1) return {folderId: titleMatches[0].id};
+    if (titleMatches.length > 1) return {reason: `Notebook title "${requestedTitle}" is ambiguous`};
+
+    return {reason: `Notebook title "${requestedTitle}" was not found`};
 }

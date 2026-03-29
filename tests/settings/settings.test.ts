@@ -40,6 +40,30 @@ describe('settings.ts logic', () => {
         });
     });
 
+    describe('sanitizeSecureExternalUrl', () => {
+        test('keeps valid https URLs only', () => {
+            expect(settings.sanitizeSecureExternalUrl('https://example.com/a.ics')).toBe('https://example.com/a.ics');
+            expect(settings.sanitizeSecureExternalUrl('http://example.com/a.ics')).toBe('');
+        });
+    });
+
+    describe('parseAutomatedIcsImportEntries', () => {
+        test('keeps only unique valid https URL + notebook title pairs', () => {
+            const raw = [
+                'https://example.com/a.ics | Work',
+                'http://example.com/b.ics | Bad',
+                'https://example.com/c.ics',
+                'https://example.com/a.ics | Work',
+                'https://example.com/c.ics | Personal',
+            ].join(' ;; ');
+
+            expect(settings.parseAutomatedIcsImportEntries(raw)).toEqual([
+                {url: 'https://example.com/a.ics', notebookTitle: 'Work'},
+                {url: 'https://example.com/c.ics', notebookTitle: 'Personal'},
+            ]);
+        });
+    });
+
     describe('sanitizeTitle', () => {
         test('passes through short strings', () => {
             expect(settings.sanitizeTitle('My Link')).toBe('My Link');
@@ -148,6 +172,43 @@ describe('settings.ts logic', () => {
         });
     });
 
+    describe('automated ICS import settings helpers', () => {
+        const mkJoplin = (map: Record<string, any>) => ({
+            settings: {
+                value: jest.fn(async (key: string) => map[key]),
+            },
+        });
+
+        test('getAutomatedIcsImportEntries returns sanitized HTTPS URL + notebook title pairs only', async () => {
+            const joplin = mkJoplin({
+                [settings.SETTING_ICS_AUTO_IMPORT_PAIRS]: 'https://example.com/a.ics | Work ;; http://bad.test/x.ics | Bad ;; https://example.com/b.ics | Personal',
+            });
+
+            await expect(settings.getAutomatedIcsImportEntries(joplin)).resolves.toEqual([
+                {url: 'https://example.com/a.ics', notebookTitle: 'Work'},
+                {url: 'https://example.com/b.ics', notebookTitle: 'Personal'},
+            ]);
+        });
+
+        test('getAutomatedIcsImportIntervalMinutes clamps to 5-1440 with default 60', async () => {
+            await expect(settings.getAutomatedIcsImportIntervalMinutes(mkJoplin({
+                [settings.SETTING_ICS_AUTO_IMPORT_INTERVAL_MINUTES]: null,
+            }))).resolves.toBe(60);
+
+            await expect(settings.getAutomatedIcsImportIntervalMinutes(mkJoplin({
+                [settings.SETTING_ICS_AUTO_IMPORT_INTERVAL_MINUTES]: 1,
+            }))).resolves.toBe(5);
+
+            await expect(settings.getAutomatedIcsImportIntervalMinutes(mkJoplin({
+                [settings.SETTING_ICS_AUTO_IMPORT_INTERVAL_MINUTES]: 5000,
+            }))).resolves.toBe(1440);
+        });
+
+        test('sanitizeNotebookTitle trims unsafe whitespace', () => {
+            expect(settings.sanitizeNotebookTitle('  Work\t')).toBe('Work');
+        });
+    });
+
 
     describe('getWeekStart', () => {
         const mkJoplin = (val: any) => ({
@@ -248,6 +309,38 @@ describe('settings.ts logic', () => {
             // Debug should update logger
             expect(setDebugEnabled).toHaveBeenCalledWith(true);
         });
+
+        test('sanitizes automated import pairs to HTTPS-only ;;-separated url|title values', async () => {
+            const onChangeHandlers: Array<(e: any) => Promise<void>> = [];
+
+            const values = new Map<string, any>([
+                [settings.SETTING_ICS_AUTO_IMPORT_PAIRS, ' https://example.com/a.ics | Work ;; http://bad.test/b.ics | Bad ;; https://example.com/a.ics | Work '],
+                [settings.SETTING_DEBUG, false],
+            ]);
+
+            const joplin = {
+                versionInfo: jest.fn().mockResolvedValue({platform: 'desktop'}),
+                settings: {
+                    registerSection: jest.fn().mockResolvedValue(undefined),
+                    registerSettings: jest.fn().mockResolvedValue(undefined),
+                    onChange: jest.fn(async (cb: any) => {
+                        onChangeHandlers.push(cb);
+                    }),
+                    setValue: jest.fn(async (k: string, v: any) => {
+                        values.set(k, v);
+                    }),
+                    value: jest.fn(async (k: string) => values.get(k)),
+                },
+            };
+
+            await settings.registerSettings(joplin as any);
+            await onChangeHandlers[0]({keys: [settings.SETTING_ICS_AUTO_IMPORT_PAIRS]});
+
+            expect(joplin.settings.setValue).toHaveBeenCalledWith(
+                settings.SETTING_ICS_AUTO_IMPORT_PAIRS,
+                'https://example.com/a.ics | Work',
+            );
+        });
     });
 
     describe('registerSettings', () => {
@@ -273,6 +366,8 @@ describe('settings.ts logic', () => {
             expect(arg[settings.SETTING_ICS_IMPORT_ALARMS_ENABLED]).toBeDefined();
             expect(arg[settings.SETTING_ICS_IMPORT_ALARMS_ENABLED].value).toBe(false);
             expect(arg[settings.SETTING_ICS_IMPORT_ALARMS_ENABLED].type).toBe(3); // bool
+            expect(arg[settings.SETTING_ICS_AUTO_IMPORT_PAIRS]).toBeDefined();
+            expect(arg[settings.SETTING_ICS_AUTO_IMPORT_INTERVAL_MINUTES].value).toBe(60);
             expect(arg[settings.SETTING_DAY_EVENTS_VIEW_MODE]).toBeDefined();
             expect(arg[settings.SETTING_DAY_EVENTS_VIEW_MODE].value).toBe('single');
             expect(arg[settings.SETTING_DAY_EVENTS_VIEW_MODE].isEnum).toBe(true);

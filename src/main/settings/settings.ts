@@ -19,6 +19,8 @@ export const SETTING_SHOW_EVENT_TIMELINE = 'mycalendar.showEventTimeline';
 export const SETTING_ICS_IMPORT_ALARMS_ENABLED = 'mycalendar.icsImportAlarmsEnabled';
 export const SETTING_ICS_IMPORT_ALARM_RANGE_DAYS = 'mycalendar.icsImportAlarmRangeDays';
 export const SETTING_ICS_IMPORT_EMPTY_TRASH_AFTER = 'mycalendar.icsImportEmptyTrashAfter';
+export const SETTING_ICS_AUTO_IMPORT_PAIRS = 'mycalendar.icsAutoImportPairs';
+export const SETTING_ICS_AUTO_IMPORT_INTERVAL_MINUTES = 'mycalendar.icsAutoImportIntervalMinutes';
 
 // Export links
 
@@ -42,6 +44,11 @@ export type IcsExportLink = {
     url: string;
 };
 
+export type AutomatedIcsImportEntry = {
+    url: string;
+    notebookTitle: string;
+};
+
 const TITLE_MAX_LEN = 60;
 
 // Avoid magic numbers for setting item types (Joplin: int=1, string=2, bool=3)
@@ -58,6 +65,17 @@ const ICS_EXPORT_LINK_PAIRS: Array<{ titleKey: string; urlKey: string }> = [
 
 const ICS_EXPORT_URL_KEYS = ICS_EXPORT_LINK_PAIRS.map(p => p.urlKey);
 const ICS_EXPORT_TITLE_KEYS = ICS_EXPORT_LINK_PAIRS.map(p => p.titleKey);
+const AUTOMATED_ICS_IMPORT_MINUTES_DEFAULT = 60;
+const AUTOMATED_ICS_IMPORT_MINUTES_MIN = 5;
+const AUTOMATED_ICS_IMPORT_MINUTES_MAX = 24 * 60;
+
+export const AUTOMATED_ICS_IMPORT_SETTING_KEYS = [
+    SETTING_ICS_AUTO_IMPORT_PAIRS,
+    SETTING_ICS_AUTO_IMPORT_INTERVAL_MINUTES,
+    SETTING_ICS_IMPORT_ALARMS_ENABLED,
+    SETTING_ICS_IMPORT_ALARM_RANGE_DAYS,
+    SETTING_ICS_IMPORT_EMPTY_TRASH_AFTER,
+] as const;
 
 export function sanitizeExternalUrl(input: unknown): string {
     const s = String(input ?? '').trim();
@@ -71,6 +89,63 @@ export function sanitizeExternalUrl(input: unknown): string {
     } catch {
         return '';
     }
+}
+
+export function sanitizeSecureExternalUrl(input: unknown): string {
+    const safe = sanitizeExternalUrl(input);
+    if (!safe) return '';
+
+    try {
+        const u = new URL(safe);
+        return u.protocol === 'https:' ? u.toString() : '';
+    } catch {
+        return '';
+    }
+}
+
+export function sanitizeNotebookTitle(input: unknown): string {
+    const text = String(input ?? '');
+    let out = '';
+
+    for (const ch of text) {
+        const code = ch.charCodeAt(0);
+        out += (code <= 0x1f || code === 0x7f) ? ' ' : ch;
+    }
+
+    return out.trim();
+}
+
+export function parseAutomatedIcsImportEntries(input: unknown): AutomatedIcsImportEntry[] {
+    const raw = String(input ?? '');
+    const seen = new Set<string>();
+    const out: AutomatedIcsImportEntry[] = [];
+
+    const normalized = raw.replace(/\r?\n/g, ' ;; ');
+
+    for (const line of normalized.split(';;')) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+
+        const separatorIndex = trimmed.indexOf('|');
+        if (separatorIndex < 0) continue;
+
+        const url = sanitizeSecureExternalUrl(trimmed.slice(0, separatorIndex));
+        const notebookTitle = sanitizeNotebookTitle(trimmed.slice(separatorIndex + 1));
+        if (!url || !notebookTitle) continue;
+
+        const dedupeKey = `${url}\n${notebookTitle}`;
+        if (seen.has(dedupeKey)) continue;
+        seen.add(dedupeKey);
+        out.push({url, notebookTitle});
+    }
+
+    return out;
+}
+
+export function sanitizeAutomatedIcsImportEntries(input: unknown): string {
+    return parseAutomatedIcsImportEntries(input)
+        .map(({url, notebookTitle}) => `${url} | ${notebookTitle}`)
+        .join(' ;; ');
 }
 
 export function sanitizeTitle(input: unknown): string {
@@ -196,6 +271,22 @@ export async function registerSettings(joplin: any) {
             label: 'Empty trash after alarm cleanup',
             description: 'ICS import section: If enabled, the plugin will empty the trash after deleting old alarms. WARNING: This deletes ALL items in the trash bin.',
         },
+        [SETTING_ICS_AUTO_IMPORT_PAIRS]: {
+            value: '',
+            type: SETTING_TYPE_STRING,
+            section: 'mycalendar',
+            public: !mobile,
+            label: 'Automated ICS import pairs',
+            description: 'ICS import section: Use "https://...ics | Notebook Title ;; https://...ics | Another Notebook". ";;" separates pairs, "|" separates URL and notebook title.',
+        },
+        [SETTING_ICS_AUTO_IMPORT_INTERVAL_MINUTES]: {
+            value: AUTOMATED_ICS_IMPORT_MINUTES_DEFAULT,
+            type: SETTING_TYPE_INT,
+            section: 'mycalendar',
+            public: !mobile,
+            label: 'Automated ICS import interval (minutes)',
+            description: 'ICS import section: How often the plugin re-imports ICS URLs in the background. Allowed range: 5-1440 minutes.',
+        },
         // 8) ICS export links (up to 4)
         [SETTING_ICS_EXPORT_LINK1_TITLE]: {
             value: '',
@@ -296,16 +387,25 @@ export async function registerSettings(joplin: any) {
                     if (raw !== safe) await joplin.settings.setValue(key, safe);
                 };
 
+                const maybeFixAutomatedPairs = async (key: string) => {
+                    const raw = await joplin.settings.value(key);
+                    const safe = sanitizeAutomatedIcsImportEntries(raw);
+                    if (raw !== safe) await joplin.settings.setValue(key, safe);
+                };
 
                 const touchedUrl = ICS_EXPORT_URL_KEYS.some((k) => keys.includes(k));
                 const touchedTitle = ICS_EXPORT_TITLE_KEYS.some((k) => keys.includes(k));
+                const touchedAutoImportPairs = keys.includes(SETTING_ICS_AUTO_IMPORT_PAIRS);
                 const touchedDebug = keys.includes(SETTING_DEBUG);
-                if (!touchedUrl && !touchedTitle && !touchedDebug) return;
+                if (!touchedUrl && !touchedTitle && !touchedAutoImportPairs && !touchedDebug) return;
                 for (const k of ICS_EXPORT_URL_KEYS) {
                     if (keys.includes(k)) await maybeFixUrl(k);
                 }
                 for (const k of ICS_EXPORT_TITLE_KEYS) {
                     if (keys.includes(k)) await maybeFixTitle(k);
+                }
+                if (touchedAutoImportPairs) {
+                    await maybeFixAutomatedPairs(SETTING_ICS_AUTO_IMPORT_PAIRS);
                 }
                 if (touchedDebug) {
                     const v = await joplin.settings.value(SETTING_DEBUG);
@@ -383,6 +483,19 @@ export async function getIcsImportAlarmRangeDays(joplin: any): Promise<number> {
 
 export async function getIcsImportEmptyTrashAfter(joplin: any): Promise<boolean> {
     return !!(await joplin.settings.value(SETTING_ICS_IMPORT_EMPTY_TRASH_AFTER));
+}
+
+export async function getAutomatedIcsImportIntervalMinutes(joplin: any): Promise<number> {
+    const raw = await joplin.settings.value(SETTING_ICS_AUTO_IMPORT_INTERVAL_MINUTES);
+    if (raw === null || raw === undefined) return AUTOMATED_ICS_IMPORT_MINUTES_DEFAULT;
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return AUTOMATED_ICS_IMPORT_MINUTES_DEFAULT;
+    return Math.min(AUTOMATED_ICS_IMPORT_MINUTES_MAX, Math.max(AUTOMATED_ICS_IMPORT_MINUTES_MIN, Math.round(n)));
+}
+
+export async function getAutomatedIcsImportEntries(joplin: any): Promise<AutomatedIcsImportEntry[]> {
+    const raw = await joplin.settings.value(SETTING_ICS_AUTO_IMPORT_PAIRS);
+    return parseAutomatedIcsImportEntries(raw);
 }
 
 export async function getIcsExportLinks(joplin: any): Promise<IcsExportLink[]> {

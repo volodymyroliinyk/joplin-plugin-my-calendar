@@ -4,13 +4,16 @@ import {createCalendarPanel} from './views/calendarView';
 
 import {ensureAllEventsCache, invalidateAllEventsCache, refreshNoteCache} from './services/eventsCache';
 import {registerCalendarPanelController} from './uiBridge/panelController';
-import {registerSettings} from './settings/settings';
+import {AUTOMATED_ICS_IMPORT_SETTING_KEYS, registerSettings} from './settings/settings';
 import {pushUiSettings} from "./uiBridge/uiSettings";
 import {expandAllInRange} from './services/occurrenceService';
 import {Occurrence} from './utils/dateUtils';
 import {Joplin} from './types/joplin.interface';
+import {startAutomatedIcsImport} from './services/automatedIcsImportService';
 
 import {err, info, log, warn} from './utils/logger';
+
+let pluginStartPromise: Promise<void> | null = null;
 
 function pad2(n: number) {
     return String(n).padStart(2, '0');
@@ -85,8 +88,7 @@ async function focusPanelIfSupported(joplin: Joplin, panelId: string): Promise<v
 }
 
 
-export default async function runPlugin(joplin: Joplin) {
-
+async function startPlugin(joplin: Joplin): Promise<void> {
     log('pluginMain', 'Plugin start');
 
     await registerSettings(joplin);
@@ -97,6 +99,12 @@ export default async function runPlugin(joplin: Joplin) {
     await registerCalendarPanelController(joplin, panel, {
         expandAllInRange,
         buildICS,
+    });
+
+    const automatedIcsImport = await startAutomatedIcsImport(joplin, {
+        onAfterImport: async () => {
+            await safePostMessage(joplin, panel, {name: 'redrawMonth'});
+        },
     });
 
     // warm up the cache after the UI already has handlers
@@ -171,8 +179,13 @@ export default async function runPlugin(joplin: Joplin) {
     const onSettingsChange = joplin?.settings?.onChange;
     if (typeof onSettingsChange === 'function') {
         try {
-            await onSettingsChange(async () => {
+            await onSettingsChange(async (event?: { keys?: string[] }) => {
                 await pushUiSettings(joplin, panel);
+                const keys = Array.isArray(event?.keys) ? event.keys : [];
+                if (!keys.some((key) => AUTOMATED_ICS_IMPORT_SETTING_KEYS.includes(key as typeof AUTOMATED_ICS_IMPORT_SETTING_KEYS[number]))) {
+                    return;
+                }
+                await automatedIcsImport.refresh();
             });
         } catch (e) {
             warn('pluginMain', 'settings.onChange registration failed (non-fatal):', e);
@@ -190,6 +203,27 @@ export default async function runPlugin(joplin: Joplin) {
     // --- Create the import panel (desktop)
 
     await focusPanelIfSupported(joplin, panel);
+}
+
+export function __resetPluginMainForTests(): void {
+    pluginStartPromise = null;
+}
+
+export default async function runPlugin(joplin: Joplin): Promise<void> {
+    if (pluginStartPromise) {
+        log('pluginMain', 'Plugin already started - skip re-init');
+        await pluginStartPromise;
+        return;
+    }
+
+    pluginStartPromise = startPlugin(joplin);
+
+    try {
+        await pluginStartPromise;
+    } catch (error) {
+        pluginStartPromise = null;
+        throw error;
+    }
 }
 
 // Register the toggle command once. The label is intentionally static because
