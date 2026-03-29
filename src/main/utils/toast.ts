@@ -17,6 +17,7 @@ type DialogsLike = {
 
 let lastToastKey = '';
 let lastToastExpiresAt = 0;
+let ghostClearTimer: ReturnType<typeof setTimeout> | null = null;
 
 function getDialogs(): DialogsLike {
     // Joplin typings can lag, so we're doing a narrow cast here, in one place.
@@ -39,6 +40,10 @@ function rememberToast(type: ToastType, message: string, duration: number, now: 
 export function clearToastCache(): void {
     lastToastKey = '';
     lastToastExpiresAt = 0;
+    if (ghostClearTimer) {
+        clearTimeout(ghostClearTimer);
+        ghostClearTimer = null;
+    }
 }
 
 export function __resetToastCacheForTests(): void {
@@ -57,10 +62,34 @@ export async function showToast(
     const now = Date.now();
     if (isDuplicateToast(type, message, now)) return;
 
+    if (ghostClearTimer) {
+        clearTimeout(ghostClearTimer);
+        ghostClearTimer = null;
+    }
+
     await dialogs.showToast({
         type,
         message,
         duration: safeDuration,
     });
     rememberToast(type, message, safeDuration, now);
+
+    // FIX FOR JOPLIN GHOST TOAST BUG:
+    // Joplin's Redux state for `toastMessage` does not clear if the view unmounts
+    // before the duration expires (e.g. user goes to settings). This causes
+    // the identical toast to reappear endlessly upon navigation.
+    // We queue a silent clear payload to overwrite the Redux state
+    // just after the duration naturally expires.
+    ghostClearTimer = setTimeout(() => {
+        ghostClearTimer = null;
+        if (lastToastKey === buildToastKey(type, message)) {
+            void dialogs.showToast({
+                type: 'info',
+                message: '',
+                duration: 10,
+            }).catch(() => {
+            });
+        }
+    }, safeDuration + 500);
+    return
 }
