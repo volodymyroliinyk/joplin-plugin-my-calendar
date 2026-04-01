@@ -187,6 +187,8 @@ Customize your experience in the Joplin Settings (`Tools` > `Options` > `My Cale
   min).
 - **Show event timeline**: Show a visual timeline bar under each event in the day list. Disabling this also stops
   related UI update timers. (Default: Enabled).
+- **Current timeline line color (hex)**: Optional custom color for the current-time line in the day event timeline.
+  Use `#RGB` or `#RRGGBB`, or leave empty to keep the default color.
 
 ### ICS Import (Desktop only)
 

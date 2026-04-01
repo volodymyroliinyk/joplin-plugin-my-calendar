@@ -14,6 +14,7 @@ export const SETTING_DAY_EVENTS_VIEW_MODE = 'mycalendar.dayEventsViewMode';
 export const SETTING_TIME_FORMAT = 'mycalendar.timeFormat';
 export const SETTING_DAY_EVENTS_REFRESH_MINUTES = 'mycalendar.dayEventsRefreshMinutes';
 export const SETTING_SHOW_EVENT_TIMELINE = 'mycalendar.showEventTimeline';
+export const SETTING_TIMELINE_NOW_LINE_COLOR = 'mycalendar.timelineNowLineColor';
 
 // ICS Import
 export const SETTING_ICS_IMPORT_ALARMS_ENABLED = 'mycalendar.icsImportAlarmsEnabled';
@@ -207,6 +208,12 @@ export function sanitizeTitle(input: unknown): string {
     return s.length > TITLE_MAX_LEN ? s.slice(0, TITLE_MAX_LEN) : s;
 }
 
+export function sanitizeHexColor(input: unknown): string {
+    const s = String(input ?? '').trim();
+    if (!s) return '';
+    return /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(s) ? s : '';
+}
+
 async function isMobile(joplin: any): Promise<boolean> {
     try {
         const v = await joplin.versionInfo();
@@ -296,6 +303,14 @@ export async function registerSettings(joplin: any) {
             public: true,
             label: 'Show event timeline',
             description: 'Day events section: Show a visual timeline bar under each event in the day list. Disabling this also stops related UI update timers (now dot / past status refresh).',
+        },
+        [SETTING_TIMELINE_NOW_LINE_COLOR]: {
+            value: '',
+            type: SETTING_TYPE_STRING,
+            section: 'mycalendar',
+            public: true,
+            label: 'Current timeline line color (hex)',
+            description: 'Day events section: Optional custom hex color for the current-time timeline line, for example #ffa334. Leave empty to use the default theme color.',
         },
 
         // 7) ICS Import
@@ -462,6 +477,12 @@ export async function registerSettings(joplin: any) {
                     if (raw !== safe) await joplin.settings.setValue(key, safe);
                 };
 
+                const maybeFixHexColor = async (key: string) => {
+                    const raw = await joplin.settings.value(key);
+                    const safe = sanitizeHexColor(raw);
+                    if (raw !== safe) await joplin.settings.setValue(key, safe);
+                };
+
                 const maybeFixAlarmEmoji = async (key: string) => {
                     const raw = await joplin.settings.value(key);
                     const safe = sanitizeAlarmEmoji(raw) || ALARM_EMOJI_DEFAULT;
@@ -478,9 +499,10 @@ export async function registerSettings(joplin: any) {
                 const touchedTitle = ICS_EXPORT_TITLE_KEYS.some((k) => keys.includes(k));
                 const touchedExportPairs = keys.includes(SETTING_ICS_EXPORT_LINK_PAIRS);
                 const touchedAutoImportPairs = keys.includes(SETTING_ICS_AUTO_IMPORT_PAIRS);
+                const touchedTimelineNowLineColor = keys.includes(SETTING_TIMELINE_NOW_LINE_COLOR);
                 const touchedAlarmEmoji = keys.includes(SETTING_ICS_IMPORT_ALARM_EMOJI);
                 const touchedDebug = keys.includes(SETTING_DEBUG);
-                if (!touchedUrl && !touchedTitle && !touchedExportPairs && !touchedAutoImportPairs && !touchedAlarmEmoji && !touchedDebug) return;
+                if (!touchedUrl && !touchedTitle && !touchedExportPairs && !touchedAutoImportPairs && !touchedTimelineNowLineColor && !touchedAlarmEmoji && !touchedDebug) return;
                 for (const k of ICS_EXPORT_URL_KEYS) {
                     if (keys.includes(k)) await maybeFixUrl(k);
                 }
@@ -492,6 +514,9 @@ export async function registerSettings(joplin: any) {
                 }
                 if (touchedAutoImportPairs) {
                     await maybeFixAutomatedPairs(SETTING_ICS_AUTO_IMPORT_PAIRS);
+                }
+                if (touchedTimelineNowLineColor) {
+                    await maybeFixHexColor(SETTING_TIMELINE_NOW_LINE_COLOR);
                 }
                 if (touchedAlarmEmoji) {
                     await maybeFixAlarmEmoji(SETTING_ICS_IMPORT_ALARM_EMOJI);
@@ -532,6 +557,11 @@ export async function getShowEventTimeline(joplin: any): Promise<boolean> {
     // Default should be true even if the setting is missing/undefined (older installs / migrations)
     if (raw === null || raw === undefined) return true;
     return Boolean(raw);
+}
+
+export async function getTimelineNowLineColor(joplin: any): Promise<string> {
+    const raw = await joplin.settings.value(SETTING_TIMELINE_NOW_LINE_COLOR);
+    return sanitizeHexColor(raw);
 }
 
 export async function getDayEventsRefreshMinutes(joplin: any): Promise<number> {

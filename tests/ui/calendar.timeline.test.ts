@@ -206,6 +206,16 @@ describe('calendar.js timeline settings', () => {
         expect(document.querySelector('[data-group-list=\"past\"]')?.textContent || '').toContain('Moving event');
     });
 
+    test('applies custom now-line color override and removes it when setting becomes empty', () => {
+        loadScript();
+
+        sendSettings({showEventTimeline: true, timelineNowLineColor: '#12ab34', dayEventsRefreshMinutes: 1});
+        expect(document.documentElement.style.getPropertyValue('--mc-current-time-v-line-color')).toBe('#12ab34');
+
+        sendSettings({timelineNowLineColor: ''});
+        expect(document.documentElement.style.getPropertyValue('--mc-current-time-v-line-color')).toBe('');
+    });
+
     test('grouped mode hides empty sections (example: only past events)', () => {
         loadScript();
 

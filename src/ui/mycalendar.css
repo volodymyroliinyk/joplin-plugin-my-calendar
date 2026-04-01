@@ -744,8 +744,8 @@ select::-webkit-scrollbar-thumb:hover {
     top: 0;
     bottom: 0;
     width: 1px;
-    background: color-mix(in srgb, var(--mc-default-current-time-v-line-color) 40%, transparent);
-    box-shadow: 0 0 2px color-mix(in srgb, var(--mc-default-current-time-v-line-color) 20%, transparent);
+    background: color-mix(in srgb, var(--mc-current-time-v-line-color, var(--mc-default-current-time-v-line-color)) 40%, transparent);
+    box-shadow: 0 0 2px color-mix(in srgb, var(--mc-current-time-v-line-color, var(--mc-default-current-time-v-line-color)) 20%, transparent);
     z-index: 1;
     display: none;
     /* shown via JS when inDay */

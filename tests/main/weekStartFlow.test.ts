@@ -37,6 +37,7 @@ jest.mock('../../src/main/settings/settings', () => ({
     getDebugEnabled: jest.fn().mockResolvedValue(false),
     getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(1),
     getShowEventTimeline: jest.fn().mockResolvedValue(true),
+    getTimelineNowLineColor: jest.fn().mockResolvedValue(''),
     getShowWeekNumbers: jest.fn().mockResolvedValue(false),
     getTimeFormat: jest.fn().mockResolvedValue('24h'),
     getDayEventsViewMode: jest.fn().mockResolvedValue('single'),

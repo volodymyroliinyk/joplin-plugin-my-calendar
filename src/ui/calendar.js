@@ -7,6 +7,7 @@
         debug: false,
         dayEventsRefreshMinutes: 1,
         showEventTimeline: true,
+        timelineNowLineColor: '',
         showWeekNumbers: false,
         timeFormat: '24h',
         dayEventsViewMode: 'single',
@@ -129,6 +130,15 @@
         if (box) box.style.display = (uiSettings.debug === true) ? '' : 'none';
     }
 
+    function applyTimelineNowLineColor() {
+        const color = typeof uiSettings.timelineNowLineColor === 'string' ? uiSettings.timelineNowLineColor.trim() : '';
+        if (color) {
+            document.documentElement.style.setProperty('--mc-current-time-v-line-color', color);
+        } else {
+            document.documentElement.style.removeProperty('--mc-current-time-v-line-color');
+        }
+    }
+
 
     function mcRegisterOnMessage(handler) {
         window.__mcMsgHandlers = window.__mcMsgHandlers || [];
@@ -154,6 +164,7 @@
     function init() {
         try {
             log('init start');
+            applyTimelineNowLineColor();
 
             const DAY = 24 * 60 * 60 * 1000;
 
@@ -685,6 +696,11 @@
 
                     if (typeof msg.showEventTimeline === 'boolean') {
                         uiSettings.showEventTimeline = msg.showEventTimeline;
+                    }
+
+                    if (typeof msg.timelineNowLineColor === 'string') {
+                        uiSettings.timelineNowLineColor = msg.timelineNowLineColor;
+                        applyTimelineNowLineColor();
                     }
 
                     if (msg.timeFormat === '12h' || msg.timeFormat === '24h') {

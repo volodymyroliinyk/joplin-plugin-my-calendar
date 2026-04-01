@@ -61,6 +61,19 @@ describe('settings.ts logic', () => {
         });
     });
 
+    describe('sanitizeHexColor', () => {
+        test('keeps valid short and full hex colors', () => {
+            expect(settings.sanitizeHexColor('#abc')).toBe('#abc');
+            expect(settings.sanitizeHexColor('#A1B2C3')).toBe('#A1B2C3');
+        });
+
+        test('returns empty string for invalid values', () => {
+            expect(settings.sanitizeHexColor('ffa334')).toBe('');
+            expect(settings.sanitizeHexColor('#12')).toBe('');
+            expect(settings.sanitizeHexColor('#12345g')).toBe('');
+        });
+    });
+
     describe('parseAutomatedIcsImportEntries', () => {
         test('keeps only unique valid https URL + notebook title pairs', () => {
             const raw = [
@@ -179,6 +192,18 @@ describe('settings.ts logic', () => {
         test('falls back to single for invalid or missing value', async () => {
             expect(await settings.getDayEventsViewMode(mkJoplin('other'))).toBe('single');
             expect(await settings.getDayEventsViewMode(mkJoplin(null))).toBe('single');
+        });
+    });
+
+    describe('getTimelineNowLineColor logic', () => {
+        const mkJoplin = (val: any) => ({
+            settings: {value: jest.fn().mockResolvedValue(val)}
+        });
+
+        test('returns sanitized hex color or empty string', async () => {
+            await expect(settings.getTimelineNowLineColor(mkJoplin('#ffa334'))).resolves.toBe('#ffa334');
+            await expect(settings.getTimelineNowLineColor(mkJoplin('bad-color'))).resolves.toBe('');
+            await expect(settings.getTimelineNowLineColor(mkJoplin(''))).resolves.toBe('');
         });
     });
 
@@ -352,12 +377,13 @@ describe('settings.ts logic', () => {
     });
 
     describe('registerSettings onChange sanitization + debug toggle', () => {
-        test('sanitizes touched export pairs, alarm emoji, and updates logger when debug changes', async () => {
+        test('sanitizes touched export pairs, alarm emoji, hex color, and updates logger when debug changes', async () => {
             const onChangeHandlers: Array<(e: any) => Promise<void>> = [];
 
             const values = new Map<string, any>([
                 [settings.SETTING_ICS_EXPORT_LINK_PAIRS, `  ${'x'.repeat(100)} | https://ok.test/a.ics ;; Bad | javascript:alert(1) `],
                 [settings.SETTING_ICS_IMPORT_ALARM_EMOJI, ' \n⏰\t '],
+                [settings.SETTING_TIMELINE_NOW_LINE_COLOR, '  orange  '],
                 [settings.SETTING_DEBUG, true],
             ]);
 
@@ -383,6 +409,7 @@ describe('settings.ts logic', () => {
                 keys: [
                     settings.SETTING_ICS_EXPORT_LINK_PAIRS,
                     settings.SETTING_ICS_IMPORT_ALARM_EMOJI,
+                    settings.SETTING_TIMELINE_NOW_LINE_COLOR,
                     settings.SETTING_DEBUG,
                 ],
             });
@@ -394,6 +421,10 @@ describe('settings.ts logic', () => {
             expect(joplin.settings.setValue).toHaveBeenCalledWith(
                 settings.SETTING_ICS_IMPORT_ALARM_EMOJI,
                 '⏰',
+            );
+            expect(joplin.settings.setValue).toHaveBeenCalledWith(
+                settings.SETTING_TIMELINE_NOW_LINE_COLOR,
+                '',
             );
 
             // Debug should update logger
@@ -464,6 +495,8 @@ describe('settings.ts logic', () => {
             expect(arg[settings.SETTING_DAY_EVENTS_VIEW_MODE]).toBeDefined();
             expect(arg[settings.SETTING_DAY_EVENTS_VIEW_MODE].value).toBe('single');
             expect(arg[settings.SETTING_DAY_EVENTS_VIEW_MODE].isEnum).toBe(true);
+            expect(arg[settings.SETTING_TIMELINE_NOW_LINE_COLOR]).toBeDefined();
+            expect(arg[settings.SETTING_TIMELINE_NOW_LINE_COLOR].value).toBe('');
         });
     });
 });
