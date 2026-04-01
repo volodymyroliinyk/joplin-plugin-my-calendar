@@ -202,7 +202,7 @@ Customize your experience in the Joplin Settings (`Tools` > `Options` > `My Cale
   its own existing notebook. If the notebook title is missing, invalid, not found, or ambiguous, that pair is skipped.
 - **Automated ICS import interval**: Choose how often automated URL imports run in the background. Allowed range:
   **5-1440 minutes**. (Default: 60 minutes).
-- **ICS export links**: Add up to 4 quick-access links to your favorite calendar exporters (e.g., Google
+- **ICS export links**: Add as many quick-access links as you need to your favorite calendar exporters (e.g., Google
   Calendar Export URL). These will appear as convenient buttons in the import panel.
 
 ### Developer

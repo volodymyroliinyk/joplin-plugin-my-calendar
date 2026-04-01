@@ -62,6 +62,26 @@ describe('settings.ts logic', () => {
                 {url: 'https://example.com/c.ics', notebookTitle: 'Personal'},
             ]);
         });
+
+        test('keeps all valid pairs without a legacy 4-item cap', () => {
+            const raw = [
+                'https://example.com/1.ics | Work',
+                'https://example.com/2.ics | Personal',
+                'https://example.com/3.ics | Family',
+                'https://example.com/4.ics | Travel',
+                'https://example.com/5.ics | Birthdays',
+                'https://example.com/6.ics | Projects',
+            ].join(' ;; ');
+
+            expect(settings.parseAutomatedIcsImportEntries(raw)).toEqual([
+                {url: 'https://example.com/1.ics', notebookTitle: 'Work'},
+                {url: 'https://example.com/2.ics', notebookTitle: 'Personal'},
+                {url: 'https://example.com/3.ics', notebookTitle: 'Family'},
+                {url: 'https://example.com/4.ics', notebookTitle: 'Travel'},
+                {url: 'https://example.com/5.ics', notebookTitle: 'Birthdays'},
+                {url: 'https://example.com/6.ics', notebookTitle: 'Projects'},
+            ]);
+        });
     });
 
     describe('sanitizeTitle', () => {
@@ -149,16 +169,15 @@ describe('settings.ts logic', () => {
     });
 
     describe('getIcsExportLinks filtering and sanitization', () => {
-        test('filters out invalid URLs and sanitizes titles', async () => {
+        test('parses new export link pairs format, filters invalid URLs, and sanitizes titles', async () => {
             const mockJoplin = {
                 settings: {
                     value: jest.fn().mockImplementation((key) => {
-                        if (key.includes('Link1Title')) return ' Good Link ';
-                        if (key.includes('Link1Url')) return 'https://ok.com';
-                        if (key.includes('Link2Title')) return 'Bad';
-                        if (key.includes('Link2Url')) return 'javascript:alert(1)';
-                        if (key.includes('Link3Title')) return 'x'.repeat(100);
-                        if (key.includes('Link3Url')) return 'http://ok2.com';
+                        if (key === settings.SETTING_ICS_EXPORT_LINK_PAIRS) {
+                            return ` Good Link | https://ok.com ;;
+                                Bad | javascript:alert(1) ;;
+                                ${'x'.repeat(100)} | http://ok2.com `;
+                        }
                         return '';
                     }),
                 },
@@ -169,6 +188,52 @@ describe('settings.ts logic', () => {
             expect(links[0]).toEqual({title: 'Good Link', url: 'https://ok.com/'});
             expect(links[1].title).toHaveLength(60);
             expect(links[1].url).toBe('http://ok2.com/');
+        });
+
+        test('returns all valid export pairs without a legacy 4-item cap', async () => {
+            const mockJoplin = {
+                settings: {
+                    value: jest.fn().mockImplementation((key) => {
+                        if (key === settings.SETTING_ICS_EXPORT_LINK_PAIRS) {
+                            return [
+                                'One | https://example.test/1.ics',
+                                'Two | https://example.test/2.ics',
+                                'Three | https://example.test/3.ics',
+                                'Four | https://example.test/4.ics',
+                                'Five | https://example.test/5.ics',
+                                'Six | https://example.test/6.ics',
+                            ].join(' ;; ');
+                        }
+                        return '';
+                    }),
+                },
+            };
+
+            await expect(settings.getIcsExportLinks(mockJoplin)).resolves.toEqual([
+                {title: 'One', url: 'https://example.test/1.ics'},
+                {title: 'Two', url: 'https://example.test/2.ics'},
+                {title: 'Three', url: 'https://example.test/3.ics'},
+                {title: 'Four', url: 'https://example.test/4.ics'},
+                {title: 'Five', url: 'https://example.test/5.ics'},
+                {title: 'Six', url: 'https://example.test/6.ics'},
+            ]);
+        });
+
+        test('falls back to legacy export link fields when new pairs field is empty', async () => {
+            const mockJoplin = {
+                settings: {
+                    value: jest.fn().mockImplementation((key) => {
+                        if (key === settings.SETTING_ICS_EXPORT_LINK_PAIRS) return '';
+                        if (key.includes('Link1Title')) return ' Work ';
+                        if (key.includes('Link1Url')) return 'https://example.test/work.ics';
+                        return '';
+                    }),
+                },
+            };
+
+            await expect(settings.getIcsExportLinks(mockJoplin)).resolves.toEqual([
+                {title: 'Work', url: 'https://example.test/work.ics'},
+            ]);
         });
     });
 
@@ -263,12 +328,11 @@ describe('settings.ts logic', () => {
     });
 
     describe('registerSettings onChange sanitization + debug toggle', () => {
-        test('sanitizes touched URL/title and updates logger when debug changes', async () => {
+        test('sanitizes touched export pairs and updates logger when debug changes', async () => {
             const onChangeHandlers: Array<(e: any) => Promise<void>> = [];
 
             const values = new Map<string, any>([
-                [settings.SETTING_ICS_EXPORT_LINK1_URL, 'javascript:alert(1)'],
-                [settings.SETTING_ICS_EXPORT_LINK1_TITLE, '  ' + 'x'.repeat(100) + '  '],
+                [settings.SETTING_ICS_EXPORT_LINK_PAIRS, `  ${'x'.repeat(100)} | https://ok.test/a.ics ;; Bad | javascript:alert(1) `],
                 [settings.SETTING_DEBUG, true],
             ]);
 
@@ -289,22 +353,18 @@ describe('settings.ts logic', () => {
 
             await settings.registerSettings(joplin);
 
-            // trigger onChange with URL + Title + Debug touched
+            // trigger onChange with export pairs + Debug touched
             await onChangeHandlers[0]({
                 keys: [
-                    settings.SETTING_ICS_EXPORT_LINK1_URL,
-                    settings.SETTING_ICS_EXPORT_LINK1_TITLE,
+                    settings.SETTING_ICS_EXPORT_LINK_PAIRS,
                     settings.SETTING_DEBUG,
                 ],
             });
 
-            // URL should be wiped
-            expect(joplin.settings.setValue).toHaveBeenCalledWith(settings.SETTING_ICS_EXPORT_LINK1_URL, '');
-            // Title should be trimmed+truncated to 60
-            const titleSetCalls = (joplin.settings.setValue as any).mock.calls
-                .filter((c: any[]) => c[0] === settings.SETTING_ICS_EXPORT_LINK1_TITLE);
-            expect(titleSetCalls).toHaveLength(1);
-            expect(String(titleSetCalls[0][1]).length).toBe(60);
+            expect(joplin.settings.setValue).toHaveBeenCalledWith(
+                settings.SETTING_ICS_EXPORT_LINK_PAIRS,
+                `${'x'.repeat(60)} | https://ok.test/a.ics`,
+            );
 
             // Debug should update logger
             expect(setDebugEnabled).toHaveBeenCalledWith(true);
@@ -367,6 +427,7 @@ describe('settings.ts logic', () => {
             expect(arg[settings.SETTING_ICS_IMPORT_ALARMS_ENABLED].value).toBe(false);
             expect(arg[settings.SETTING_ICS_IMPORT_ALARMS_ENABLED].type).toBe(3); // bool
             expect(arg[settings.SETTING_ICS_AUTO_IMPORT_PAIRS]).toBeDefined();
+            expect(arg[settings.SETTING_ICS_EXPORT_LINK_PAIRS]).toBeDefined();
             expect(arg[settings.SETTING_ICS_AUTO_IMPORT_INTERVAL_MINUTES].value).toBe(60);
             expect(arg[settings.SETTING_DAY_EVENTS_VIEW_MODE]).toBeDefined();
             expect(arg[settings.SETTING_DAY_EVENTS_VIEW_MODE].value).toBe('single');

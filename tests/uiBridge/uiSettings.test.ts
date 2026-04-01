@@ -176,7 +176,7 @@ describe('uiSettings.pushUiSettings', () => {
             getDebugEnabled: jest.fn().mockResolvedValue(false),
             getIcsExportLinks: jest
                 .fn()
-                .mockResolvedValue([{title: 'Work', url: 'https://example.test/work.ics'}]),
+                .mockResolvedValue([{title: 'Work', url: 'https://example.test/work.ics/'}]),
             getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(getDayEventsRefreshMinutes_DEFAULT),
             getShowEventTimeline: jest.fn().mockResolvedValue(true),
             getShowWeekNumbers: jest.fn().mockResolvedValue(false),
@@ -199,7 +199,7 @@ describe('uiSettings.pushUiSettings', () => {
             name: 'uiSettings',
             weekStart: 'sunday',
             debug: false,
-            icsExportLinks: [{title: 'Work', url: 'https://example.test/work.ics'}],
+            icsExportLinks: [{title: 'Work', url: 'https://example.test/work.ics/'}],
             dayEventsRefreshMinutes: getDayEventsRefreshMinutes_DEFAULT,
             showEventTimeline: true,
             showWeekNumbers: false,

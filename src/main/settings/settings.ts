@@ -23,8 +23,9 @@ export const SETTING_ICS_AUTO_IMPORT_PAIRS = 'mycalendar.icsAutoImportPairs';
 export const SETTING_ICS_AUTO_IMPORT_INTERVAL_MINUTES = 'mycalendar.icsAutoImportIntervalMinutes';
 
 // Export links
+export const SETTING_ICS_EXPORT_LINK_PAIRS = 'mycalendar.icsExportLinkPairs';
 
-// New multi-link settings (up to 4). Titles are optional.
+// Legacy multi-link settings. Kept as hidden fallback for existing installs.
 export const SETTING_ICS_EXPORT_LINK1_TITLE = 'mycalendar.icsExportLink1Title';
 export const SETTING_ICS_EXPORT_LINK1_URL = 'mycalendar.icsExportLink1Url';
 export const SETTING_ICS_EXPORT_LINK2_TITLE = 'mycalendar.icsExportLink2Title';
@@ -145,6 +146,39 @@ export function parseAutomatedIcsImportEntries(input: unknown): AutomatedIcsImpo
 export function sanitizeAutomatedIcsImportEntries(input: unknown): string {
     return parseAutomatedIcsImportEntries(input)
         .map(({url, notebookTitle}) => `${url} | ${notebookTitle}`)
+        .join(' ;; ');
+}
+
+export function parseIcsExportLinks(input: unknown): IcsExportLink[] {
+    const raw = String(input ?? '');
+    const seen = new Set<string>();
+    const out: IcsExportLink[] = [];
+
+    const normalized = raw.replace(/\r?\n/g, ' ;; ');
+
+    for (const line of normalized.split(';;')) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+
+        const separatorIndex = trimmed.indexOf('|');
+        if (separatorIndex < 0) continue;
+
+        const title = sanitizeTitle(trimmed.slice(0, separatorIndex));
+        const url = sanitizeExternalUrl(trimmed.slice(separatorIndex + 1));
+        if (!url) continue;
+
+        const dedupeKey = `${title}\n${url}`;
+        if (seen.has(dedupeKey)) continue;
+        seen.add(dedupeKey);
+        out.push({title, url});
+    }
+
+    return out;
+}
+
+export function sanitizeIcsExportLinks(input: unknown): string {
+    return parseIcsExportLinks(input)
+        .map(({title, url}) => `${title} | ${url}`)
         .join(' ;; ');
 }
 
@@ -276,8 +310,8 @@ export async function registerSettings(joplin: any) {
             type: SETTING_TYPE_STRING,
             section: 'mycalendar',
             public: !mobile,
-            label: 'Automated ICS import pairs',
-            description: 'ICS import section: Use "https://...ics | Notebook Title ;; https://...ics | Another Notebook". ";;" separates pairs, "|" separates URL and notebook title.',
+            label: 'Automated ICS import pairs (Link & Notebook Title)',
+            description: 'ICS import section: Use "https://...ics | Notebook Title ;; https://...ics | Another Notebook". Add as many valid pairs as needed. ";;" separates pairs, "|" separates URL and notebook title.',
         },
         [SETTING_ICS_AUTO_IMPORT_INTERVAL_MINUTES]: {
             value: AUTOMATED_ICS_IMPORT_MINUTES_DEFAULT,
@@ -287,12 +321,21 @@ export async function registerSettings(joplin: any) {
             label: 'Automated ICS import interval (minutes)',
             description: 'ICS import section: How often the plugin re-imports ICS URLs in the background. Allowed range: 5-1440 minutes.',
         },
-        // 8) ICS export links (up to 4)
+        [SETTING_ICS_EXPORT_LINK_PAIRS]: {
+            value: '',
+            type: SETTING_TYPE_STRING,
+            section: 'mycalendar',
+            public: !mobile,
+            label: 'ICS export link pairs (Button Title & Link)',
+            description: 'ICS import section: Use "Button Title | https://... ;; Another Button | https://...". Add as many valid pairs as needed. ";;" separates buttons, "|" separates button title and URL.',
+        },
+
+        // Legacy hidden fallback settings for older installs
         [SETTING_ICS_EXPORT_LINK1_TITLE]: {
             value: '',
             type: SETTING_TYPE_STRING, // string
             section: 'mycalendar',
-            public: !mobile,
+            public: false,
             label: 'ICS export link 1 title',
             description: 'ICS import section: Optional title for export link #1 (shown on button).',
         },
@@ -300,7 +343,7 @@ export async function registerSettings(joplin: any) {
             value: '',
             type: SETTING_TYPE_STRING, // string
             section: 'mycalendar',
-            public: !mobile,
+            public: false,
             label: 'ICS export link 1 URL',
             description: 'ICS import section: Optional URL for export link #1 (http/https only).',
         },
@@ -309,7 +352,7 @@ export async function registerSettings(joplin: any) {
             value: '',
             type: SETTING_TYPE_STRING,
             section: 'mycalendar',
-            public: !mobile,
+            public: false,
             label: 'ICS export link 2 title',
             description: 'ICS import section: Optional title for export link #2 (shown on button).',
         },
@@ -317,7 +360,7 @@ export async function registerSettings(joplin: any) {
             value: '',
             type: SETTING_TYPE_STRING,
             section: 'mycalendar',
-            public: !mobile,
+            public: false,
             label: 'ICS export link 2 URL',
             description: 'ICS import section: Optional URL for export link #2 (http/https only).',
         },
@@ -326,7 +369,7 @@ export async function registerSettings(joplin: any) {
             value: '',
             type: SETTING_TYPE_STRING,
             section: 'mycalendar',
-            public: !mobile,
+            public: false,
             label: 'ICS export link 3 title',
             description: 'ICS import section: Optional title for export link #3 (shown on button).',
         },
@@ -334,7 +377,7 @@ export async function registerSettings(joplin: any) {
             value: '',
             type: SETTING_TYPE_STRING,
             section: 'mycalendar',
-            public: !mobile,
+            public: false,
             label: 'ICS export link 3 URL',
             description: 'ICS import section: Optional URL for export link #3 (http/https only).',
         },
@@ -343,7 +386,7 @@ export async function registerSettings(joplin: any) {
             value: '',
             type: SETTING_TYPE_STRING,
             section: 'mycalendar',
-            public: !mobile,
+            public: false,
             label: 'ICS export link 4 title',
             description: 'ICS import section: Optional title for export link #4 (shown on button).',
         },
@@ -351,7 +394,7 @@ export async function registerSettings(joplin: any) {
             value: '',
             type: SETTING_TYPE_STRING,
             section: 'mycalendar',
-            public: !mobile,
+            public: false,
             label: 'ICS export link 4 URL',
             description: 'ICS import section: Optional URL for export link #4 (http/https only).',
         },
@@ -393,16 +436,26 @@ export async function registerSettings(joplin: any) {
                     if (raw !== safe) await joplin.settings.setValue(key, safe);
                 };
 
+                const maybeFixExportPairs = async (key: string) => {
+                    const raw = await joplin.settings.value(key);
+                    const safe = sanitizeIcsExportLinks(raw);
+                    if (raw !== safe) await joplin.settings.setValue(key, safe);
+                };
+
                 const touchedUrl = ICS_EXPORT_URL_KEYS.some((k) => keys.includes(k));
                 const touchedTitle = ICS_EXPORT_TITLE_KEYS.some((k) => keys.includes(k));
+                const touchedExportPairs = keys.includes(SETTING_ICS_EXPORT_LINK_PAIRS);
                 const touchedAutoImportPairs = keys.includes(SETTING_ICS_AUTO_IMPORT_PAIRS);
                 const touchedDebug = keys.includes(SETTING_DEBUG);
-                if (!touchedUrl && !touchedTitle && !touchedAutoImportPairs && !touchedDebug) return;
+                if (!touchedUrl && !touchedTitle && !touchedExportPairs && !touchedAutoImportPairs && !touchedDebug) return;
                 for (const k of ICS_EXPORT_URL_KEYS) {
                     if (keys.includes(k)) await maybeFixUrl(k);
                 }
                 for (const k of ICS_EXPORT_TITLE_KEYS) {
                     if (keys.includes(k)) await maybeFixTitle(k);
+                }
+                if (touchedExportPairs) {
+                    await maybeFixExportPairs(SETTING_ICS_EXPORT_LINK_PAIRS);
                 }
                 if (touchedAutoImportPairs) {
                     await maybeFixAutomatedPairs(SETTING_ICS_AUTO_IMPORT_PAIRS);
@@ -499,6 +552,11 @@ export async function getAutomatedIcsImportEntries(joplin: any): Promise<Automat
 }
 
 export async function getIcsExportLinks(joplin: any): Promise<IcsExportLink[]> {
+    const pairsRaw = await joplin.settings.value(SETTING_ICS_EXPORT_LINK_PAIRS);
+    const parsedPairs = parseIcsExportLinks(pairsRaw);
+    if (parsedPairs.length > 0) {
+        return parsedPairs;
+    }
 
     const out: IcsExportLink[] = [];
 
