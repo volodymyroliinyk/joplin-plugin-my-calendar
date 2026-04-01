@@ -19,6 +19,7 @@ export const SETTING_SHOW_EVENT_TIMELINE = 'mycalendar.showEventTimeline';
 export const SETTING_ICS_IMPORT_ALARMS_ENABLED = 'mycalendar.icsImportAlarmsEnabled';
 export const SETTING_ICS_IMPORT_ALARM_RANGE_DAYS = 'mycalendar.icsImportAlarmRangeDays';
 export const SETTING_ICS_IMPORT_EMPTY_TRASH_AFTER = 'mycalendar.icsImportEmptyTrashAfter';
+export const SETTING_ICS_IMPORT_ALARM_EMOJI = 'mycalendar.icsImportAlarmEmoji';
 export const SETTING_ICS_AUTO_IMPORT_PAIRS = 'mycalendar.icsAutoImportPairs';
 export const SETTING_ICS_AUTO_IMPORT_INTERVAL_MINUTES = 'mycalendar.icsAutoImportIntervalMinutes';
 
@@ -51,6 +52,8 @@ export type AutomatedIcsImportEntry = {
 };
 
 const TITLE_MAX_LEN = 60;
+const ALARM_EMOJI_DEFAULT = '🔔';
+const ALARM_EMOJI_MAX_LEN = 16;
 
 // Avoid magic numbers for setting item types (Joplin: int=1, string=2, bool=3)
 const SETTING_TYPE_INT = 1;
@@ -76,6 +79,7 @@ export const AUTOMATED_ICS_IMPORT_SETTING_KEYS = [
     SETTING_ICS_IMPORT_ALARMS_ENABLED,
     SETTING_ICS_IMPORT_ALARM_RANGE_DAYS,
     SETTING_ICS_IMPORT_EMPTY_TRASH_AFTER,
+    SETTING_ICS_IMPORT_ALARM_EMOJI,
 ] as const;
 
 export function sanitizeExternalUrl(input: unknown): string {
@@ -114,6 +118,20 @@ export function sanitizeNotebookTitle(input: unknown): string {
     }
 
     return out.trim();
+}
+
+export function sanitizeAlarmEmoji(input: unknown): string {
+    const text = String(input ?? '');
+    let out = '';
+
+    for (const ch of text) {
+        const code = ch.charCodeAt(0);
+        out += (code <= 0x1f || code === 0x7f) ? ' ' : ch;
+    }
+
+    const compact = out.replace(/\s+/g, ' ').trim();
+    if (!compact) return '';
+    return compact.length > ALARM_EMOJI_MAX_LEN ? compact.slice(0, ALARM_EMOJI_MAX_LEN) : compact;
 }
 
 export function parseAutomatedIcsImportEntries(input: unknown): AutomatedIcsImportEntry[] {
@@ -305,6 +323,14 @@ export async function registerSettings(joplin: any) {
             label: 'Empty trash after alarm cleanup',
             description: 'ICS import section: If enabled, the plugin will empty the trash after deleting old alarms. WARNING: This deletes ALL items in the trash bin.',
         },
+        [SETTING_ICS_IMPORT_ALARM_EMOJI]: {
+            value: ALARM_EMOJI_DEFAULT,
+            type: SETTING_TYPE_STRING,
+            section: 'mycalendar',
+            public: !mobile,
+            label: 'ICS reminder emoji',
+            description: 'ICS import section: Emoji or short prefix added to imported reminder note titles. Default: 🔔.',
+        },
         [SETTING_ICS_AUTO_IMPORT_PAIRS]: {
             value: '',
             type: SETTING_TYPE_STRING,
@@ -436,6 +462,12 @@ export async function registerSettings(joplin: any) {
                     if (raw !== safe) await joplin.settings.setValue(key, safe);
                 };
 
+                const maybeFixAlarmEmoji = async (key: string) => {
+                    const raw = await joplin.settings.value(key);
+                    const safe = sanitizeAlarmEmoji(raw) || ALARM_EMOJI_DEFAULT;
+                    if (raw !== safe) await joplin.settings.setValue(key, safe);
+                };
+
                 const maybeFixExportPairs = async (key: string) => {
                     const raw = await joplin.settings.value(key);
                     const safe = sanitizeIcsExportLinks(raw);
@@ -446,8 +478,9 @@ export async function registerSettings(joplin: any) {
                 const touchedTitle = ICS_EXPORT_TITLE_KEYS.some((k) => keys.includes(k));
                 const touchedExportPairs = keys.includes(SETTING_ICS_EXPORT_LINK_PAIRS);
                 const touchedAutoImportPairs = keys.includes(SETTING_ICS_AUTO_IMPORT_PAIRS);
+                const touchedAlarmEmoji = keys.includes(SETTING_ICS_IMPORT_ALARM_EMOJI);
                 const touchedDebug = keys.includes(SETTING_DEBUG);
-                if (!touchedUrl && !touchedTitle && !touchedExportPairs && !touchedAutoImportPairs && !touchedDebug) return;
+                if (!touchedUrl && !touchedTitle && !touchedExportPairs && !touchedAutoImportPairs && !touchedAlarmEmoji && !touchedDebug) return;
                 for (const k of ICS_EXPORT_URL_KEYS) {
                     if (keys.includes(k)) await maybeFixUrl(k);
                 }
@@ -459,6 +492,9 @@ export async function registerSettings(joplin: any) {
                 }
                 if (touchedAutoImportPairs) {
                     await maybeFixAutomatedPairs(SETTING_ICS_AUTO_IMPORT_PAIRS);
+                }
+                if (touchedAlarmEmoji) {
+                    await maybeFixAlarmEmoji(SETTING_ICS_IMPORT_ALARM_EMOJI);
                 }
                 if (touchedDebug) {
                     const v = await joplin.settings.value(SETTING_DEBUG);
@@ -536,6 +572,11 @@ export async function getIcsImportAlarmRangeDays(joplin: any): Promise<number> {
 
 export async function getIcsImportEmptyTrashAfter(joplin: any): Promise<boolean> {
     return !!(await joplin.settings.value(SETTING_ICS_IMPORT_EMPTY_TRASH_AFTER));
+}
+
+export async function getIcsImportAlarmEmoji(joplin: any): Promise<string> {
+    const raw = await joplin.settings.value(SETTING_ICS_IMPORT_ALARM_EMOJI);
+    return sanitizeAlarmEmoji(raw) || ALARM_EMOJI_DEFAULT;
 }
 
 export async function getAutomatedIcsImportIntervalMinutes(joplin: any): Promise<number> {

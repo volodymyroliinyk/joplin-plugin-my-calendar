@@ -47,6 +47,20 @@ describe('settings.ts logic', () => {
         });
     });
 
+    describe('sanitizeAlarmEmoji', () => {
+        test('trims and keeps short prefixes', () => {
+            expect(settings.sanitizeAlarmEmoji('  🔕  ')).toBe('🔕');
+        });
+
+        test('removes control characters and truncates long values', () => {
+            expect(settings.sanitizeAlarmEmoji(' \n🔔\tcustom-prefix'.repeat(3))).toHaveLength(16);
+        });
+
+        test('returns empty string for blank values', () => {
+            expect(settings.sanitizeAlarmEmoji('   ')).toBe('');
+        });
+    });
+
     describe('parseAutomatedIcsImportEntries', () => {
         test('keeps only unique valid https URL + notebook title pairs', () => {
             const raw = [
@@ -269,6 +283,16 @@ describe('settings.ts logic', () => {
             }))).resolves.toBe(1440);
         });
 
+        test('getIcsImportAlarmEmoji returns sanitized custom value with default fallback', async () => {
+            await expect(settings.getIcsImportAlarmEmoji(mkJoplin({
+                [settings.SETTING_ICS_IMPORT_ALARM_EMOJI]: '  ⏰  ',
+            }))).resolves.toBe('⏰');
+
+            await expect(settings.getIcsImportAlarmEmoji(mkJoplin({
+                [settings.SETTING_ICS_IMPORT_ALARM_EMOJI]: '   ',
+            }))).resolves.toBe('🔔');
+        });
+
         test('sanitizeNotebookTitle trims unsafe whitespace', () => {
             expect(settings.sanitizeNotebookTitle('  Work\t')).toBe('Work');
         });
@@ -328,11 +352,12 @@ describe('settings.ts logic', () => {
     });
 
     describe('registerSettings onChange sanitization + debug toggle', () => {
-        test('sanitizes touched export pairs and updates logger when debug changes', async () => {
+        test('sanitizes touched export pairs, alarm emoji, and updates logger when debug changes', async () => {
             const onChangeHandlers: Array<(e: any) => Promise<void>> = [];
 
             const values = new Map<string, any>([
                 [settings.SETTING_ICS_EXPORT_LINK_PAIRS, `  ${'x'.repeat(100)} | https://ok.test/a.ics ;; Bad | javascript:alert(1) `],
+                [settings.SETTING_ICS_IMPORT_ALARM_EMOJI, ' \n⏰\t '],
                 [settings.SETTING_DEBUG, true],
             ]);
 
@@ -357,6 +382,7 @@ describe('settings.ts logic', () => {
             await onChangeHandlers[0]({
                 keys: [
                     settings.SETTING_ICS_EXPORT_LINK_PAIRS,
+                    settings.SETTING_ICS_IMPORT_ALARM_EMOJI,
                     settings.SETTING_DEBUG,
                 ],
             });
@@ -364,6 +390,10 @@ describe('settings.ts logic', () => {
             expect(joplin.settings.setValue).toHaveBeenCalledWith(
                 settings.SETTING_ICS_EXPORT_LINK_PAIRS,
                 `${'x'.repeat(60)} | https://ok.test/a.ics`,
+            );
+            expect(joplin.settings.setValue).toHaveBeenCalledWith(
+                settings.SETTING_ICS_IMPORT_ALARM_EMOJI,
+                '⏰',
             );
 
             // Debug should update logger
@@ -426,6 +456,8 @@ describe('settings.ts logic', () => {
             expect(arg[settings.SETTING_ICS_IMPORT_ALARMS_ENABLED]).toBeDefined();
             expect(arg[settings.SETTING_ICS_IMPORT_ALARMS_ENABLED].value).toBe(false);
             expect(arg[settings.SETTING_ICS_IMPORT_ALARMS_ENABLED].type).toBe(3); // bool
+            expect(arg[settings.SETTING_ICS_IMPORT_ALARM_EMOJI]).toBeDefined();
+            expect(arg[settings.SETTING_ICS_IMPORT_ALARM_EMOJI].value).toBe('🔔');
             expect(arg[settings.SETTING_ICS_AUTO_IMPORT_PAIRS]).toBeDefined();
             expect(arg[settings.SETTING_ICS_EXPORT_LINK_PAIRS]).toBeDefined();
             expect(arg[settings.SETTING_ICS_AUTO_IMPORT_INTERVAL_MINUTES].value).toBe(60);

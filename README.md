@@ -194,6 +194,8 @@ Customize your experience in the Joplin Settings (`Tools` > `Options` > `My Cale
   alarms will be deleted on re-import. (Default: Disabled).
 - **ICS import alarm range**: Define how many days into the future (up to 365) the plugin should scan and generate
   native Joplin reminders from your ICS files. (Default: 30 days).
+- **ICS reminder emoji**: Choose the emoji or short prefix shown at the start of imported reminder note titles.
+  (Default: `🔔`).
 - **Empty trash after alarm cleanup**: If enabled, the plugin will empty the trash after deleting old alarms. **WARNING
   **:
   This deletes ALL items in the trash. (Default: Disabled).

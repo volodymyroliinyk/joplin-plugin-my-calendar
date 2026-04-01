@@ -11,7 +11,11 @@ import {
 } from '../utils/dateTimeUtils';
 import {buildAlarmBody} from './noteBuilder';
 import {makeEventKey} from '../utils/joplinUtils';
-import {getIcsImportAlarmRangeDays, getIcsImportEmptyTrashAfter} from '../settings/settings';
+import {
+    getIcsImportAlarmEmoji,
+    getIcsImportAlarmRangeDays,
+    getIcsImportEmptyTrashAfter
+} from '../settings/settings';
 import {Joplin} from '../types/joplin.interface';
 import {createNote, deleteNote, updateNote} from './joplinNoteService';
 import {log} from '../utils/logger';
@@ -55,6 +59,10 @@ export type AlarmSyncOptions = {
      * Defaults to true.
      */
     alarmsEnabled?: boolean;
+    /**
+     * Overrides settings.getIcsImportAlarmEmoji().
+     */
+    alarmEmoji?: string;
 };
 
 function isNonNegativeFiniteNumber(v: unknown): v is number {
@@ -108,6 +116,14 @@ function buildAlarmNoteBody(args: {
     );
 }
 
+function buildAlarmTodoTitle(alarmEmoji: string, eventTitle: string, eventTime: Date, trigger: string): string {
+    const prefix = alarmEmoji.trim();
+    const triggerDesc = formatTriggerDescription(trigger);
+    return prefix
+        ? `${prefix} ${eventTitle} - ${formatAlarmTitleTime(eventTime)} (${triggerDesc})`
+        : `${eventTitle} - ${formatAlarmTitleTime(eventTime)} (${triggerDesc})`;
+}
+
 export async function syncAlarmsForEvents(
     joplin: Joplin,
     events: IcsEvent[],
@@ -139,6 +155,7 @@ export async function syncAlarmsForEvents(
 
 
     const emptyTrashAfter = typeof resolvedOptions.emptyTrashAfter === 'boolean' ? resolvedOptions.emptyTrashAfter : await getIcsImportEmptyTrashAfter(joplin);
+    const alarmEmoji = typeof resolvedOptions.alarmEmoji === 'string' ? resolvedOptions.alarmEmoji.trim() : await getIcsImportAlarmEmoji(joplin);
 
     const alarmsEnabled = resolvedOptions.alarmsEnabled !== false; // Default true
 
@@ -197,8 +214,7 @@ export async function syncAlarmsForEvents(
                 matchedDesiredIndices.add(matchIndex);
                 const {alarmTime, eventTime, trigger} = desiredAlarms[matchIndex];
                 const eventTitle = ev.title || 'Event';
-                const triggerDesc = formatTriggerDescription(trigger);
-                const todoTitle = `🔔  ${eventTitle} - ${formatAlarmTitleTime(eventTime)} (${triggerDesc})`;
+                const todoTitle = buildAlarmTodoTitle(alarmEmoji, eventTitle, eventTime, trigger);
                 const newBody = buildAlarmNoteBody({
                     eventTitle,
                     eventTime,
@@ -246,8 +262,7 @@ export async function syncAlarmsForEvents(
 
             const {alarmTime, eventTime, trigger} = desiredAlarms[i];
             const eventTitle = ev.title || 'Event';
-            const triggerDesc = formatTriggerDescription(trigger);
-            const todoTitle = `🔔 ${eventTitle} - ${formatAlarmTitleTime(eventTime)} (${triggerDesc})`;
+            const todoTitle = buildAlarmTodoTitle(alarmEmoji, eventTitle, eventTime, trigger);
             const body = buildAlarmNoteBody({
                 eventTitle,
                 eventTime,
