@@ -1,25 +1,27 @@
 # Ignore development files
-src/
-tests/
-scripts/
 .github/
 .husky/
 .idea/
 .vscode/
+ai_prompts/
 node_modules/
+scripts/
+src/
+tests/
 
 # Configs
-tsconfig.json
-webpack.config.js
-jest.config.js
-eslint.config.js
 .gitignore
 .npmrc
 .versionrc
 WORKFLOW.md
-list.todo
 directory-tree.txt
+eslint.config.js
+jest.config.js
+list.todo
+tsconfig.json
+webpack.config.js
 
 # Keep dist and publish
 !dist/
 !publish/
+

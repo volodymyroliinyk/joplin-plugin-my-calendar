@@ -77,6 +77,11 @@ type ImportResultLike = {
     alarmsDeleted: number;
 };
 
+type UtcRange = {
+    fromUtc: number;
+    toUtc: number;
+};
+
 function buildRangeIcsFilename(fromUtc: number, toUtc: number): string {
     return `mycalendar_${isoDate(fromUtc)}_${isoDate(toUtc)}.ics`;
 }
@@ -97,6 +102,74 @@ function restoreUiLogArg(arg: unknown): unknown {
     const e = new Error(arg.message || 'UI error');
     e.stack = arg.stack;
     return e;
+}
+
+function isValidUtcRange(fromUtc: unknown, toUtc: unknown): boolean {
+    return isNumber(fromUtc) && isNumber(toUtc) && fromUtc <= toUtc;
+}
+
+function getDayRange(dateUtc: number): UtcRange {
+    return {
+        fromUtc: dateUtc,
+        toUtc: dateUtc + 24 * 60 * 60 * 1000 - 1,
+    };
+}
+
+function parseImportDefaultColor(value: unknown): string | undefined {
+    return isString(value) && /^#[0-9a-fA-F]{6}$/.test(value) ? value : undefined;
+}
+
+function getErrorText(error: unknown): string {
+    return String((error as { message?: string })?.message || error);
+}
+
+async function postImportFailure(
+    post: (message: unknown) => Promise<void>,
+    errorText: string,
+): Promise<void> {
+    await post({name: 'importError', error: errorText});
+    await showToast('error', `ICS import failed: ${errorText}`, 5000);
+}
+
+async function handleIcsImportMessage(
+    joplin: Joplin,
+    post: (message: unknown) => Promise<void>,
+    msg: Extract<PanelMsg, { name: 'icsImport' }>,
+): Promise<void> {
+    const sendStatus = async (text: string) => {
+        await post({name: 'importStatus', text});
+        await showToast('info', text, 5000);
+    };
+
+    try {
+        if (!isString(msg.ics) || msg.ics.length === 0) {
+            await postImportFailure(post, 'Missing ICS content');
+            return;
+        }
+
+        const targetFolderId = isString(msg.targetFolderId) ? msg.targetFolderId : undefined;
+        const preserveLocalColor = msg.preserveLocalColor !== false;
+        const importDefaultColor = parseImportDefaultColor(msg.importDefaultColor);
+        const importAlarmRangeDays = await getIcsImportAlarmRangeDays(joplin);
+
+        const res = await importIcsIntoNotes(
+            joplin,
+            msg.ics,
+            sendStatus,
+            targetFolderId,
+            preserveLocalColor,
+            importDefaultColor,
+            importAlarmRangeDays
+        ) as ImportResultLike;
+
+        invalidateAllEventsCache();
+        await post({name: 'importDone', ...res});
+
+        const doneText = `ICS import finished: added=${res.added}, updated=${res.updated}, skipped=${res.skipped}, errors=${res.errors}, alarmsCreated=${res.alarmsCreated}, alarmsDeleted=${res.alarmsDeleted}`;
+        await showToast(res.errors > 0 ? 'warning' : 'success', doneText, 5000);
+    } catch (error) {
+        await postImportFailure(post, getErrorText(error));
+    }
 }
 
 function handleUiLog(msg: Extract<PanelMsg, { name: 'uiLog' }>) {
@@ -153,8 +226,7 @@ export async function registerCalendarPanelController(
                 }
 
                 case 'requestRangeEvents': {
-                    if (!isNumber(msg.fromUtc) || !isNumber(msg.toUtc)) return;
-                    if (msg.fromUtc > msg.toUtc) return;
+                    if (!isValidUtcRange(msg.fromUtc, msg.toUtc)) return;
                     const all = await ensureAllEventsCache(joplin);
                     const list = helpers.expandAllInRange(all, msg.fromUtc, msg.toUtc);
                     await post({name: 'rangeEvents', events: list});
@@ -164,8 +236,7 @@ export async function registerCalendarPanelController(
                 case 'dateClick': {
                     if (!isNumber(msg.dateUtc)) return;
 
-                    const dayStart = msg.dateUtc;
-                    const dayEnd = dayStart + 24 * 60 * 60 * 1000 - 1;
+                    const {fromUtc: dayStart, toUtc: dayEnd} = getDayRange(msg.dateUtc);
 
                     const all = await ensureAllEventsCache(joplin);
                     const list = helpers
@@ -190,8 +261,7 @@ export async function registerCalendarPanelController(
                 }
 
                 case 'exportRangeIcs': {
-                    if (!isNumber(msg.fromUtc) || !isNumber(msg.toUtc)) return;
-                    if (msg.fromUtc > msg.toUtc) return;
+                    if (!isValidUtcRange(msg.fromUtc, msg.toUtc)) return;
 
                     const all = await ensureAllEventsCache(joplin);
                     const list = helpers.expandAllInRange(all, msg.fromUtc, msg.toUtc);
@@ -206,49 +276,7 @@ export async function registerCalendarPanelController(
                 }
 
                 case 'icsImport': {
-                    const sendStatus = async (text: string) => {
-                        await post({name: 'importStatus', text});
-                        await showToast('info', text, 5000);
-                    };
-
-                    try {
-                        if (!isString(msg.ics) || msg.ics.length === 0) {
-                            const errText = 'Missing ICS content';
-                            await post({name: 'importError', error: errText});
-                            await showToast('error', `ICS import failed: ${errText}`, 5000);
-                            return;
-                        }
-
-                        const targetFolderId = isString(msg.targetFolderId) ? msg.targetFolderId : undefined;
-                        const preserveLocalColor = msg.preserveLocalColor !== false;
-
-                        const importDefaultColor =
-                            isString(msg.importDefaultColor) && /^#[0-9a-fA-F]{6}$/.test(msg.importDefaultColor)
-                                ? msg.importDefaultColor
-                                : undefined;
-
-                        const importAlarmRangeDays = await getIcsImportAlarmRangeDays(joplin);
-
-                        const res = await importIcsIntoNotes(
-                            joplin,
-                            msg.ics,
-                            sendStatus,
-                            targetFolderId,
-                            preserveLocalColor,
-                            importDefaultColor,
-                            importAlarmRangeDays
-                        ) as ImportResultLike;
-
-                        invalidateAllEventsCache();
-                        await post({name: 'importDone', ...res});
-
-                        const doneText = `ICS import finished: added=${res.added}, updated=${res.updated}, skipped=${res.skipped}, errors=${res.errors}, alarmsCreated=${res.alarmsCreated}, alarmsDeleted=${res.alarmsDeleted}`;
-                        await showToast(res.errors > 0 ? 'warning' : 'success', doneText, 5000);
-                    } catch (e: unknown) {
-                        const errText = String((e as { message?: string })?.message || e);
-                        await post({name: 'importError', error: errText});
-                        await showToast('error', `ICS import failed: ${errText}`, 5000);
-                    }
+                    await handleIcsImportMessage(joplin, post, msg);
                     return;
                 }
 

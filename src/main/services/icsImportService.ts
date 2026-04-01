@@ -1,6 +1,7 @@
 // src/main/services/icsImportService.ts
 
 import {parseImportText} from '../parsers/icsParser';
+import {IcsEvent} from '../types/icsTypes';
 import {
     extractEventColorFromBody,
     makeEventKey,
@@ -20,6 +21,15 @@ type ImportedEventNote = { id: string; parent_id?: string; title: string };
 type ImportedEventNotes = Record<string, ImportedEventNote>;
 type ExistingAlarmsMap = Record<string, ExistingAlarm[]>;
 type NoteIdToKeysMap = Record<string, string[]>;
+type ExistingNoteRow = {
+    id: string;
+    title?: string;
+    body?: string;
+    parent_id?: string;
+    todo_due?: number;
+    todo_completed?: number;
+    is_todo?: number;
+};
 
 type ImportIcsResult = {
     added: number;
@@ -40,7 +50,11 @@ function safeStatus(onStatus?: (text: string) => Promise<void>) {
     };
 }
 
-function indexExistingNotes(allNotes: any[]): {
+function getErrorMessage(error: unknown): string {
+    return String((error as { message?: string })?.message || error);
+}
+
+function indexExistingNotes(allNotes: ExistingNoteRow[]): {
     existingByKey: ExistingEventNoteMap;
     existingAlarms: ExistingAlarmsMap;
     noteIdToKeys: NoteIdToKeysMap;
@@ -81,7 +95,7 @@ function indexExistingNotes(allNotes: any[]): {
 }
 
 function applyImportColors(
-    ev: any,
+    ev: IcsEvent,
     existing: ExistingEventNoteMap,
     preserveLocalColor: boolean,
     importDefaultColor?: string,
@@ -122,7 +136,7 @@ export async function importIcsIntoNotes(
     try {
         alarmsEnabled = await getIcsImportAlarmsEnabled(joplin);
     } catch (e) {
-        await say(`[icsImportService] WARNING: Failed to read alarms setting; defaulting to enabled. ${String((e as any)?.message || e)}`);
+        await say(`[icsImportService] WARNING: Failed to read alarms setting; defaulting to enabled. ${getErrorMessage(e)}`);
     }
 
     let added = 0, updated = 0, skipped = 0, errors = 0;
@@ -154,7 +168,7 @@ export async function importIcsIntoNotes(
 
                 const newBody = replaceEventBlockByKey(currentBody, uid, rid, block);
 
-                const patch: any = {};
+                const patch: Partial<ExistingEventNote> = {};
                 let changedAtAll = false;
 
                 if (newBody !== currentBody) {
@@ -192,7 +206,7 @@ export async function importIcsIntoNotes(
                 importedEventNotes[key] = {id, parent_id: (targetFolderId || parent_id), title: desiredTitle};
             } catch (e) {
                 errors++;
-                await say(`[icsImportService] ERROR updating note: ${key} - ${String((e as any)?.message || e)}`);
+                await say(`[icsImportService] ERROR updating note: ${key} - ${getErrorMessage(e)}`);
             }
         } else {
             try {
@@ -204,7 +218,7 @@ export async function importIcsIntoNotes(
                 }
             } catch (e) {
                 errors++;
-                await say(`[icsImportService] ERROR creating note: ${key} - ${String((e as any)?.message || e)}`);
+                await say(`[icsImportService] ERROR creating note: ${key} - ${getErrorMessage(e)}`);
             }
         }
     }

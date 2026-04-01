@@ -14,6 +14,21 @@ import {startAutomatedIcsImport} from './services/automatedIcsImportService';
 import {err, info, log, warn} from './utils/logger';
 
 let pluginStartPromise: Promise<void> | null = null;
+const TOGGLE_COMMAND_LABEL = 'Toggle My Calendar';
+const TOGGLE_COMMAND_CANDIDATES = ['mycalendar.togglePanel', 'mycalendar.togglePanelV2'] as const;
+const TOGGLE_MENU_TARGETS = [
+    {id: 'mycalendarToggleMenuView', location: 'view'},
+    {id: 'mycalendarToggleMenuTools', location: 'tools'},
+] as const;
+const TOGGLE_TOOLBAR_TARGETS = [
+    {id: 'mycalendarToolbarButtonNote', location: 'noteToolbar'},
+    {id: 'mycalendarToolbarButtonEditor', location: 'editorToolbar'},
+] as const;
+
+type ToggleState = {
+    visible: boolean;
+    active?: boolean;
+};
 
 function pad2(n: number) {
     return String(n).padStart(2, '0');
@@ -75,6 +90,18 @@ async function safePostMessage(joplin: Joplin, panelId: string, message: unknown
     if (typeof pm === 'function') await pm(panelId, message);
 }
 
+async function postRedrawMonth(joplin: Joplin, panelId: string): Promise<void> {
+    await safePostMessage(joplin, panelId, {name: 'redrawMonth'});
+}
+
+async function pushUiSettingsSafely(joplin: Joplin, panelId: string, context: string): Promise<void> {
+    try {
+        await pushUiSettings(joplin, panelId);
+    } catch (error) {
+        warn('pluginMain', `${context} (non-fatal):`, error);
+    }
+}
+
 async function focusPanelIfSupported(joplin: Joplin, panelId: string): Promise<void> {
     try {
         const focus = joplin?.views?.panels?.focus;
@@ -103,7 +130,7 @@ async function startPlugin(joplin: Joplin): Promise<void> {
 
     const automatedIcsImport = await startAutomatedIcsImport(joplin, {
         onAfterImport: async () => {
-            await safePostMessage(joplin, panel, {name: 'redrawMonth'});
+            await postRedrawMonth(joplin, panel);
         },
     });
 
@@ -140,15 +167,9 @@ async function startPlugin(joplin: Joplin): Promise<void> {
         execute: async () => {
             await joplin.views.panels.show(panel);
             // Ensure the UI gets the latest weekStart when the panel becomes visible.
+            await pushUiSettingsSafely(joplin, panel, 'pushUiSettings failed in open command');
             try {
-                await pushUiSettings(joplin, panel);
-            } catch (e) {
-                warn('pluginMain', 'pushUiSettings failed in open command (non-fatal):', e);
-            }
-            try {
-                // const pm = joplin?.views?.panels?.postMessage;
-                // if (typeof pm === 'function') await pm(panel, {name: 'redrawMonth'});
-                await safePostMessage(joplin, panel, {name: 'redrawMonth'});
+                await postRedrawMonth(joplin, panel);
             } catch (_err) {
                 // ignore
             }
@@ -168,11 +189,7 @@ async function startPlugin(joplin: Joplin): Promise<void> {
         invalidateAllEventsCache();
     });
 
-    try {
-        await pushUiSettings(joplin, panel);
-    } catch (e) {
-        warn('pluginMain', 'Initial pushUiSettings failed (non-fatal):', e);
-    }
+    await pushUiSettingsSafely(joplin, panel, 'Initial pushUiSettings failed');
 
     // await joplin.views.panels.show(panel);
 
@@ -180,7 +197,7 @@ async function startPlugin(joplin: Joplin): Promise<void> {
     if (typeof onSettingsChange === 'function') {
         try {
             await onSettingsChange(async (event?: { keys?: string[] }) => {
-                await pushUiSettings(joplin, panel);
+                await pushUiSettingsSafely(joplin, panel, 'pushUiSettings failed after settings change');
                 const keys = Array.isArray(event?.keys) ? event.keys : [];
                 if (!keys.some((key) => AUTOMATED_ICS_IMPORT_SETTING_KEYS.includes(key as typeof AUTOMATED_ICS_IMPORT_SETTING_KEYS[number]))) {
                     return;
@@ -194,11 +211,7 @@ async function startPlugin(joplin: Joplin): Promise<void> {
         info('pluginMain', 'settings.onChange not available - skip');
     }
 
-    try {
-        await pushUiSettings(joplin, panel);
-    } catch (e) {
-        warn('pluginMain', 'pushUiSettings after toggle setup failed (non-fatal):', e);
-    }
+    await pushUiSettingsSafely(joplin, panel, 'pushUiSettings after toggle setup failed');
 
     // --- Create the import panel (desktop)
 
@@ -228,9 +241,7 @@ export default async function runPlugin(joplin: Joplin): Promise<void> {
 
 // Register the toggle command once. The label is intentionally static because
 // dynamic label updates are not reliably supported by Joplin's menu API.
-async function registerToggleCommand(joplin: Joplin, panel: string, toggleState: {
-    visible: boolean
-}): Promise<string> {
+async function registerToggleCommand(joplin: Joplin, panel: string, toggleState: ToggleState): Promise<string> {
     const execute = async () => {
         const nextVisible = !toggleState.visible;
         if (nextVisible) {
@@ -267,7 +278,7 @@ async function registerToggleCommand(joplin: Joplin, panel: string, toggleState:
     const registerByName = async (name: string): Promise<boolean> => {
         const commandWithIcon = {
             name,
-            label: 'Toggle My Calendar',
+            label: TOGGLE_COMMAND_LABEL,
             iconName: 'fas fa-calendar-alt',
             execute,
         };
@@ -282,7 +293,7 @@ async function registerToggleCommand(joplin: Joplin, panel: string, toggleState:
         try {
             await joplin.commands.register({
                 name,
-                label: 'Toggle My Calendar',
+                label: TOGGLE_COMMAND_LABEL,
                 execute,
             });
             return true;
@@ -292,8 +303,7 @@ async function registerToggleCommand(joplin: Joplin, panel: string, toggleState:
         }
     };
 
-    const candidates = ['mycalendar.togglePanel', 'mycalendar.togglePanelV2'];
-    for (const name of candidates) {
+    for (const name of TOGGLE_COMMAND_CANDIDATES) {
         if (await registerByName(name)) {
             return name;
         }
@@ -303,10 +313,13 @@ async function registerToggleCommand(joplin: Joplin, panel: string, toggleState:
 }
 
 // === MyCalendar: safe desktop toggle helper ===
-async function registerDesktopToggle(joplin: Joplin, panel: string, toggleState: {
-    visible: boolean;
-    active?: boolean
-}, toggleCommandName: string, toggleCommandError?: string) {
+async function registerDesktopToggle(
+    joplin: Joplin,
+    panel: string,
+    toggleState: ToggleState,
+    toggleCommandName: string,
+    toggleCommandError?: string,
+) {
     try {
         const canShow = !!joplin?.views?.panels?.show;
         const canMenu = !!joplin?.views?.menuItems?.create;
@@ -329,12 +342,8 @@ async function registerDesktopToggle(joplin: Joplin, panel: string, toggleState:
 
         const menuCreate = joplin.views?.menuItems?.create;
         if (typeof menuCreate === 'function') {
-            const menuTargets = [
-                {id: 'mycalendarToggleMenuView', location: 'view'},
-                {id: 'mycalendarToggleMenuTools', location: 'tools'},
-            ];
             let menuRegisteredCount = 0;
-            for (const target of menuTargets) {
+            for (const target of TOGGLE_MENU_TARGETS) {
                 try {
                     await menuCreate(
                         target.id,
@@ -355,12 +364,8 @@ async function registerDesktopToggle(joplin: Joplin, panel: string, toggleState:
 
         const toolbarCreate = joplin.views?.toolbarButtons?.create;
         if (typeof toolbarCreate === 'function') {
-            const toolbarTargets = [
-                {id: 'mycalendarToolbarButtonNote', location: 'noteToolbar'},
-                {id: 'mycalendarToolbarButtonEditor', location: 'editorToolbar'},
-            ];
             let toolbarRegisteredCount = 0;
-            for (const target of toolbarTargets) {
+            for (const target of TOGGLE_TOOLBAR_TARGETS) {
                 try {
                     await toolbarCreate(
                         target.id,
