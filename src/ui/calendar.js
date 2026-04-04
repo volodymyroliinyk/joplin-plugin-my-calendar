@@ -7,6 +7,7 @@
         debug: false,
         dayEventsRefreshMinutes: 1,
         showEventTimeline: true,
+        defaultEventColor: '',
         timelineNowLineColor: '',
         showWeekNumbers: false,
         timeFormat: '24h',
@@ -139,6 +140,15 @@
         }
     }
 
+    function applyDefaultEventColor() {
+        const color = typeof uiSettings.defaultEventColor === 'string' ? uiSettings.defaultEventColor.trim() : '';
+        if (color) {
+            document.documentElement.style.setProperty('--mc-event-color', color);
+        } else {
+            document.documentElement.style.removeProperty('--mc-event-color');
+        }
+    }
+
 
     function mcRegisterOnMessage(handler) {
         window.__mcMsgHandlers = window.__mcMsgHandlers || [];
@@ -164,6 +174,7 @@
     function init() {
         try {
             log('init start');
+            applyDefaultEventColor();
             applyTimelineNowLineColor();
 
             const DAY = 24 * 60 * 60 * 1000;
@@ -696,6 +707,11 @@
 
                     if (typeof msg.showEventTimeline === 'boolean') {
                         uiSettings.showEventTimeline = msg.showEventTimeline;
+                    }
+
+                    if (typeof msg.defaultEventColor === 'string') {
+                        uiSettings.defaultEventColor = msg.defaultEventColor;
+                        applyDefaultEventColor();
                     }
 
                     if (typeof msg.timelineNowLineColor === 'string') {
@@ -1245,7 +1261,7 @@
                     li.className = 'mc-event';
                     const color = document.createElement('span');
                     color.className = 'mc-color';
-                    color.style.background = ev.color || 'var(--mc-default-event-color)';
+                    color.style.background = ev.color || 'var(--mc-event-color, var(--mc-default-event-color))';
                     const title = document.createElement('span');
                     title.className = 'mc-title';
                     title.textContent = ev.title || '(without a title)';
@@ -1276,7 +1292,7 @@
 
                         const seg = document.createElement('div');
                         seg.className = 'mc-event-timeline-seg';
-                        seg.style.background = ev.color || 'var(--mc-default-event-color)';
+                        seg.style.background = ev.color || 'var(--mc-event-color, var(--mc-default-event-color))';
 
                         const startPct = clampPct(((slice.startUtc - dayStartUtc) / DAY) * 100);
                         const endPct = clampPct(((slice.endUtc - dayStartUtc) / DAY) * 100);

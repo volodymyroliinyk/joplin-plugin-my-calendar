@@ -465,6 +465,137 @@ describe('src/ui/icsImport.js', () => {
         expect(call.importDefaultColor).toBe('#abcdef');
     });
 
+    test('uiSettings defaultEventColor updates manual import color picker when no valid local override exists', () => {
+        setupDom(true);
+        const {getOnMessageCb} = installWebviewApi();
+
+        localStorage.setItem('mycalendar_import_color_enabled', '1');
+        localStorage.setItem('mycalendar_import_color_value', 'not-a-color');
+
+        loadIcsImportFresh();
+
+        sendPluginMessage(getOnMessageCb, {
+            name: 'uiSettings',
+            debug: false,
+            defaultEventColor: '#99ff66',
+            icsExportLinks: [],
+        });
+
+        const picker = qs('input[type="color"]') as HTMLInputElement;
+        expect(picker.value.toLowerCase()).toBe('#99ff66');
+    });
+
+    test('uiSettings defaultEventColor overrides a valid remembered manual import color', () => {
+        setupDom(true);
+        const {getOnMessageCb} = installWebviewApi();
+
+        localStorage.setItem('mycalendar_import_color_enabled', '1');
+        localStorage.setItem('mycalendar_import_color_value', '#abcdef');
+        localStorage.setItem('mycalendar_import_color_customized', '1');
+
+        loadIcsImportFresh();
+
+        sendPluginMessage(getOnMessageCb, {
+            name: 'uiSettings',
+            debug: false,
+            defaultEventColor: '#99ff66',
+            icsExportLinks: [],
+        });
+
+        const picker = qs('input[type="color"]') as HTMLInputElement;
+        expect(picker.value.toLowerCase()).toBe('#99ff66');
+    });
+
+    test('legacy stored blue without customized flag is treated as fallback and replaced by plugin defaultEventColor', () => {
+        setupDom(true);
+        const {getOnMessageCb} = installWebviewApi();
+
+        localStorage.setItem('mycalendar_import_color_enabled', '1');
+        localStorage.setItem('mycalendar_import_color_value', '#1470d9');
+
+        loadIcsImportFresh();
+
+        sendPluginMessage(getOnMessageCb, {
+            name: 'uiSettings',
+            debug: false,
+            defaultEventColor: '#99ff66',
+            icsExportLinks: [],
+        });
+
+        const picker = qs('input[type="color"]') as HTMLInputElement;
+        expect(picker.value.toLowerCase()).toBe('#99ff66');
+    });
+
+    test('customized stored legacy blue is still replaced by plugin defaultEventColor', () => {
+        setupDom(true);
+        const {getOnMessageCb} = installWebviewApi();
+
+        localStorage.setItem('mycalendar_import_color_enabled', '1');
+        localStorage.setItem('mycalendar_import_color_value', '#1470d9');
+        localStorage.setItem('mycalendar_import_color_customized', '1');
+
+        loadIcsImportFresh();
+
+        sendPluginMessage(getOnMessageCb, {
+            name: 'uiSettings',
+            debug: false,
+            defaultEventColor: '#99ff66',
+            icsExportLinks: [],
+        });
+
+        const picker = qs('input[type="color"]') as HTMLInputElement;
+        expect(picker.value.toLowerCase()).toBe('#99ff66');
+    });
+
+    test('manual import uses plugin defaultEventColor instead of remembered picker color when plugin setting is configured', () => {
+        setupDom(true);
+        const {getOnMessageCb, postMessage} = installWebviewApi();
+
+        localStorage.setItem('mycalendar_import_color_enabled', '1');
+        localStorage.setItem('mycalendar_import_color_value', '#abcdef');
+        localStorage.setItem('mycalendar_import_color_customized', '1');
+
+        const fr: any = {
+            result: null,
+            error: null,
+            onload: null,
+            onerror: null,
+            readAsText: jest.fn(function () {
+                fr.result = 'ICS';
+                if (typeof fr.onload === 'function') fr.onload();
+            }),
+        };
+        (global as any).FileReader = function () {
+            return fr;
+        };
+
+        loadIcsImportFresh();
+
+        sendPluginMessage(getOnMessageCb, {
+            name: 'uiSettings',
+            debug: false,
+            defaultEventColor: '#99ff66',
+            icsExportLinks: [],
+        });
+
+        sendPluginMessage(getOnMessageCb, {
+            name: 'folders',
+            folders: [{id: 'f1', title: 'Folder1', depth: 0}],
+        });
+
+        const fileInput = qs('#ics-file') as HTMLInputElement;
+        const fileObj: any = {name: 'x.ics', size: 1};
+        Object.defineProperty(fileInput, 'files', {value: [fileObj], configurable: true});
+
+        const importBtn = Array.from(document.querySelectorAll('button'))
+            .find(b => (b.textContent || '').trim() === 'Import') as HTMLButtonElement;
+
+        importBtn.click();
+
+        const call = postMessage.mock.calls.find(c => c[0]?.name === 'icsImport')?.[0];
+        expect(call.importDefaultColor).toBe('#99ff66');
+    });
+
     test('import section is a form and submit is AJAX-only (prevents default)', () => {
         setupDom(true);
         installWebviewApi();
@@ -775,17 +906,23 @@ describe('src/ui/icsImport.js', () => {
         expect(form.getAttribute('aria-busy')).toBe('false');
     });
 
-    test('invalid import default color in localStorage falls back to #1470d9', () => {
+    test('invalid import default color in localStorage falls back to plugin defaultEventColor from uiSettings', () => {
         setupDom(true);
-        installWebviewApi();
+        const {getOnMessageCb} = installWebviewApi();
 
         localStorage.setItem('mycalendar_import_color_enabled', '1');
         localStorage.setItem('mycalendar_import_color_value', 'not-a-color');
 
         loadIcsImportFresh();
 
+        sendPluginMessage(getOnMessageCb, {
+            name: 'uiSettings',
+            defaultEventColor: '#99ff66',
+            icsExportLinks: [],
+        });
+
         const picker = qs('input[type=\"color\"]') as HTMLInputElement;
-        expect(picker.value.toLowerCase()).toBe('#1470d9');
+        expect(picker.value.toLowerCase()).toBe('#99ff66');
     });
 
     test('safeGetLS/safeSetLS: localStorage exceptions do not crash UI', () => {

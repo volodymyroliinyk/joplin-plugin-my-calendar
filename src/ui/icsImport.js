@@ -7,6 +7,7 @@
     window.__mcUiSettings = window.__mcUiSettings || {
         weekStart: 'monday',
         debug: undefined,
+        defaultEventColor: '',
         // new multi-link format
         icsExportLinks: [],
     };
@@ -25,7 +26,10 @@
         preserveLocalColor: 'mycalendar_preserve_local_color',
         importColorEnabled: 'mycalendar_import_color_enabled',
         importColorValue: 'mycalendar_import_color_value',
+        importColorCustomized: 'mycalendar_import_color_customized',
     };
+
+    const LEGACY_DEFAULT_IMPORT_COLOR = '#1470d9';
 
     const MSG = Object.freeze({
         UI_READY: 'uiReady',
@@ -73,6 +77,32 @@
 
     function isValidHexColor(value) {
         return /^#[0-9a-fA-F]{6}$/.test(String(value || '').trim());
+    }
+
+    function getPluginImportDefaultColor() {
+        return isValidHexColor(uiSettings.defaultEventColor) ? String(uiSettings.defaultEventColor).toLowerCase() : '';
+    }
+
+    function getBuiltInImportDefaultColor() {
+        return LEGACY_DEFAULT_IMPORT_COLOR;
+    }
+
+    function hasCustomizedImportColor() {
+        return safeGetLS(LS.importColorCustomized, '0') === '1';
+    }
+
+    function shouldUseStoredImportColor(storedColor) {
+        if (!isValidHexColor(storedColor)) return false;
+        const normalizedStored = String(storedColor).toLowerCase();
+        if (normalizedStored === LEGACY_DEFAULT_IMPORT_COLOR) return false;
+        return hasCustomizedImportColor() || normalizedStored !== LEGACY_DEFAULT_IMPORT_COLOR;
+    }
+
+    function resolveInitialImportColor(storedColor) {
+        const pluginImportColor = getPluginImportDefaultColor();
+        if (pluginImportColor) return pluginImportColor;
+        if (shouldUseStoredImportColor(storedColor)) return String(storedColor).toLowerCase();
+        return getBuiltInImportDefaultColor();
     }
 
     function el(tag, attrs = {}, children = []) {
@@ -353,8 +383,8 @@
 
         let preserveLocalColor = safeGetLS(LS.preserveLocalColor, '1') !== '0';
         let importColorEnabled = safeGetLS(LS.importColorEnabled, '0') === '1';
-        let importColorValue = safeGetLS(LS.importColorValue, '#1470d9');
-        if (!isValidHexColor(importColorValue)) importColorValue = '#1470d9';
+        const storedImportColor = safeGetLS(LS.importColorValue, '');
+        let importColorValue = resolveInitialImportColor(storedImportColor);
 
         function getSafeExportLinks() {
             const rawLinks = Array.isArray(uiSettings.icsExportLinks) ? uiSettings.icsExportLinks : [];
@@ -384,6 +414,7 @@
             onchange: () => {
                 importColorValue = String(importColorPicker.value || '').trim();
                 safeSetLS(LS.importColorValue, importColorValue);
+                safeSetLS(LS.importColorCustomized, '1');
             },
         });
 
@@ -431,7 +462,7 @@
                             source: `filepicker:${f.name}`,
                             targetFolderId,
                             preserveLocalColor,
-                            importDefaultColor: importColorEnabled ? importColorValue : undefined,
+                            importDefaultColor: importColorEnabled ? resolveInitialImportColor(importColorValue) : undefined,
                         });
                         // IMPORTANT: keep import state until importDone/importError
                     } catch (e) {
@@ -511,7 +542,10 @@
             const handlers = {
                 [MSG.UI_SETTINGS]: () => {
                     if (typeof msg.debug === 'boolean') uiSettings.debug = msg.debug;
+                    if (typeof msg.defaultEventColor === 'string') uiSettings.defaultEventColor = msg.defaultEventColor;
                     if (Array.isArray(msg.icsExportLinks)) uiSettings.icsExportLinks = msg.icsExportLinks;
+                    importColorValue = resolveInitialImportColor(safeGetLS(LS.importColorValue, ''));
+                    importColorPicker.value = importColorValue;
                     applyDebugUI();
                 },
                 [MSG.IMPORT_STATUS]: () => {

@@ -28,6 +28,7 @@ jest.mock('../../src/main/settings/settings', () => {
     return {
         ...original,
         getIcsImportAlarmsEnabled: jest.fn(),
+        getImportDefaultEventColor: jest.fn(),
     };
 });
 
@@ -66,6 +67,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
         });
         // Default: alarms enabled
         (settings.getIcsImportAlarmsEnabled as jest.Mock).mockResolvedValue(true);
+        (settings.getImportDefaultEventColor as jest.Mock).mockResolvedValue('');
     });
 
     afterEach(() => {
@@ -205,6 +207,32 @@ describe('icsImportService.importIcsIntoNotes', () => {
             alarmsDeleted: 0,
             alarmsUpdated: 0
         });
+    });
+
+    test('uses configured default import color setting when request does not pass importDefaultColor', async () => {
+        (settings.getImportDefaultEventColor as jest.Mock).mockResolvedValue('#1470d9');
+
+        const ics = [
+            'BEGIN:VCALENDAR',
+            'BEGIN:VEVENT',
+            'UID:u-color-setting',
+            'SUMMARY:Color from setting',
+            'DTSTART:20250115T100000Z',
+            'DTEND:20250115T113000Z',
+            'END:VEVENT',
+            'END:VCALENDAR',
+        ].join('\n');
+
+        const joplin = mkJoplin({
+            get: jest.fn().mockResolvedValueOnce({items: [], has_more: false}),
+            post: jest.fn().mockResolvedValue({id: 'new-id'}),
+            put: jest.fn(),
+        });
+
+        await importIcsIntoNotes(joplin as any, ics);
+
+        const [, , noteBody] = joplin.data.post.mock.calls[0];
+        expect(noteBody.body).toContain('color: #1470d9');
     });
 
     test('creates todo+alarm notes from VALARM (only future alarms, within 60 days)', async () => {

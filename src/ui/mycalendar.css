@@ -557,7 +557,7 @@ select::-webkit-scrollbar-thumb:hover {
 .mc-bar {
     height: 4px;
     border-radius: 2px;
-    background: var(--mc-default-event-color);
+    background: var(--mc-event-color, var(--mc-default-event-color));
     opacity: 0.95;
     margin-bottom: 1px;
 }

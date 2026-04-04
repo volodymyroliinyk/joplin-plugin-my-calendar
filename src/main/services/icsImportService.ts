@@ -13,7 +13,7 @@ import {syncAlarmsForEvents, ExistingAlarm} from './alarmService';
 import {buildMyCalBlock} from './noteBuilder';
 import {Joplin} from '../types/joplin.interface';
 import {createNote, getAllNotesPaged, updateNote} from './joplinNoteService';
-import {getIcsImportAlarmsEnabled} from '../settings/settings';
+import {getIcsImportAlarmsEnabled, getImportDefaultEventColor} from '../settings/settings';
 
 type ExistingEventNote = { id: string; title: string; body: string; parent_id?: string };
 type ExistingEventNoteMap = Record<string, ExistingEventNote>;
@@ -122,6 +122,7 @@ export async function importIcsIntoNotes(
     importAlarmRangeDays?: number,
 ): Promise<ImportIcsResult> {
     const say = safeStatus(onStatus);
+    const resolvedImportDefaultColor = importDefaultColor || await getImportDefaultEventColor(joplin);
 
     const eventsRaw = parseImportText(ics);
     const events = eventsRaw.map(e => ({...e})); // avoid mutating parser output
@@ -150,7 +151,7 @@ export async function importIcsIntoNotes(
         }
 
         const rid = (ev.recurrence_id || '').trim();
-        const key = applyImportColors(ev, existing, preserveLocalColor, importDefaultColor);
+        const key = applyImportColors(ev, existing, preserveLocalColor, resolvedImportDefaultColor);
 
         if (!alarmsEnabled) {
             ev.valarms = [];

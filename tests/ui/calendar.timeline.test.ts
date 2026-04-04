@@ -216,6 +216,31 @@ describe('calendar.js timeline settings', () => {
         expect(document.documentElement.style.getPropertyValue('--mc-current-time-v-line-color')).toBe('');
     });
 
+    test('applies custom default event color override and removes it when setting becomes empty', () => {
+        loadScript();
+
+        sendSettings({showEventTimeline: true, defaultEventColor: '#1470d9', dayEventsRefreshMinutes: 1});
+        expect(document.documentElement.style.getPropertyValue('--mc-event-color')).toBe('#1470d9');
+
+        sendSettings({defaultEventColor: ''});
+        expect(document.documentElement.style.getPropertyValue('--mc-event-color')).toBe('');
+    });
+
+    test('day events without explicit color use the configurable default event color variable', () => {
+        loadScript();
+
+        sendSettings({showEventTimeline: true, defaultEventColor: '#99ff66', dayEventsRefreshMinutes: 1});
+        sendRangeEvents(futureEvent());
+
+        const colorDot = document.querySelector('.mc-color') as HTMLElement | null;
+        const timelineSeg = document.querySelector('.mc-event-timeline-seg') as HTMLElement | null;
+
+        expect(colorDot).not.toBeNull();
+        expect(timelineSeg).not.toBeNull();
+        expect(colorDot?.style.background).toBe('var(--mc-event-color, var(--mc-default-event-color))');
+        expect(timelineSeg?.style.background).toBe('var(--mc-event-color, var(--mc-default-event-color))');
+    });
+
     test('grouped mode hides empty sections (example: only past events)', () => {
         loadScript();
 
