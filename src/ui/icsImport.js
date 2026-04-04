@@ -24,9 +24,9 @@
     const LS = {
         targetFolderId: 'mycalendar.targetFolderId',
         preserveLocalColor: 'mycalendar_preserve_local_color',
-        importColorEnabled: 'mycalendar_import_color_enabled',
-        importColorValue: 'mycalendar_import_color_value',
-        importColorCustomized: 'mycalendar_import_color_customized',
+        defaultEventColorEnabled: 'mycalendar_default_event_color_enabled',
+        defaultEventColorValue: 'mycalendar_default_event_color_value',
+        defaultEventColorCustomized: 'mycalendar_default_event_color_customized',
     };
 
     const LEGACY_DEFAULT_IMPORT_COLOR = '#1470d9';
@@ -88,7 +88,7 @@
     }
 
     function hasCustomizedImportColor() {
-        return safeGetLS(LS.importColorCustomized, '0') === '1';
+        return safeGetLS(LS.defaultEventColorCustomized, '0') === '1';
     }
 
     function shouldUseStoredImportColor(storedColor) {
@@ -382,9 +382,9 @@
         });
 
         let preserveLocalColor = safeGetLS(LS.preserveLocalColor, '1') !== '0';
-        let importColorEnabled = safeGetLS(LS.importColorEnabled, '0') === '1';
-        const storedImportColor = safeGetLS(LS.importColorValue, '');
-        let importColorValue = resolveInitialImportColor(storedImportColor);
+        let defaultEventColorEnabled = safeGetLS(LS.defaultEventColorEnabled, '0') === '1';
+        const storedImportColor = safeGetLS(LS.defaultEventColorValue, '');
+        let defaultEventColorValue = resolveInitialImportColor(storedImportColor);
 
         function getSafeExportLinks() {
             const rawLinks = Array.isArray(uiSettings.icsExportLinks) ? uiSettings.icsExportLinks : [];
@@ -409,12 +409,12 @@
 
         const importColorPicker = el('input', {
             type: 'color',
-            value: importColorValue,
-            disabled: !importColorEnabled,
+            value: defaultEventColorValue,
+            disabled: !defaultEventColorEnabled,
             onchange: () => {
-                importColorValue = String(importColorPicker.value || '').trim();
-                safeSetLS(LS.importColorValue, importColorValue);
-                safeSetLS(LS.importColorCustomized, '1');
+                defaultEventColorValue = String(importColorPicker.value || '').trim();
+                safeSetLS(LS.defaultEventColorValue, defaultEventColorValue);
+                safeSetLS(LS.defaultEventColorCustomized, '1');
             },
         });
 
@@ -462,7 +462,7 @@
                             source: `filepicker:${f.name}`,
                             targetFolderId,
                             preserveLocalColor,
-                            importDefaultColor: importColorEnabled ? resolveInitialImportColor(importColorValue) : undefined,
+                            defaultColor: defaultEventColorEnabled ? resolveInitialImportColor(defaultEventColorValue) : undefined,
                         });
                         // IMPORTANT: keep import state until importDone/importError
                     } catch (e) {
@@ -505,11 +505,11 @@
 
         const importColorEnabledInput = el('input', {
             type: 'checkbox',
-            checked: importColorEnabled,
+            checked: defaultEventColorEnabled,
             onchange: () => {
-                importColorEnabled = !!importColorEnabledInput.checked;
-                importColorPicker.disabled = !importColorEnabled;
-                safeSetLS(LS.importColorEnabled, importColorEnabled ? '1' : '0');
+                defaultEventColorEnabled = !!importColorEnabledInput.checked;
+                importColorPicker.disabled = !defaultEventColorEnabled;
+                safeSetLS(LS.defaultEventColorEnabled, defaultEventColorEnabled ? '1' : '0');
             },
         });
 
@@ -544,8 +544,8 @@
                     if (typeof msg.debug === 'boolean') uiSettings.debug = msg.debug;
                     if (typeof msg.defaultEventColor === 'string') uiSettings.defaultEventColor = msg.defaultEventColor;
                     if (Array.isArray(msg.icsExportLinks)) uiSettings.icsExportLinks = msg.icsExportLinks;
-                    importColorValue = resolveInitialImportColor(safeGetLS(LS.importColorValue, ''));
-                    importColorPicker.value = importColorValue;
+                    defaultEventColorValue = resolveInitialImportColor(safeGetLS(LS.defaultEventColorValue, ''));
+                    importColorPicker.value = defaultEventColorValue;
                     applyDebugUI();
                 },
                 [MSG.IMPORT_STATUS]: () => {

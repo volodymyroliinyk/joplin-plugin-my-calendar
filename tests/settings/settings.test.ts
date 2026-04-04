@@ -207,15 +207,15 @@ describe('settings.ts logic', () => {
         });
     });
 
-    describe('getImportDefaultEventColor logic', () => {
+    describe('getDefaultEventColor logic', () => {
         const mkJoplin = (val: any) => ({
             settings: {value: jest.fn().mockResolvedValue(val)}
         });
 
         test('returns sanitized hex color or empty string', async () => {
-            await expect(settings.getImportDefaultEventColor(mkJoplin('#1470d9'))).resolves.toBe('#1470d9');
-            await expect(settings.getImportDefaultEventColor(mkJoplin('blue'))).resolves.toBe('');
-            await expect(settings.getImportDefaultEventColor(mkJoplin(''))).resolves.toBe('');
+            await expect(settings.getDefaultEventColor(mkJoplin('#1470d9'))).resolves.toBe('#1470d9');
+            await expect(settings.getDefaultEventColor(mkJoplin('blue'))).resolves.toBe('');
+            await expect(settings.getDefaultEventColor(mkJoplin(''))).resolves.toBe('');
         });
     });
 
@@ -395,7 +395,7 @@ describe('settings.ts logic', () => {
             const values = new Map<string, any>([
                 [settings.SETTING_ICS_EXPORT_LINK_PAIRS, `  ${'x'.repeat(100)} | https://ok.test/a.ics ;; Bad | javascript:alert(1) `],
                 [settings.SETTING_ICS_IMPORT_ALARM_EMOJI, ' \n⏰\t '],
-                [settings.SETTING_IMPORT_DEFAULT_EVENT_COLOR, '  dodgerblue  '],
+                [settings.SETTING_DEFAULT_EVENT_COLOR, '  dodgerblue  '],
                 [settings.SETTING_TIMELINE_NOW_LINE_COLOR, '  orange  '],
                 [settings.SETTING_DEBUG, true],
             ]);
@@ -422,7 +422,7 @@ describe('settings.ts logic', () => {
                 keys: [
                     settings.SETTING_ICS_EXPORT_LINK_PAIRS,
                     settings.SETTING_ICS_IMPORT_ALARM_EMOJI,
-                    settings.SETTING_IMPORT_DEFAULT_EVENT_COLOR,
+                    settings.SETTING_DEFAULT_EVENT_COLOR,
                     settings.SETTING_TIMELINE_NOW_LINE_COLOR,
                     settings.SETTING_DEBUG,
                 ],
@@ -437,7 +437,7 @@ describe('settings.ts logic', () => {
                 '⏰',
             );
             expect(joplin.settings.setValue).toHaveBeenCalledWith(
-                settings.SETTING_IMPORT_DEFAULT_EVENT_COLOR,
+                settings.SETTING_DEFAULT_EVENT_COLOR,
                 '',
             );
             expect(joplin.settings.setValue).toHaveBeenCalledWith(
@@ -513,8 +513,8 @@ describe('settings.ts logic', () => {
             expect(arg[settings.SETTING_DAY_EVENTS_VIEW_MODE]).toBeDefined();
             expect(arg[settings.SETTING_DAY_EVENTS_VIEW_MODE].value).toBe('single');
             expect(arg[settings.SETTING_DAY_EVENTS_VIEW_MODE].isEnum).toBe(true);
-            expect(arg[settings.SETTING_IMPORT_DEFAULT_EVENT_COLOR]).toBeDefined();
-            expect(arg[settings.SETTING_IMPORT_DEFAULT_EVENT_COLOR].value).toBe('');
+            expect(arg[settings.SETTING_DEFAULT_EVENT_COLOR]).toBeDefined();
+            expect(arg[settings.SETTING_DEFAULT_EVENT_COLOR].value).toBe('');
             expect(arg[settings.SETTING_TIMELINE_NOW_LINE_COLOR]).toBeDefined();
             expect(arg[settings.SETTING_TIMELINE_NOW_LINE_COLOR].value).toBe('');
         });

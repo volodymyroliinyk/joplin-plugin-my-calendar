@@ -11,7 +11,7 @@
 // - building existing map (pagination, filters)
 // - update vs create (put/post), patch logic (only body / only title / nothing => skipped)
 // - preserveLocalColor ON/OFF
-// - importDefaultColor
+// - defaultColor
 // - master vs recurrence instance
 // - uid missing => skipped
 // - error paths update/create + onStatus message
@@ -28,7 +28,7 @@ jest.mock('../../src/main/settings/settings', () => {
     return {
         ...original,
         getIcsImportAlarmsEnabled: jest.fn(),
-        getImportDefaultEventColor: jest.fn(),
+        getDefaultEventColor: jest.fn(),
     };
 });
 
@@ -67,7 +67,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
         });
         // Default: alarms enabled
         (settings.getIcsImportAlarmsEnabled as jest.Mock).mockResolvedValue(true);
-        (settings.getImportDefaultEventColor as jest.Mock).mockResolvedValue('');
+        (settings.getDefaultEventColor as jest.Mock).mockResolvedValue('');
     });
 
     afterEach(() => {
@@ -209,8 +209,8 @@ describe('icsImportService.importIcsIntoNotes', () => {
         });
     });
 
-    test('uses configured default import color setting when request does not pass importDefaultColor', async () => {
-        (settings.getImportDefaultEventColor as jest.Mock).mockResolvedValue('#1470d9');
+    test('uses configured default event color setting when request does not pass defaultColor', async () => {
+        (settings.getDefaultEventColor as jest.Mock).mockResolvedValue('#1470d9');
 
         const ics = [
             'BEGIN:VCALENDAR',
@@ -644,7 +644,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
         expect(patch.body).toContain('start: 2025-01-15 10:00:00+00:00');
     });
 
-    test('preserveLocalColor=false: does not copy local color; importDefaultColor is applied', async () => {
+    test('preserveLocalColor=false: does not copy local color; defaultColor is applied', async () => {
         const ics = [
             'BEGIN:VCALENDAR',
             'BEGIN:VEVENT',
@@ -748,7 +748,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
         expect(finalBody).toContain('start: 2025-01-15 15:00:00+00:00');
     });
 
-    test('importDefaultColor is applied only when event has no color after preserveLocalColor step', async () => {
+    test('defaultColor is applied only when event has no color after preserveLocalColor step', async () => {
         const ics = [
             'BEGIN:VCALENDAR',
             'BEGIN:VEVENT',

@@ -335,7 +335,7 @@ describe('panelController', () => {
                 sendStatus: (t: string) => Promise<void>,
                 _targetFolderId?: string,
                 _preserveLocalColor?: boolean,
-                _importDefaultColor?: string
+                _defaultColor?: string
             ) => {
                 await sendStatus('Parsing...');
                 await sendStatus('Saving...');
@@ -348,7 +348,7 @@ describe('panelController', () => {
             ics: 'BEGIN:VCALENDAR...',
             // targetFolderId missing -> should go undefined
             // preserveLocalColor is not set -> default true
-            importDefaultColor: '#aabbcc',
+            defaultColor: '#aabbcc',
         });
 
         // 2 statuses → 2 messages + 2 toasts info
@@ -384,7 +384,7 @@ describe('panelController', () => {
         expect(call[1]).toBe('BEGIN:VCALENDAR...');
         expect(call[3]).toBeUndefined(); // targetFolderId
         expect(call[4]).toBe(true); // preserveLocalColor default true
-        expect(call[5]).toBe('#aabbcc'); // importDefaultColor is valid
+        expect(call[5]).toBe('#aabbcc'); // defaultColor is valid
         expect(call[6]).toBe(30); // importAlarmRangeDays default
     });
 
@@ -454,7 +454,7 @@ describe('panelController', () => {
         expect(call[4]).toBe(false);
     });
 
-    test('icsImport -> invalid importDefaultColor is ignored (undefined)', async () => {
+    test('icsImport -> invalid defaultColor is ignored (undefined)', async () => {
         const {handler} = await setup();
 
         (importIcsIntoNotes as jest.Mock).mockResolvedValue({
@@ -469,7 +469,7 @@ describe('panelController', () => {
         await handler({
             name: 'icsImport',
             ics: 'X',
-            importDefaultColor: 'blue', // invalid
+            defaultColor: 'blue', // invalid
         });
 
         const call = (importIcsIntoNotes as jest.Mock).mock.calls[0];

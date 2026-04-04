@@ -13,7 +13,7 @@ import {syncAlarmsForEvents, ExistingAlarm} from './alarmService';
 import {buildMyCalBlock} from './noteBuilder';
 import {Joplin} from '../types/joplin.interface';
 import {createNote, getAllNotesPaged, updateNote} from './joplinNoteService';
-import {getIcsImportAlarmsEnabled, getImportDefaultEventColor} from '../settings/settings';
+import {getIcsImportAlarmsEnabled, getDefaultEventColor} from '../settings/settings';
 
 type ExistingEventNote = { id: string; title: string; body: string; parent_id?: string };
 type ExistingEventNoteMap = Record<string, ExistingEventNote>;
@@ -98,7 +98,7 @@ function applyImportColors(
     ev: IcsEvent,
     existing: ExistingEventNoteMap,
     preserveLocalColor: boolean,
-    importDefaultColor?: string,
+    defaultColor?: string,
 ) {
     const uid = (ev.uid || '').trim();
     const rid = (ev.recurrence_id || '').trim();
@@ -108,7 +108,7 @@ function applyImportColors(
         const existingColor = extractEventColorFromBody(existing[key].body, uid, rid);
         if (existingColor) ev.color = existingColor;
     }
-    if (!ev.color && importDefaultColor) ev.color = importDefaultColor;
+    if (!ev.color && defaultColor) ev.color = defaultColor;
     return key;
 }
 
@@ -118,11 +118,11 @@ export async function importIcsIntoNotes(
     onStatus?: (text: string) => Promise<void>,
     targetFolderId?: string,
     preserveLocalColor: boolean = true,
-    importDefaultColor?: string,
+    defaultColor?: string,
     importAlarmRangeDays?: number,
 ): Promise<ImportIcsResult> {
     const say = safeStatus(onStatus);
-    const resolvedImportDefaultColor = importDefaultColor || await getImportDefaultEventColor(joplin);
+    const resolvedDefaultColor = defaultColor || await getDefaultEventColor(joplin);
 
     const eventsRaw = parseImportText(ics);
     const events = eventsRaw.map(e => ({...e})); // avoid mutating parser output
@@ -151,7 +151,7 @@ export async function importIcsIntoNotes(
         }
 
         const rid = (ev.recurrence_id || '').trim();
-        const key = applyImportColors(ev, existing, preserveLocalColor, resolvedImportDefaultColor);
+        const key = applyImportColors(ev, existing, preserveLocalColor, resolvedDefaultColor);
 
         if (!alarmsEnabled) {
             ev.valarms = [];

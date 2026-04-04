@@ -37,7 +37,8 @@ joplin-plugin-my-calendar/
 │   │   │   ├── icsImportService.ts
 │   │   │   ├── joplinNoteService.ts
 │   │   │   ├── noteBuilder.ts
-│   │   │   └── occurrenceService.ts
+│   │   │   ├── occurrenceService.ts
+│   │   │   └── scheduledIcsImportService.ts
 │   │   ├── settings/
 │   │   │   └── settings.ts
 │   │   ├── types/
@@ -65,6 +66,7 @@ joplin-plugin-my-calendar/
 │   └── index.ts
 ├── tests/
 │   ├── main/
+│   │   ├── mobileStartupSafety.test.ts
 │   │   ├── pluginMain.test.ts
 │   │   └── weekStartFlow.test.ts
 │   ├── parsers/
@@ -78,7 +80,8 @@ joplin-plugin-my-calendar/
 │   │   ├── icsImportService.test.ts
 │   │   ├── joplinNoteService.test.ts
 │   │   ├── noteBuilder.test.ts
-│   │   └── occurrenceService.test.ts
+│   │   ├── occurrenceService.test.ts
+│   │   └── scheduledIcsImportService.test.ts
 │   ├── settings/
 │   │   └── settings.test.ts
 │   ├── ui/
@@ -101,7 +104,8 @@ joplin-plugin-my-calendar/
 │   │   ├── logger.test.ts
 │   │   └── toast.test.ts
 │   ├── views/
-│       └── calendarView.test.ts
+│   │   └── calendarView.test.ts
+│   └── index.test.ts
 ├── CHANGELOG.md
 ├── LICENSE
 ├── README.md

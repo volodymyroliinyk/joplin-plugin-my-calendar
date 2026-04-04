@@ -49,7 +49,7 @@ export async function buildUiSettingsMessage(joplin: unknown): Promise<UiSetting
         getIcsExportLinksCompat(joplin),
         settings.getDayEventsRefreshMinutes(joplin as any),
         settings.getShowEventTimeline(joplin as any),
-        settings.getImportDefaultEventColor(joplin as any),
+        settings.getDefaultEventColor(joplin as any),
         settings.getTimelineNowLineColor(joplin as any),
         settings.getShowWeekNumbers(joplin as any),
         settings.getTimeFormat(joplin as any),

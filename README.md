@@ -187,7 +187,8 @@ Customize your experience in the Joplin Settings (`Tools` > `Options` > `My Cale
   related UI update timers. (Default: Enabled).
 - **Current timeline line color (hex)**: Optional custom color for the current-time line in the day event timeline.
   Use `#RGB` or `#RRGGBB`, or leave empty to keep the default color.
-- **Default imported event color (hex)**: Optional default hex color for imported events without `X-COLOR`.
+- **Default event color (hex)**: Optional default hex color for imported events without `X-COLOR` and for "Day events"
+  section events without a color.
   Use `#RGB` or `#RRGGBB`, or leave empty to keep the built-in default event color.
 
 ### ICS Import (Desktop only)

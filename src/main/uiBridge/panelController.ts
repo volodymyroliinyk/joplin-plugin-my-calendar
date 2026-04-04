@@ -62,7 +62,7 @@ type PanelMsg =
     ics?: string;
     targetFolderId?: unknown;
     preserveLocalColor?: boolean;
-    importDefaultColor?: unknown;
+    defaultColor?: unknown;
 }
     | { name: 'clearEventsCache' }
     | { name: 'requestFolders' };
@@ -149,7 +149,7 @@ async function handleIcsImportMessage(
 
         const targetFolderId = isString(msg.targetFolderId) ? msg.targetFolderId : undefined;
         const preserveLocalColor = msg.preserveLocalColor !== false;
-        const importDefaultColor = parseImportDefaultColor(msg.importDefaultColor);
+        const defaultColor = parseImportDefaultColor(msg.defaultColor);
         const importAlarmRangeDays = await getIcsImportAlarmRangeDays(joplin);
 
         const res = await importIcsIntoNotes(
@@ -158,7 +158,7 @@ async function handleIcsImportMessage(
             sendStatus,
             targetFolderId,
             preserveLocalColor,
-            importDefaultColor,
+            defaultColor,
             importAlarmRangeDays
         ) as ImportResultLike;
 

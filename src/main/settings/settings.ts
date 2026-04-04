@@ -15,7 +15,7 @@ export const SETTING_TIME_FORMAT = 'mycalendar.timeFormat';
 export const SETTING_DAY_EVENTS_REFRESH_MINUTES = 'mycalendar.dayEventsRefreshMinutes';
 export const SETTING_SHOW_EVENT_TIMELINE = 'mycalendar.showEventTimeline';
 export const SETTING_TIMELINE_NOW_LINE_COLOR = 'mycalendar.timelineNowLineColor';
-export const SETTING_IMPORT_DEFAULT_EVENT_COLOR = 'mycalendar.importDefaultEventColor';
+export const SETTING_DEFAULT_EVENT_COLOR = 'mycalendar.defaultEventColor';
 
 // ICS Import
 export const SETTING_ICS_IMPORT_ALARMS_ENABLED = 'mycalendar.icsImportAlarmsEnabled';
@@ -305,13 +305,13 @@ export async function registerSettings(joplin: any) {
             label: 'Show event timeline',
             description: 'Day events section: Show a visual timeline bar under each event in the day list. Disabling this also stops related UI update timers (now dot / past status refresh).',
         },
-        [SETTING_IMPORT_DEFAULT_EVENT_COLOR]: {
+        [SETTING_DEFAULT_EVENT_COLOR]: {
             value: '',
             type: SETTING_TYPE_STRING,
             section: 'mycalendar',
             public: true,
-            label: 'Default imported event color (hex)',
-            description: 'ICS import section: Optional default hex color for imported events without X-COLOR, for example #1470d9. Leave empty to use the built-in default color.',
+            label: 'Default event color (hex)',
+            description: 'ICS import section: Optional default event hex color for imported events without X-COLOR, for example #1470d9. Leave empty to use the built-in default color.',
         },
         [SETTING_TIMELINE_NOW_LINE_COLOR]: {
             value: '',
@@ -508,11 +508,11 @@ export async function registerSettings(joplin: any) {
                 const touchedTitle = ICS_EXPORT_TITLE_KEYS.some((k) => keys.includes(k));
                 const touchedExportPairs = keys.includes(SETTING_ICS_EXPORT_LINK_PAIRS);
                 const touchedScheduledImportPairs = keys.includes(SETTING_ICS_SCHEDULED_IMPORT_PAIRS);
-                const touchedImportDefaultEventColor = keys.includes(SETTING_IMPORT_DEFAULT_EVENT_COLOR);
+                const touchedDefaultEventColor = keys.includes(SETTING_DEFAULT_EVENT_COLOR);
                 const touchedTimelineNowLineColor = keys.includes(SETTING_TIMELINE_NOW_LINE_COLOR);
                 const touchedAlarmEmoji = keys.includes(SETTING_ICS_IMPORT_ALARM_EMOJI);
                 const touchedDebug = keys.includes(SETTING_DEBUG);
-                if (!touchedUrl && !touchedTitle && !touchedExportPairs && !touchedScheduledImportPairs && !touchedImportDefaultEventColor && !touchedTimelineNowLineColor && !touchedAlarmEmoji && !touchedDebug) return;
+                if (!touchedUrl && !touchedTitle && !touchedExportPairs && !touchedScheduledImportPairs && !touchedDefaultEventColor && !touchedTimelineNowLineColor && !touchedAlarmEmoji && !touchedDebug) return;
                 for (const k of ICS_EXPORT_URL_KEYS) {
                     if (keys.includes(k)) await maybeFixUrl(k);
                 }
@@ -525,8 +525,8 @@ export async function registerSettings(joplin: any) {
                 if (touchedScheduledImportPairs) {
                     await maybeFixScheduledPairs(SETTING_ICS_SCHEDULED_IMPORT_PAIRS);
                 }
-                if (touchedImportDefaultEventColor) {
-                    await maybeFixHexColor(SETTING_IMPORT_DEFAULT_EVENT_COLOR);
+                if (touchedDefaultEventColor) {
+                    await maybeFixHexColor(SETTING_DEFAULT_EVENT_COLOR);
                 }
                 if (touchedTimelineNowLineColor) {
                     await maybeFixHexColor(SETTING_TIMELINE_NOW_LINE_COLOR);
@@ -577,8 +577,8 @@ export async function getTimelineNowLineColor(joplin: any): Promise<string> {
     return sanitizeHexColor(raw);
 }
 
-export async function getImportDefaultEventColor(joplin: any): Promise<string> {
-    const raw = await joplin.settings.value(SETTING_IMPORT_DEFAULT_EVENT_COLOR);
+export async function getDefaultEventColor(joplin: any): Promise<string> {
+    const raw = await joplin.settings.value(SETTING_DEFAULT_EVENT_COLOR);
     return sanitizeHexColor(raw);
 }
 

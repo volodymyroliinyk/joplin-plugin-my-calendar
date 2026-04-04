@@ -309,8 +309,8 @@ describe('src/ui/icsImport.js', () => {
         setupDom(true);
         installWebviewApi();
 
-        localStorage.setItem('mycalendar_import_color_enabled', '1');
-        localStorage.setItem('mycalendar_import_color_value', '#aabbcc');
+        localStorage.setItem('mycalendar_default_event_color_enabled', '1');
+        localStorage.setItem('mycalendar_default_event_color_value', '#aabbcc');
 
         loadIcsImportFresh();
 
@@ -324,12 +324,12 @@ describe('src/ui/icsImport.js', () => {
 
         // disable
         enabled.click();
-        expect(localStorage.getItem('mycalendar_import_color_enabled')).toBe('0');
+        expect(localStorage.getItem('mycalendar_default_event_color_enabled')).toBe('0');
         expect(picker.disabled).toBe(true);
 
         // enable back
         enabled.click();
-        expect(localStorage.getItem('mycalendar_import_color_enabled')).toBe('1');
+        expect(localStorage.getItem('mycalendar_default_event_color_enabled')).toBe('1');
         expect(picker.disabled).toBe(false);
     });
 
@@ -343,7 +343,7 @@ describe('src/ui/icsImport.js', () => {
         picker.value = '#112233';
         picker.dispatchEvent(new Event('change'));
 
-        expect(localStorage.getItem('mycalendar_import_color_value')).toBe('#112233');
+        expect(localStorage.getItem('mycalendar_default_event_color_value')).toBe('#112233');
     });
 
     test('Import button: no file selected -> logs "No file selected." and does not post message', async () => {
@@ -416,19 +416,19 @@ describe('src/ui/icsImport.js', () => {
             source: 'filepicker:a.ics',
             targetFolderId: 'f1',
             preserveLocalColor: true,          // default ON
-            importDefaultColor: undefined,      // default color feature is OFF by default
+            defaultColor: undefined,      // default color feature is OFF by default
         });
 
         expect(fr.readAsText).toHaveBeenCalledWith(fileObj);
     });
 
-    test('Import button: when default color enabled -> posts importDefaultColor', async () => {
+    test('Import button: when default color enabled -> posts defaultColor', async () => {
         setupDom(true);
         const {postMessage, getOnMessageCb} = installWebviewApi();
 
         // enable default import color
-        localStorage.setItem('mycalendar_import_color_enabled', '1');
-        localStorage.setItem('mycalendar_import_color_value', '#abcdef');
+        localStorage.setItem('mycalendar_default_event_color_enabled', '1');
+        localStorage.setItem('mycalendar_default_event_color_value', '#abcdef');
 
         const fr: any = {
             result: null,
@@ -462,15 +462,15 @@ describe('src/ui/icsImport.js', () => {
         importBtn.click();
 
         const call = postMessage.mock.calls.find(c => c[0]?.name === 'icsImport')?.[0];
-        expect(call.importDefaultColor).toBe('#abcdef');
+        expect(call.defaultColor).toBe('#abcdef');
     });
 
     test('uiSettings defaultEventColor updates manual import color picker when no valid local override exists', () => {
         setupDom(true);
         const {getOnMessageCb} = installWebviewApi();
 
-        localStorage.setItem('mycalendar_import_color_enabled', '1');
-        localStorage.setItem('mycalendar_import_color_value', 'not-a-color');
+        localStorage.setItem('mycalendar_default_event_color_enabled', '1');
+        localStorage.setItem('mycalendar_default_event_color_value', 'not-a-color');
 
         loadIcsImportFresh();
 
@@ -489,9 +489,9 @@ describe('src/ui/icsImport.js', () => {
         setupDom(true);
         const {getOnMessageCb} = installWebviewApi();
 
-        localStorage.setItem('mycalendar_import_color_enabled', '1');
-        localStorage.setItem('mycalendar_import_color_value', '#abcdef');
-        localStorage.setItem('mycalendar_import_color_customized', '1');
+        localStorage.setItem('mycalendar_default_event_color_enabled', '1');
+        localStorage.setItem('mycalendar_default_event_color_value', '#abcdef');
+        localStorage.setItem('mycalendar_default_event_color_customized', '1');
 
         loadIcsImportFresh();
 
@@ -510,8 +510,8 @@ describe('src/ui/icsImport.js', () => {
         setupDom(true);
         const {getOnMessageCb} = installWebviewApi();
 
-        localStorage.setItem('mycalendar_import_color_enabled', '1');
-        localStorage.setItem('mycalendar_import_color_value', '#1470d9');
+        localStorage.setItem('mycalendar_default_event_color_enabled', '1');
+        localStorage.setItem('mycalendar_default_event_color_value', '#1470d9');
 
         loadIcsImportFresh();
 
@@ -530,9 +530,9 @@ describe('src/ui/icsImport.js', () => {
         setupDom(true);
         const {getOnMessageCb} = installWebviewApi();
 
-        localStorage.setItem('mycalendar_import_color_enabled', '1');
-        localStorage.setItem('mycalendar_import_color_value', '#1470d9');
-        localStorage.setItem('mycalendar_import_color_customized', '1');
+        localStorage.setItem('mycalendar_default_event_color_enabled', '1');
+        localStorage.setItem('mycalendar_default_event_color_value', '#1470d9');
+        localStorage.setItem('mycalendar_default_event_color_customized', '1');
 
         loadIcsImportFresh();
 
@@ -551,9 +551,9 @@ describe('src/ui/icsImport.js', () => {
         setupDom(true);
         const {getOnMessageCb, postMessage} = installWebviewApi();
 
-        localStorage.setItem('mycalendar_import_color_enabled', '1');
-        localStorage.setItem('mycalendar_import_color_value', '#abcdef');
-        localStorage.setItem('mycalendar_import_color_customized', '1');
+        localStorage.setItem('mycalendar_default_event_color_enabled', '1');
+        localStorage.setItem('mycalendar_default_event_color_value', '#abcdef');
+        localStorage.setItem('mycalendar_default_event_color_customized', '1');
 
         const fr: any = {
             result: null,
@@ -593,7 +593,7 @@ describe('src/ui/icsImport.js', () => {
         importBtn.click();
 
         const call = postMessage.mock.calls.find(c => c[0]?.name === 'icsImport')?.[0];
-        expect(call.importDefaultColor).toBe('#99ff66');
+        expect(call.defaultColor).toBe('#99ff66');
     });
 
     test('import section is a form and submit is AJAX-only (prevents default)', () => {
@@ -906,12 +906,12 @@ describe('src/ui/icsImport.js', () => {
         expect(form.getAttribute('aria-busy')).toBe('false');
     });
 
-    test('invalid import default color in localStorage falls back to plugin defaultEventColor from uiSettings', () => {
+    test('invalid default color in localStorage falls back to plugin defaultEventColor from uiSettings', () => {
         setupDom(true);
         const {getOnMessageCb} = installWebviewApi();
 
-        localStorage.setItem('mycalendar_import_color_enabled', '1');
-        localStorage.setItem('mycalendar_import_color_value', 'not-a-color');
+        localStorage.setItem('mycalendar_default_event_color_enabled', '1');
+        localStorage.setItem('mycalendar_default_event_color_value', 'not-a-color');
 
         loadIcsImportFresh();
 
