@@ -4,12 +4,12 @@ import {createCalendarPanel} from './views/calendarView';
 
 import {ensureAllEventsCache, invalidateAllEventsCache, refreshNoteCache} from './services/eventsCache';
 import {registerCalendarPanelController} from './uiBridge/panelController';
-import {AUTOMATED_ICS_IMPORT_SETTING_KEYS, registerSettings} from './settings/settings';
+import {SCHEDULED_ICS_IMPORT_SETTING_KEYS, registerSettings} from './settings/settings';
 import {pushUiSettings} from "./uiBridge/uiSettings";
 import {expandAllInRange} from './services/occurrenceService';
 import {Occurrence} from './utils/dateUtils';
 import {Joplin} from './types/joplin.interface';
-import {startAutomatedIcsImport} from './services/automatedIcsImportService';
+import {startScheduledIcsImport} from './services/scheduledIcsImportService';
 
 import {err, info, log, warn} from './utils/logger';
 
@@ -128,7 +128,7 @@ async function startPlugin(joplin: Joplin): Promise<void> {
         buildICS,
     });
 
-    const automatedIcsImport = await startAutomatedIcsImport(joplin, {
+    const scheduledIcsImport = await startScheduledIcsImport(joplin, {
         onAfterImport: async () => {
             await postRedrawMonth(joplin, panel);
         },
@@ -199,10 +199,10 @@ async function startPlugin(joplin: Joplin): Promise<void> {
             await onSettingsChange(async (event?: { keys?: string[] }) => {
                 await pushUiSettingsSafely(joplin, panel, 'pushUiSettings failed after settings change');
                 const keys = Array.isArray(event?.keys) ? event.keys : [];
-                if (!keys.some((key) => AUTOMATED_ICS_IMPORT_SETTING_KEYS.includes(key as typeof AUTOMATED_ICS_IMPORT_SETTING_KEYS[number]))) {
+                if (!keys.some((key) => SCHEDULED_ICS_IMPORT_SETTING_KEYS.includes(key as typeof SCHEDULED_ICS_IMPORT_SETTING_KEYS[number]))) {
                     return;
                 }
-                await automatedIcsImport.refresh();
+                await scheduledIcsImport.refresh();
             });
         } catch (e) {
             warn('pluginMain', 'settings.onChange registration failed (non-fatal):', e);

@@ -50,7 +50,7 @@ While we strive for parity, some features are specific to the Desktop version du
 | Smart Day View                     |    ✅    |   ✅    |
 | Native Joplin Settings             |    ✅    |   ✅    |
 | ICS File Import                    |    ✅    |   ❌    |
-| Automated ICS Import from URLs     |    ✅    |   ❌    |
+| Scheduled ICS Import from URLs     |    ✅    |   ❌    |
 | Quick ICS Export Links             |    ✅    |   ❌    |
 | Markdown Sanitization              |    ✅    |   ✅    |
 | Automatic Alarms (Todo generation) |    ✅    |   ✅*   |
@@ -104,12 +104,10 @@ The plugin features a robust import system designed for performance and reliabil
 
 - **Deduplication**: The plugin uses `UID`s from the ICS file. If you import the same file again, it will only update
   changed events or skip unchanged ones.
-- **Automated URL Import (Desktop)**: You can configure one or more HTTPS ICS + notebook pairs and let the plugin
+- **Scheduled URL Import (Desktop)**: You can configure one or more HTTPS ICS + notebook pairs and let the plugin
   re-import them automatically on a fixed interval. The recommended format is
   `https://...ics | Notebook Title ;; https://...ics | Another Notebook`: `;;` separates pairs, and `|` separates the
   URL from the notebook title.
-  After each automated import attempt, the plugin shows the same style of success, warning, or error toast used by the
-  manual import flow.
 - **Local Color Preservation**: By default, if you manually change the color of an imported event in Joplin, subsequent
   imports will preserve your custom color.
 - **Optimized Automatic Alarms**: If an ICS event has a reminder, the plugin creates a linked "Todo" note in Joplin.
@@ -203,10 +201,10 @@ Customize your experience in the Joplin Settings (`Tools` > `Options` > `My Cale
 - **Empty trash after alarm cleanup**: If enabled, the plugin will empty the trash after deleting old alarms. **WARNING
   **:
   This deletes ALL items in the trash. (Default: Disabled).
-- **Automated ICS import pairs**: Add pairs in the form
+- **Scheduled ICS import pairs**: Add pairs in the form
   `https://...ics | Notebook Title ;; https://...ics | Another Notebook`. Each valid HTTPS ICS link is imported into
   its own existing notebook. If the notebook title is missing, invalid, not found, or ambiguous, that pair is skipped.
-- **Automated ICS import interval**: Choose how often automated URL imports run in the background. Allowed range:
+- **Scheduled ICS import interval**: Choose how often scheduled URL imports run in the background. Allowed range:
   **5-1440 minutes**. (Default: 60 minutes).
 - **ICS export links**: Add as many quick-access links as you need to your favorite calendar exporters (e.g., Google
   Calendar Export URL). These will appear as convenient buttons in the import panel.

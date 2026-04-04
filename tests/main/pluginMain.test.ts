@@ -22,9 +22,9 @@ jest.mock('../../src/main/uiBridge/panelController', () => ({
 }));
 
 jest.mock('../../src/main/settings/settings', () => ({
-    AUTOMATED_ICS_IMPORT_SETTING_KEYS: [
-        'mycalendar.icsAutoImportPairs',
-        'mycalendar.icsAutoImportIntervalMinutes',
+    SCHEDULED_ICS_IMPORT_SETTING_KEYS: [
+        'mycalendar.icsScheduledImportPairs',
+        'mycalendar.icsScheduledImportIntervalMinutes',
         'mycalendar.icsImportAlarmsEnabled',
         'mycalendar.icsImportAlarmRangeDays',
         'mycalendar.icsImportEmptyTrashAfter',
@@ -36,8 +36,8 @@ jest.mock('../../src/main/uiBridge/uiSettings', () => ({
     pushUiSettings: jest.fn(),
 }));
 
-jest.mock('../../src/main/services/automatedIcsImportService', () => ({
-    startAutomatedIcsImport: jest.fn(),
+jest.mock('../../src/main/services/scheduledIcsImportService', () => ({
+    startScheduledIcsImport: jest.fn(),
 }));
 
 import {createCalendarPanel} from '../../src/main/views/calendarView';
@@ -48,7 +48,7 @@ import {
 } from '../../src/main/services/eventsCache';
 import {registerCalendarPanelController} from '../../src/main/uiBridge/panelController';
 import {pushUiSettings} from '../../src/main/uiBridge/uiSettings';
-import {startAutomatedIcsImport} from '../../src/main/services/automatedIcsImportService';
+import {startScheduledIcsImport} from '../../src/main/services/scheduledIcsImportService';
 
 type AnyFn = (...a: any[]) => any;
 
@@ -143,7 +143,7 @@ function findCommand(commandsRegister: jest.Mock, name: string) {
 beforeEach(() => {
     jest.clearAllMocks();
     __resetPluginMainForTests();
-    (startAutomatedIcsImport as jest.Mock).mockResolvedValue({
+    (startScheduledIcsImport as jest.Mock).mockResolvedValue({
         refresh: jest.fn().mockResolvedValue(undefined),
         stop: jest.fn(),
     });
@@ -183,7 +183,7 @@ describe('pluginMain.runPlugin', () => {
 
         expect(panels.show).toHaveBeenCalledWith('panel-1');
         expect(panels.focus).toHaveBeenCalledWith('panel-1');
-        expect(startAutomatedIcsImport).toHaveBeenCalledTimes(1);
+        expect(startScheduledIcsImport).toHaveBeenCalledTimes(1);
     });
 
     test('open command execute: does not crash when focus missing/throws, logs message', async () => {
@@ -221,7 +221,7 @@ describe('pluginMain.runPlugin', () => {
         errSpy.mockRestore();
     });
 
-    test('repeated runPlugin call does not reinitialize automated import or panel', async () => {
+    test('repeated runPlugin call does not reinitialize scheduled import or panel', async () => {
         (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
         (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);
 
@@ -232,7 +232,7 @@ describe('pluginMain.runPlugin', () => {
 
         expect(createCalendarPanel).toHaveBeenCalledTimes(1);
         expect(registerCalendarPanelController).toHaveBeenCalledTimes(1);
-        expect(startAutomatedIcsImport).toHaveBeenCalledTimes(1);
+        expect(startScheduledIcsImport).toHaveBeenCalledTimes(1);
     });
 
     // test('workspace.onNoteChange invalidates note (if id) and always invalidates all events', async () => {
@@ -270,12 +270,12 @@ describe('pluginMain.runPlugin', () => {
         expect(invalidateAllEventsCache).toHaveBeenCalledTimes(1);
     });
 
-    test('settings.onChange without keys still pushes UI settings but does not refresh automated ICS import', async () => {
+    test('settings.onChange without keys still pushes UI settings but does not refresh scheduled ICS import', async () => {
         (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
         (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);
         (pushUiSettings as jest.Mock).mockResolvedValue(undefined);
         const refresh = jest.fn().mockResolvedValue(undefined);
-        (startAutomatedIcsImport as jest.Mock).mockResolvedValue({refresh, stop: jest.fn()});
+        (startScheduledIcsImport as jest.Mock).mockResolvedValue({refresh, stop: jest.fn()});
 
         let onChangeCb: AnyFn | null = null;
         const {joplin} = makeJoplinMock();
@@ -293,11 +293,11 @@ describe('pluginMain.runPlugin', () => {
         expect(refresh).not.toHaveBeenCalled();
     });
 
-    test('settings.onChange with auto-import key refreshes automated ICS import', async () => {
+    test('settings.onChange with scheduled-import key refreshes scheduled ICS import', async () => {
         (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
         (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);
         const refresh = jest.fn().mockResolvedValue(undefined);
-        (startAutomatedIcsImport as jest.Mock).mockResolvedValue({refresh, stop: jest.fn()});
+        (startScheduledIcsImport as jest.Mock).mockResolvedValue({refresh, stop: jest.fn()});
 
         let onChangeCb: AnyFn | null = null;
         const {joplin} = makeJoplinMock();
@@ -308,16 +308,16 @@ describe('pluginMain.runPlugin', () => {
         await runPlugin(joplin as any);
 
         expect(onChangeCb).toBeTruthy();
-        await onChangeCb!({keys: ['mycalendar.icsAutoImportPairs']});
+        await onChangeCb!({keys: ['mycalendar.icsScheduledImportPairs']});
 
         expect(refresh).toHaveBeenCalledTimes(1);
     });
 
-    test('settings.onChange for unrelated updates keeps automated ICS import idle', async () => {
+    test('settings.onChange for unrelated updates keeps scheduled ICS import idle', async () => {
         (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
         (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);
         const refresh = jest.fn().mockResolvedValue(undefined);
-        (startAutomatedIcsImport as jest.Mock).mockResolvedValue({refresh, stop: jest.fn()});
+        (startScheduledIcsImport as jest.Mock).mockResolvedValue({refresh, stop: jest.fn()});
 
         let onChangeCb: AnyFn | null = null;
         const {joplin} = makeJoplinMock();

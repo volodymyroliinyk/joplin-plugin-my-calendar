@@ -74,7 +74,7 @@ describe('settings.ts logic', () => {
         });
     });
 
-    describe('parseAutomatedIcsImportEntries', () => {
+    describe('parseScheduledIcsImportEntries', () => {
         test('keeps only unique valid https URL + notebook title pairs', () => {
             const raw = [
                 'https://example.com/a.ics | Work',
@@ -84,7 +84,7 @@ describe('settings.ts logic', () => {
                 'https://example.com/c.ics | Personal',
             ].join(' ;; ');
 
-            expect(settings.parseAutomatedIcsImportEntries(raw)).toEqual([
+            expect(settings.parseScheduledIcsImportEntries(raw)).toEqual([
                 {url: 'https://example.com/a.ics', notebookTitle: 'Work'},
                 {url: 'https://example.com/c.ics', notebookTitle: 'Personal'},
             ]);
@@ -100,7 +100,7 @@ describe('settings.ts logic', () => {
                 'https://example.com/6.ics | Projects',
             ].join(' ;; ');
 
-            expect(settings.parseAutomatedIcsImportEntries(raw)).toEqual([
+            expect(settings.parseScheduledIcsImportEntries(raw)).toEqual([
                 {url: 'https://example.com/1.ics', notebookTitle: 'Work'},
                 {url: 'https://example.com/2.ics', notebookTitle: 'Personal'},
                 {url: 'https://example.com/3.ics', notebookTitle: 'Family'},
@@ -288,35 +288,35 @@ describe('settings.ts logic', () => {
         });
     });
 
-    describe('automated ICS import settings helpers', () => {
+    describe('scheduled ICS import settings helpers', () => {
         const mkJoplin = (map: Record<string, any>) => ({
             settings: {
                 value: jest.fn(async (key: string) => map[key]),
             },
         });
 
-        test('getAutomatedIcsImportEntries returns sanitized HTTPS URL + notebook title pairs only', async () => {
+        test('getScheduledIcsImportEntries returns sanitized HTTPS URL + notebook title pairs only', async () => {
             const joplin = mkJoplin({
-                [settings.SETTING_ICS_AUTO_IMPORT_PAIRS]: 'https://example.com/a.ics | Work ;; http://bad.test/x.ics | Bad ;; https://example.com/b.ics | Personal',
+                [settings.SETTING_ICS_SCHEDULED_IMPORT_PAIRS]: 'https://example.com/a.ics | Work ;; http://bad.test/x.ics | Bad ;; https://example.com/b.ics | Personal',
             });
 
-            await expect(settings.getAutomatedIcsImportEntries(joplin)).resolves.toEqual([
+            await expect(settings.getScheduledIcsImportEntries(joplin)).resolves.toEqual([
                 {url: 'https://example.com/a.ics', notebookTitle: 'Work'},
                 {url: 'https://example.com/b.ics', notebookTitle: 'Personal'},
             ]);
         });
 
-        test('getAutomatedIcsImportIntervalMinutes clamps to 5-1440 with default 60', async () => {
-            await expect(settings.getAutomatedIcsImportIntervalMinutes(mkJoplin({
-                [settings.SETTING_ICS_AUTO_IMPORT_INTERVAL_MINUTES]: null,
+        test('getScheduledIcsImportIntervalMinutes clamps to 5-1440 with default 60', async () => {
+            await expect(settings.getScheduledIcsImportIntervalMinutes(mkJoplin({
+                [settings.SETTING_ICS_SCHEDULED_IMPORT_INTERVAL_MINUTES]: null,
             }))).resolves.toBe(60);
 
-            await expect(settings.getAutomatedIcsImportIntervalMinutes(mkJoplin({
-                [settings.SETTING_ICS_AUTO_IMPORT_INTERVAL_MINUTES]: 1,
+            await expect(settings.getScheduledIcsImportIntervalMinutes(mkJoplin({
+                [settings.SETTING_ICS_SCHEDULED_IMPORT_INTERVAL_MINUTES]: 1,
             }))).resolves.toBe(5);
 
-            await expect(settings.getAutomatedIcsImportIntervalMinutes(mkJoplin({
-                [settings.SETTING_ICS_AUTO_IMPORT_INTERVAL_MINUTES]: 5000,
+            await expect(settings.getScheduledIcsImportIntervalMinutes(mkJoplin({
+                [settings.SETTING_ICS_SCHEDULED_IMPORT_INTERVAL_MINUTES]: 5000,
             }))).resolves.toBe(1440);
         });
 
@@ -449,11 +449,11 @@ describe('settings.ts logic', () => {
             expect(setDebugEnabled).toHaveBeenCalledWith(true);
         });
 
-        test('sanitizes automated import pairs to HTTPS-only ;;-separated url|title values', async () => {
+        test('sanitizes scheduled import pairs to HTTPS-only ;;-separated url|title values', async () => {
             const onChangeHandlers: Array<(e: any) => Promise<void>> = [];
 
             const values = new Map<string, any>([
-                [settings.SETTING_ICS_AUTO_IMPORT_PAIRS, ' https://example.com/a.ics | Work ;; http://bad.test/b.ics | Bad ;; https://example.com/a.ics | Work '],
+                [settings.SETTING_ICS_SCHEDULED_IMPORT_PAIRS, ' https://example.com/a.ics | Work ;; http://bad.test/b.ics | Bad ;; https://example.com/a.ics | Work '],
                 [settings.SETTING_DEBUG, false],
             ]);
 
@@ -473,10 +473,10 @@ describe('settings.ts logic', () => {
             };
 
             await settings.registerSettings(joplin as any);
-            await onChangeHandlers[0]({keys: [settings.SETTING_ICS_AUTO_IMPORT_PAIRS]});
+            await onChangeHandlers[0]({keys: [settings.SETTING_ICS_SCHEDULED_IMPORT_PAIRS]});
 
             expect(joplin.settings.setValue).toHaveBeenCalledWith(
-                settings.SETTING_ICS_AUTO_IMPORT_PAIRS,
+                settings.SETTING_ICS_SCHEDULED_IMPORT_PAIRS,
                 'https://example.com/a.ics | Work',
             );
         });
@@ -507,9 +507,9 @@ describe('settings.ts logic', () => {
             expect(arg[settings.SETTING_ICS_IMPORT_ALARMS_ENABLED].type).toBe(3); // bool
             expect(arg[settings.SETTING_ICS_IMPORT_ALARM_EMOJI]).toBeDefined();
             expect(arg[settings.SETTING_ICS_IMPORT_ALARM_EMOJI].value).toBe('🔔');
-            expect(arg[settings.SETTING_ICS_AUTO_IMPORT_PAIRS]).toBeDefined();
+            expect(arg[settings.SETTING_ICS_SCHEDULED_IMPORT_PAIRS]).toBeDefined();
             expect(arg[settings.SETTING_ICS_EXPORT_LINK_PAIRS]).toBeDefined();
-            expect(arg[settings.SETTING_ICS_AUTO_IMPORT_INTERVAL_MINUTES].value).toBe(60);
+            expect(arg[settings.SETTING_ICS_SCHEDULED_IMPORT_INTERVAL_MINUTES].value).toBe(60);
             expect(arg[settings.SETTING_DAY_EVENTS_VIEW_MODE]).toBeDefined();
             expect(arg[settings.SETTING_DAY_EVENTS_VIEW_MODE].value).toBe('single');
             expect(arg[settings.SETTING_DAY_EVENTS_VIEW_MODE].isEnum).toBe(true);

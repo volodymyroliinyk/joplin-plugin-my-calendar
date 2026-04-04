@@ -1,8 +1,8 @@
-// src/main/services/automatedIcsImportService.ts
+// src/main/services/scheduledIcsImportService.ts
 
 import {
-    getAutomatedIcsImportEntries,
-    getAutomatedIcsImportIntervalMinutes,
+    getScheduledIcsImportEntries,
+    getScheduledIcsImportIntervalMinutes,
     getIcsImportAlarmRangeDays,
 } from '../settings/settings';
 import {getAllFolders, resolveFolderIdByTitle} from './folderService';
@@ -22,7 +22,7 @@ type ImportSummary = {
     alarmsUpdated: number;
 };
 
-export type AutomatedIcsImportController = {
+export type ScheduledIcsImportController = {
     refresh: () => Promise<void>;
     stop: () => void;
 };
@@ -69,10 +69,10 @@ function redactUrlFromText(text: string, url: string): string {
 }
 
 function buildImportDoneText(notebookTitle: string, result: ImportSummary): string {
-    return `Automated ICS import finished for ${notebookTitle}: added=${result.added}, updated=${result.updated}, skipped=${result.skipped}, errors=${result.errors}, alarmsCreated=${result.alarmsCreated}, alarmsDeleted=${result.alarmsDeleted}`;
+    return `Scheduled ICS import finished for ${notebookTitle}: added=${result.added}, updated=${result.updated}, skipped=${result.skipped}, errors=${result.errors}, alarmsCreated=${result.alarmsCreated}, alarmsDeleted=${result.alarmsDeleted}`;
 }
 
-async function showAutomatedImportDoneToast(notebookTitle: string, result: ImportSummary): Promise<void> {
+async function showScheduledImportDoneToast(notebookTitle: string, result: ImportSummary): Promise<void> {
     const text = buildImportDoneText(notebookTitle, result);
     if (result.errors > 0) {
         await showToast('warning', text, 5000);
@@ -81,14 +81,14 @@ async function showAutomatedImportDoneToast(notebookTitle: string, result: Impor
     await showToast('success', text, 5000);
 }
 
-async function showAutomatedImportErrorToast(notebookTitle: string, message: string): Promise<void> {
-    await showToast('error', `Automated ICS import failed for ${notebookTitle}: ${message}`, 5000);
+async function showScheduledImportErrorToast(notebookTitle: string, message: string): Promise<void> {
+    await showToast('error', `Scheduled ICS import failed for ${notebookTitle}: ${message}`, 5000);
 }
 
 export async function downloadIcsFromUrl(url: string, redirectsLeft: number = MAX_REDIRECTS): Promise<string> {
     const parsed = new URL(url);
     if (parsed.protocol !== 'https:') {
-        throw new Error('Automated ICS import supports HTTPS URLs only');
+        throw new Error('Scheduled ICS import supports HTTPS URLs only');
     }
 
     const https = await import('https');
@@ -98,7 +98,7 @@ export async function downloadIcsFromUrl(url: string, redirectsLeft: number = MA
         const req = client.get(parsed, {
             headers: {
                 Accept: 'text/calendar,text/plain;q=0.9,*/*;q=0.1',
-                'User-Agent': 'MyCalendar-Joplin-Plugin/auto-import',
+                'User-Agent': 'MyCalendar-Joplin-Plugin/scheduled-import',
             },
         }, (res) => {
             const status = res.statusCode ?? 0;
@@ -153,10 +153,10 @@ export async function downloadIcsFromUrl(url: string, redirectsLeft: number = MA
     });
 }
 
-export async function startAutomatedIcsImport(
+export async function startScheduledIcsImport(
     joplin: Joplin,
     options: StartOptions = {},
-): Promise<AutomatedIcsImportController> {
+): Promise<ScheduledIcsImportController> {
     let timer: ReturnType<typeof setInterval> | undefined;
     let disposed = false;
     let running = false;
@@ -174,13 +174,13 @@ export async function startAutomatedIcsImport(
         if (disposed) return;
         if (!isCurrentVersion(version)) return;
         if (running) {
-            dbg('automatedIcsImport', 'Skip cycle because a previous automated import is still running');
+            dbg('scheduledIcsImport', 'Skip cycle because a previous scheduled import is still running');
             return;
         }
 
         running = true;
         try {
-            const entries = await getAutomatedIcsImportEntries(joplin);
+            const entries = await getScheduledIcsImportEntries(joplin);
             if (!entries.length) return;
 
             const folders = await getAllFolders(joplin);
@@ -195,23 +195,23 @@ export async function startAutomatedIcsImport(
                     const {folderId, reason} = resolveFolderIdByTitle(folders, entry.notebookTitle);
                     if (!folderId) {
                         summary.errors += 1;
-                        warn('automatedIcsImport', reason || `Notebook title "${entry.notebookTitle}" is invalid`);
+                        warn('scheduledIcsImport', reason || `Notebook title "${entry.notebookTitle}" is invalid`);
                         if (isCurrentVersion(version)) {
                             const safeReason = reason || 'Notebook title is invalid';
-                            warn('automatedIcsImport', `Automated ICS import failed for ${entry.notebookTitle}: ${safeReason}`);
-                            await showAutomatedImportErrorToast(entry.notebookTitle, safeReason);
+                            warn('scheduledIcsImport', `Scheduled ICS import failed for ${entry.notebookTitle}: ${safeReason}`);
+                            await showScheduledImportErrorToast(entry.notebookTitle, safeReason);
                         }
                         continue;
                     }
 
-                    log('automatedIcsImport', `Downloading ICS from ${url}`);
+                    log('scheduledIcsImport', `Downloading ICS from ${url}`);
                     const ics = await (options.downloadIcs ?? downloadIcsFromUrl)(url);
                     if (!isCurrentVersion(version)) return;
                     const result = await importIcsIntoNotes(
                         joplin,
                         ics,
                         async (text: string) => {
-                            dbg('automatedIcsImport', `[${url}] ${text}`);
+                            dbg('scheduledIcsImport', `[${url}] ${text}`);
                         },
                         folderId,
                         true,
@@ -221,21 +221,21 @@ export async function startAutomatedIcsImport(
                     importedAtLeastOne = true;
                     mergeSummary(summary, result);
                     log(
-                        'automatedIcsImport',
+                        'scheduledIcsImport',
                         `Imported ${url}: added=${result.added}, updated=${result.updated}, skipped=${result.skipped}, errors=${result.errors}`,
                     );
                     if (isCurrentVersion(version)) {
-                        log('automatedIcsImport', buildImportDoneText(entry.notebookTitle, result));
-                        await showAutomatedImportDoneToast(entry.notebookTitle, result);
+                        log('scheduledIcsImport', buildImportDoneText(entry.notebookTitle, result));
+                        await showScheduledImportDoneToast(entry.notebookTitle, result);
                     }
                 } catch (error) {
                     summary.errors += 1;
                     const errText = String((error as { message?: string })?.message || error);
-                    warn('automatedIcsImport', `Failed to import ${url}:`, error);
+                    warn('scheduledIcsImport', `Failed to import ${url}:`, error);
                     if (isCurrentVersion(version)) {
                         const safeErrorText = redactUrlFromText(errText, url);
-                        warn('automatedIcsImport', `Automated ICS import failed for ${entry.notebookTitle}: ${safeErrorText}`);
-                        await showAutomatedImportErrorToast(entry.notebookTitle, safeErrorText);
+                        warn('scheduledIcsImport', `Scheduled ICS import failed for ${entry.notebookTitle}: ${safeErrorText}`);
+                        await showScheduledImportErrorToast(entry.notebookTitle, safeErrorText);
                     }
                 }
             }
@@ -245,7 +245,7 @@ export async function startAutomatedIcsImport(
                 await options.onAfterImport?.(summary);
             }
         } catch (error) {
-            err('automatedIcsImport', 'Automated ICS import cycle failed:', error);
+            err('scheduledIcsImport', 'Scheduled ICS import cycle failed:', error);
         } finally {
             running = false;
         }
@@ -257,25 +257,25 @@ export async function startAutomatedIcsImport(
         configVersion += 1;
         const version = configVersion;
 
-        const entries = await getAutomatedIcsImportEntries(joplin);
+        const entries = await getScheduledIcsImportEntries(joplin);
         if (!entries.length) {
-            log('automatedIcsImport', 'Automated ICS import is disabled because no valid HTTPS URL + notebook title pairs are configured');
+            log('scheduledIcsImport', 'Scheduled ICS import is disabled because no valid HTTPS URL + notebook title pairs are configured');
             return;
         }
 
-        const minutes = await getAutomatedIcsImportIntervalMinutes(joplin);
+        const minutes = await getScheduledIcsImportIntervalMinutes(joplin);
         timer = setInterval(() => {
             void runOnce(version);
         }, minutes * 60 * 1000);
 
-        log('automatedIcsImport', `Automated ICS import scheduled every ${minutes} minute(s) for ${entries.length} pair(s)`);
+        log('scheduledIcsImport', `Scheduled ICS import runs every ${minutes} minute(s) for ${entries.length} pair(s)`);
     };
 
     try {
         if (typeof joplin.versionInfo === 'function') {
             const versionInfo = await joplin.versionInfo();
             if (!isDesktopPlatform(versionInfo?.platform)) {
-                log('automatedIcsImport', 'Automated ICS import is disabled on mobile');
+                log('scheduledIcsImport', 'Scheduled ICS import is disabled on mobile');
                 return {
                     refresh,
                     stop: () => {
@@ -288,7 +288,7 @@ export async function startAutomatedIcsImport(
 
         await refresh();
     } catch (error) {
-        warn('automatedIcsImport', 'Unable to detect platform for automated ICS import; assuming desktop:', error);
+        warn('scheduledIcsImport', 'Unable to detect platform for scheduled ICS import; assuming desktop:', error);
         await refresh();
     }
 

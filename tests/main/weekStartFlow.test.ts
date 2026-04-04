@@ -23,15 +23,15 @@ jest.mock('../../src/main/uiBridge/panelController', () => ({
     registerCalendarPanelController: jest.fn().mockResolvedValue(undefined),
 }));
 
-jest.mock('../../src/main/services/automatedIcsImportService', () => ({
-    startAutomatedIcsImport: jest.fn().mockResolvedValue({
+jest.mock('../../src/main/services/scheduledIcsImportService', () => ({
+    startScheduledIcsImport: jest.fn().mockResolvedValue({
         refresh: jest.fn().mockResolvedValue(undefined),
         stop: jest.fn(),
     }),
 }));
 
 jest.mock('../../src/main/settings/settings', () => ({
-    AUTOMATED_ICS_IMPORT_SETTING_KEYS: ['mycalendar.icsAutoImportPairs'],
+    SCHEDULED_ICS_IMPORT_SETTING_KEYS: ['mycalendar.icsScheduledImportPairs'],
     registerSettings: jest.fn().mockResolvedValue(undefined),
     getWeekStart: jest.fn(),
     getDebugEnabled: jest.fn().mockResolvedValue(false),

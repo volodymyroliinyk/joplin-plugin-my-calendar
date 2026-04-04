@@ -6,7 +6,7 @@ const REPO_ROOT = path.resolve(__dirname, '../..');
 const MAIN_SRC_DIR = path.join(REPO_ROOT, 'src/main');
 const FORBIDDEN_BUILTINS = ['http', 'https', 'fs', 'net', 'tls', 'child_process'] as const;
 const ALLOWED_FILES = new Set([
-    path.normalize(path.join(MAIN_SRC_DIR, 'services/automatedIcsImportService.ts')),
+    path.normalize(path.join(MAIN_SRC_DIR, 'services/scheduledIcsImportService.ts')),
 ]);
 
 function walkTsFiles(dir: string): string[] {
@@ -36,7 +36,7 @@ describe('mobile startup safety', () => {
         jest.resetModules();
     });
 
-    test('automatedIcsImportService import does not eagerly load desktop-only Node modules', () => {
+    test('scheduledIcsImportService import does not eagerly load desktop-only Node modules', () => {
         const moduleAny = Module as any;
         const originalLoad = moduleAny._load;
         const loadedRequests: string[] = [];
@@ -48,7 +48,7 @@ describe('mobile startup safety', () => {
 
         try {
             jest.isolateModules(() => {
-                require('../../src/main/services/automatedIcsImportService');
+                require('../../src/main/services/scheduledIcsImportService');
             });
         } finally {
             moduleAny._load = originalLoad;

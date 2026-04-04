@@ -22,8 +22,8 @@ export const SETTING_ICS_IMPORT_ALARMS_ENABLED = 'mycalendar.icsImportAlarmsEnab
 export const SETTING_ICS_IMPORT_ALARM_RANGE_DAYS = 'mycalendar.icsImportAlarmRangeDays';
 export const SETTING_ICS_IMPORT_EMPTY_TRASH_AFTER = 'mycalendar.icsImportEmptyTrashAfter';
 export const SETTING_ICS_IMPORT_ALARM_EMOJI = 'mycalendar.icsImportAlarmEmoji';
-export const SETTING_ICS_AUTO_IMPORT_PAIRS = 'mycalendar.icsAutoImportPairs';
-export const SETTING_ICS_AUTO_IMPORT_INTERVAL_MINUTES = 'mycalendar.icsAutoImportIntervalMinutes';
+export const SETTING_ICS_SCHEDULED_IMPORT_PAIRS = 'mycalendar.icsScheduledImportPairs';
+export const SETTING_ICS_SCHEDULED_IMPORT_INTERVAL_MINUTES = 'mycalendar.icsScheduledImportIntervalMinutes';
 
 // Export links
 export const SETTING_ICS_EXPORT_LINK_PAIRS = 'mycalendar.icsExportLinkPairs';
@@ -48,7 +48,7 @@ export type IcsExportLink = {
     url: string;
 };
 
-export type AutomatedIcsImportEntry = {
+export type ScheduledIcsImportEntry = {
     url: string;
     notebookTitle: string;
 };
@@ -71,13 +71,13 @@ const ICS_EXPORT_LINK_PAIRS: Array<{ titleKey: string; urlKey: string }> = [
 
 const ICS_EXPORT_URL_KEYS = ICS_EXPORT_LINK_PAIRS.map(p => p.urlKey);
 const ICS_EXPORT_TITLE_KEYS = ICS_EXPORT_LINK_PAIRS.map(p => p.titleKey);
-const AUTOMATED_ICS_IMPORT_MINUTES_DEFAULT = 60;
-const AUTOMATED_ICS_IMPORT_MINUTES_MIN = 5;
-const AUTOMATED_ICS_IMPORT_MINUTES_MAX = 24 * 60;
+const SCHEDULED_ICS_IMPORT_MINUTES_DEFAULT = 60;
+const SCHEDULED_ICS_IMPORT_MINUTES_MIN = 5;
+const SCHEDULED_ICS_IMPORT_MINUTES_MAX = 24 * 60;
 
-export const AUTOMATED_ICS_IMPORT_SETTING_KEYS = [
-    SETTING_ICS_AUTO_IMPORT_PAIRS,
-    SETTING_ICS_AUTO_IMPORT_INTERVAL_MINUTES,
+export const SCHEDULED_ICS_IMPORT_SETTING_KEYS = [
+    SETTING_ICS_SCHEDULED_IMPORT_PAIRS,
+    SETTING_ICS_SCHEDULED_IMPORT_INTERVAL_MINUTES,
     SETTING_ICS_IMPORT_ALARMS_ENABLED,
     SETTING_ICS_IMPORT_ALARM_RANGE_DAYS,
     SETTING_ICS_IMPORT_EMPTY_TRASH_AFTER,
@@ -136,10 +136,10 @@ export function sanitizeAlarmEmoji(input: unknown): string {
     return compact.length > ALARM_EMOJI_MAX_LEN ? compact.slice(0, ALARM_EMOJI_MAX_LEN) : compact;
 }
 
-export function parseAutomatedIcsImportEntries(input: unknown): AutomatedIcsImportEntry[] {
+export function parseScheduledIcsImportEntries(input: unknown): ScheduledIcsImportEntry[] {
     const raw = String(input ?? '');
     const seen = new Set<string>();
-    const out: AutomatedIcsImportEntry[] = [];
+    const out: ScheduledIcsImportEntry[] = [];
 
     const normalized = raw.replace(/\r?\n/g, ' ;; ');
 
@@ -163,8 +163,8 @@ export function parseAutomatedIcsImportEntries(input: unknown): AutomatedIcsImpo
     return out;
 }
 
-export function sanitizeAutomatedIcsImportEntries(input: unknown): string {
-    return parseAutomatedIcsImportEntries(input)
+export function sanitizeScheduledIcsImportEntries(input: unknown): string {
+    return parseScheduledIcsImportEntries(input)
         .map(({url, notebookTitle}) => `${url} | ${notebookTitle}`)
         .join(' ;; ');
 }
@@ -355,20 +355,20 @@ export async function registerSettings(joplin: any) {
             label: 'ICS reminder emoji',
             description: 'ICS import section: Emoji or short prefix added to imported reminder note titles. Default: 🔔.',
         },
-        [SETTING_ICS_AUTO_IMPORT_PAIRS]: {
+        [SETTING_ICS_SCHEDULED_IMPORT_PAIRS]: {
             value: '',
             type: SETTING_TYPE_STRING,
             section: 'mycalendar',
             public: !mobile,
-            label: 'Automated ICS import pairs (Link & Notebook Title)',
+            label: 'Scheduled ICS import pairs (Link & Notebook Title)',
             description: 'ICS import section: Use "https://...ics | Notebook Title ;; https://...ics | Another Notebook". Add as many valid pairs as needed. ";;" separates pairs, "|" separates URL and notebook title.',
         },
-        [SETTING_ICS_AUTO_IMPORT_INTERVAL_MINUTES]: {
-            value: AUTOMATED_ICS_IMPORT_MINUTES_DEFAULT,
+        [SETTING_ICS_SCHEDULED_IMPORT_INTERVAL_MINUTES]: {
+            value: SCHEDULED_ICS_IMPORT_MINUTES_DEFAULT,
             type: SETTING_TYPE_INT,
             section: 'mycalendar',
             public: !mobile,
-            label: 'Automated ICS import interval (minutes)',
+            label: 'Scheduled ICS import interval (minutes)',
             description: 'ICS import section: How often the plugin re-imports ICS URLs in the background. Allowed range: 5-1440 minutes.',
         },
         [SETTING_ICS_EXPORT_LINK_PAIRS]: {
@@ -480,9 +480,9 @@ export async function registerSettings(joplin: any) {
                     if (raw !== safe) await joplin.settings.setValue(key, safe);
                 };
 
-                const maybeFixAutomatedPairs = async (key: string) => {
+                const maybeFixScheduledPairs = async (key: string) => {
                     const raw = await joplin.settings.value(key);
-                    const safe = sanitizeAutomatedIcsImportEntries(raw);
+                    const safe = sanitizeScheduledIcsImportEntries(raw);
                     if (raw !== safe) await joplin.settings.setValue(key, safe);
                 };
 
@@ -507,12 +507,12 @@ export async function registerSettings(joplin: any) {
                 const touchedUrl = ICS_EXPORT_URL_KEYS.some((k) => keys.includes(k));
                 const touchedTitle = ICS_EXPORT_TITLE_KEYS.some((k) => keys.includes(k));
                 const touchedExportPairs = keys.includes(SETTING_ICS_EXPORT_LINK_PAIRS);
-                const touchedAutoImportPairs = keys.includes(SETTING_ICS_AUTO_IMPORT_PAIRS);
+                const touchedScheduledImportPairs = keys.includes(SETTING_ICS_SCHEDULED_IMPORT_PAIRS);
                 const touchedImportDefaultEventColor = keys.includes(SETTING_IMPORT_DEFAULT_EVENT_COLOR);
                 const touchedTimelineNowLineColor = keys.includes(SETTING_TIMELINE_NOW_LINE_COLOR);
                 const touchedAlarmEmoji = keys.includes(SETTING_ICS_IMPORT_ALARM_EMOJI);
                 const touchedDebug = keys.includes(SETTING_DEBUG);
-                if (!touchedUrl && !touchedTitle && !touchedExportPairs && !touchedAutoImportPairs && !touchedImportDefaultEventColor && !touchedTimelineNowLineColor && !touchedAlarmEmoji && !touchedDebug) return;
+                if (!touchedUrl && !touchedTitle && !touchedExportPairs && !touchedScheduledImportPairs && !touchedImportDefaultEventColor && !touchedTimelineNowLineColor && !touchedAlarmEmoji && !touchedDebug) return;
                 for (const k of ICS_EXPORT_URL_KEYS) {
                     if (keys.includes(k)) await maybeFixUrl(k);
                 }
@@ -522,8 +522,8 @@ export async function registerSettings(joplin: any) {
                 if (touchedExportPairs) {
                     await maybeFixExportPairs(SETTING_ICS_EXPORT_LINK_PAIRS);
                 }
-                if (touchedAutoImportPairs) {
-                    await maybeFixAutomatedPairs(SETTING_ICS_AUTO_IMPORT_PAIRS);
+                if (touchedScheduledImportPairs) {
+                    await maybeFixScheduledPairs(SETTING_ICS_SCHEDULED_IMPORT_PAIRS);
                 }
                 if (touchedImportDefaultEventColor) {
                     await maybeFixHexColor(SETTING_IMPORT_DEFAULT_EVENT_COLOR);
@@ -627,17 +627,17 @@ export async function getIcsImportAlarmEmoji(joplin: any): Promise<string> {
     return sanitizeAlarmEmoji(raw) || ALARM_EMOJI_DEFAULT;
 }
 
-export async function getAutomatedIcsImportIntervalMinutes(joplin: any): Promise<number> {
-    const raw = await joplin.settings.value(SETTING_ICS_AUTO_IMPORT_INTERVAL_MINUTES);
-    if (raw === null || raw === undefined) return AUTOMATED_ICS_IMPORT_MINUTES_DEFAULT;
+export async function getScheduledIcsImportIntervalMinutes(joplin: any): Promise<number> {
+    const raw = await joplin.settings.value(SETTING_ICS_SCHEDULED_IMPORT_INTERVAL_MINUTES);
+    if (raw === null || raw === undefined) return SCHEDULED_ICS_IMPORT_MINUTES_DEFAULT;
     const n = Number(raw);
-    if (!Number.isFinite(n)) return AUTOMATED_ICS_IMPORT_MINUTES_DEFAULT;
-    return Math.min(AUTOMATED_ICS_IMPORT_MINUTES_MAX, Math.max(AUTOMATED_ICS_IMPORT_MINUTES_MIN, Math.round(n)));
+    if (!Number.isFinite(n)) return SCHEDULED_ICS_IMPORT_MINUTES_DEFAULT;
+    return Math.min(SCHEDULED_ICS_IMPORT_MINUTES_MAX, Math.max(SCHEDULED_ICS_IMPORT_MINUTES_MIN, Math.round(n)));
 }
 
-export async function getAutomatedIcsImportEntries(joplin: any): Promise<AutomatedIcsImportEntry[]> {
-    const raw = await joplin.settings.value(SETTING_ICS_AUTO_IMPORT_PAIRS);
-    return parseAutomatedIcsImportEntries(raw);
+export async function getScheduledIcsImportEntries(joplin: any): Promise<ScheduledIcsImportEntry[]> {
+    const raw = await joplin.settings.value(SETTING_ICS_SCHEDULED_IMPORT_PAIRS);
+    return parseScheduledIcsImportEntries(raw);
 }
 
 export async function getIcsExportLinks(joplin: any): Promise<IcsExportLink[]> {

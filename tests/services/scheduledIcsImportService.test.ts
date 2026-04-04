@@ -1,8 +1,8 @@
-import {startAutomatedIcsImport} from '../../src/main/services/automatedIcsImportService';
+import {startScheduledIcsImport} from '../../src/main/services/scheduledIcsImportService';
 
 jest.mock('../../src/main/settings/settings', () => ({
-    getAutomatedIcsImportEntries: jest.fn(),
-    getAutomatedIcsImportIntervalMinutes: jest.fn(),
+    getScheduledIcsImportEntries: jest.fn(),
+    getScheduledIcsImportIntervalMinutes: jest.fn(),
     getIcsImportAlarmRangeDays: jest.fn(),
 }));
 
@@ -31,8 +31,8 @@ jest.mock('../../src/main/utils/logger', () => ({
 }));
 
 import {
-    getAutomatedIcsImportIntervalMinutes,
-    getAutomatedIcsImportEntries,
+    getScheduledIcsImportIntervalMinutes,
+    getScheduledIcsImportEntries,
     getIcsImportAlarmRangeDays,
 } from '../../src/main/settings/settings';
 import {getAllFolders, resolveFolderIdByTitle} from '../../src/main/services/folderService';
@@ -40,15 +40,15 @@ import {importIcsIntoNotes} from '../../src/main/services/icsImportService';
 import {invalidateAllEventsCache} from '../../src/main/services/eventsCache';
 import {showToast} from '../../src/main/utils/toast';
 
-describe('automatedIcsImportService', () => {
+describe('scheduledIcsImportService', () => {
     beforeEach(() => {
         jest.useFakeTimers();
         jest.clearAllMocks();
 
-        (getAutomatedIcsImportEntries as jest.Mock).mockResolvedValue([
+        (getScheduledIcsImportEntries as jest.Mock).mockResolvedValue([
             {url: 'https://example.com/a.ics', notebookTitle: 'Work'},
         ]);
-        (getAutomatedIcsImportIntervalMinutes as jest.Mock).mockResolvedValue(15);
+        (getScheduledIcsImportIntervalMinutes as jest.Mock).mockResolvedValue(15);
         (getIcsImportAlarmRangeDays as jest.Mock).mockResolvedValue(30);
         (getAllFolders as jest.Mock).mockResolvedValue([{id: 'folder-1', title: 'Work', parent_id: null}]);
         (resolveFolderIdByTitle as jest.Mock).mockReturnValue({folderId: 'folder-1'});
@@ -75,7 +75,7 @@ describe('automatedIcsImportService', () => {
             versionInfo: jest.fn().mockResolvedValue({platform: 'desktop'}),
         };
 
-        const controller = await startAutomatedIcsImport(joplin as any, {onAfterImport, downloadIcs});
+        const controller = await startScheduledIcsImport(joplin as any, {onAfterImport, downloadIcs});
 
         expect(downloadIcs).not.toHaveBeenCalled();
         expect(importIcsIntoNotes).not.toHaveBeenCalled();
@@ -98,7 +98,7 @@ describe('automatedIcsImportService', () => {
         expect(invalidateAllEventsCache).toHaveBeenCalledTimes(1);
         expect(showToast).toHaveBeenCalledWith(
             'success',
-            'Automated ICS import finished for Work: added=1, updated=2, skipped=3, errors=0, alarmsCreated=4, alarmsDeleted=5',
+            'Scheduled ICS import finished for Work: added=1, updated=2, skipped=3, errors=0, alarmsCreated=4, alarmsDeleted=5',
             5000,
         );
         expect(onAfterImport).toHaveBeenCalledWith({
@@ -114,13 +114,13 @@ describe('automatedIcsImportService', () => {
         controller.stop();
     });
 
-    test('does not start automated import on mobile', async () => {
+    test('does not start scheduled import on mobile', async () => {
         const downloadIcs = jest.fn();
         const joplin = {
             versionInfo: jest.fn().mockResolvedValue({platform: 'mobile'}),
         };
 
-        await startAutomatedIcsImport(joplin as any, {downloadIcs});
+        await startScheduledIcsImport(joplin as any, {downloadIcs});
 
         expect(downloadIcs).not.toHaveBeenCalled();
         expect(importIcsIntoNotes).not.toHaveBeenCalled();
@@ -132,10 +132,10 @@ describe('automatedIcsImportService', () => {
             versionInfo: jest.fn().mockResolvedValue({platform: 'desktop'}),
         };
 
-        const controller = await startAutomatedIcsImport(joplin as any, {downloadIcs});
+        const controller = await startScheduledIcsImport(joplin as any, {downloadIcs});
         expect(importIcsIntoNotes).not.toHaveBeenCalled();
 
-        (getAutomatedIcsImportEntries as jest.Mock).mockResolvedValue([]);
+        (getScheduledIcsImportEntries as jest.Mock).mockResolvedValue([]);
         await controller.refresh();
 
         await jest.advanceTimersByTimeAsync(15 * 60 * 1000);
@@ -144,7 +144,7 @@ describe('automatedIcsImportService', () => {
     });
 
     test('continues with next URL when one download fails and still invalidates cache after successful imports', async () => {
-        (getAutomatedIcsImportEntries as jest.Mock).mockResolvedValue([
+        (getScheduledIcsImportEntries as jest.Mock).mockResolvedValue([
             {url: 'https://example.com/a.ics', notebookTitle: 'Work'},
             {url: 'https://example.com/b.ics', notebookTitle: 'Personal'},
         ]);
@@ -157,19 +157,19 @@ describe('automatedIcsImportService', () => {
             versionInfo: jest.fn().mockResolvedValue({platform: 'desktop'}),
         };
 
-        await startAutomatedIcsImport(joplin as any, {onAfterImport, downloadIcs});
+        await startScheduledIcsImport(joplin as any, {onAfterImport, downloadIcs});
         await jest.advanceTimersByTimeAsync(15 * 60 * 1000);
 
         expect(importIcsIntoNotes).toHaveBeenCalledTimes(1);
         expect(invalidateAllEventsCache).toHaveBeenCalledTimes(1);
         expect(showToast).toHaveBeenCalledWith(
             'error',
-            'Automated ICS import failed for Work: boom',
+            'Scheduled ICS import failed for Work: boom',
             5000,
         );
         expect(showToast).toHaveBeenCalledWith(
             'success',
-            'Automated ICS import finished for Personal: added=1, updated=2, skipped=3, errors=0, alarmsCreated=4, alarmsDeleted=5',
+            'Scheduled ICS import finished for Personal: added=1, updated=2, skipped=3, errors=0, alarmsCreated=4, alarmsDeleted=5',
             5000,
         );
         expect(onAfterImport).toHaveBeenCalledWith({
@@ -199,12 +199,12 @@ describe('automatedIcsImportService', () => {
             versionInfo: jest.fn().mockResolvedValue({platform: 'desktop'}),
         };
 
-        await startAutomatedIcsImport(joplin as any, {downloadIcs});
+        await startScheduledIcsImport(joplin as any, {downloadIcs});
         await jest.advanceTimersByTimeAsync(15 * 60 * 1000);
 
         expect(showToast).toHaveBeenCalledWith(
             'warning',
-            'Automated ICS import finished for Work: added=1, updated=0, skipped=0, errors=2, alarmsCreated=0, alarmsDeleted=0',
+            'Scheduled ICS import finished for Work: added=1, updated=0, skipped=0, errors=2, alarmsCreated=0, alarmsDeleted=0',
             5000,
         );
     });
@@ -217,13 +217,13 @@ describe('automatedIcsImportService', () => {
             versionInfo: jest.fn().mockResolvedValue({platform: 'desktop'}),
         };
 
-        await startAutomatedIcsImport(joplin as any, {downloadIcs});
+        await startScheduledIcsImport(joplin as any, {downloadIcs});
         await jest.advanceTimersByTimeAsync(15 * 60 * 1000);
 
         expect(downloadIcs).not.toHaveBeenCalled();
         expect(showToast).toHaveBeenCalledWith(
             'error',
-            'Automated ICS import failed for Work: Notebook title "Work" was not found',
+            'Scheduled ICS import failed for Work: Notebook title "Work" was not found',
             5000,
         );
     });
@@ -234,7 +234,7 @@ describe('automatedIcsImportService', () => {
             versionInfo: jest.fn().mockResolvedValue({platform: 'desktop'}),
         };
 
-        const controller = await startAutomatedIcsImport(joplin as any, {downloadIcs});
+        const controller = await startScheduledIcsImport(joplin as any, {downloadIcs});
 
         let resolveDownload!: (value: string) => void;
         const slowDownload = new Promise<string>((resolve) => {
@@ -249,7 +249,7 @@ describe('automatedIcsImportService', () => {
 
         await jest.advanceTimersByTimeAsync(15 * 60 * 1000);
 
-        (getAutomatedIcsImportEntries as jest.Mock).mockResolvedValue([
+        (getScheduledIcsImportEntries as jest.Mock).mockResolvedValue([
             {url: 'https://example.com/new.ics', notebookTitle: 'Work'},
         ]);
 
@@ -261,7 +261,7 @@ describe('automatedIcsImportService', () => {
         expect(showToast).toHaveBeenCalledTimes(1);
         expect(showToast).toHaveBeenCalledWith(
             'success',
-            'Automated ICS import finished for Work: added=1, updated=2, skipped=3, errors=0, alarmsCreated=4, alarmsDeleted=5',
+            'Scheduled ICS import finished for Work: added=1, updated=2, skipped=3, errors=0, alarmsCreated=4, alarmsDeleted=5',
             5000,
         );
         expect(invalidateAllEventsCache).toHaveBeenCalledTimes(1);
@@ -274,12 +274,12 @@ describe('automatedIcsImportService', () => {
             versionInfo: jest.fn().mockResolvedValue({platform: 'desktop'}),
         };
 
-        await startAutomatedIcsImport(joplin as any, {downloadIcs});
+        await startScheduledIcsImport(joplin as any, {downloadIcs});
         await jest.advanceTimersByTimeAsync(15 * 60 * 1000);
 
         expect(showToast).toHaveBeenCalledWith(
             'error',
-            'Automated ICS import failed for Work: Failed to fetch [redacted]',
+            'Scheduled ICS import failed for Work: Failed to fetch [redacted]',
             5000,
         );
     });
