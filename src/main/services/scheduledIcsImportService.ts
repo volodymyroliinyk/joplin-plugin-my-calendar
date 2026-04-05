@@ -11,6 +11,7 @@ import {invalidateAllEventsCache} from './eventsCache';
 import {Joplin} from '../types/joplin.interface';
 import {dbg, err, log, warn} from '../utils/logger';
 import {showToast} from '../utils/toast';
+import {getErrorText} from '../utils/errorUtils';
 
 type ImportSummary = {
     added: number;
@@ -230,7 +231,7 @@ export async function startScheduledIcsImport(
                     }
                 } catch (error) {
                     summary.errors += 1;
-                    const errText = String((error as { message?: string })?.message || error);
+                    const errText = getErrorText(error);
                     warn('scheduledIcsImport', `Failed to import ${url}:`, error);
                     if (isCurrentVersion(version)) {
                         const safeErrorText = redactUrlFromText(errText, url);

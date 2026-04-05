@@ -17,8 +17,10 @@ import {
     getIcsImportEmptyTrashAfter
 } from '../settings/settings';
 import {Joplin} from '../types/joplin.interface';
-import {createNote, deleteNote, updateNote} from './joplinNoteService';
+import {createNote, deleteNote, NoteItem, updateNote} from './joplinNoteService';
 import {log} from '../utils/logger';
+import {getErrorText} from '../utils/errorUtils';
+import {createSafeTextReporter} from '../utils/statusNotifier';
 
 export type AlarmSyncResult = {
     alarmsCreated: number;
@@ -40,6 +42,8 @@ type DesiredAlarm = {
     eventTime: Date;
     trigger: string;
 };
+
+type AlarmUpdatePatch = Partial<Pick<NoteItem, 'body' | 'title' | 'is_todo' | 'todo_completed' | 'todo_due'>>;
 
 export type AlarmSyncOptions = {
     /**
@@ -135,12 +139,7 @@ export async function syncAlarmsForEvents(
     // Legacy argument support (if needed, though we prefer options object)
     legacyAlarmsEnabled?: boolean
 ): Promise<AlarmSyncResult> {
-    const say = async (t: string) => {
-        try {
-            if (onStatus) await onStatus(t);
-        } catch { /* ignore */
-        }
-    };
+    const say = createSafeTextReporter(onStatus);
 
     const resolvedOptions: AlarmSyncOptions = typeof options === 'number' ? {alarmRangeDays: options} : (options ?? {});
 
@@ -190,7 +189,7 @@ export async function syncAlarmsForEvents(
                     await deleteNote(joplin, alarm.id);
                     alarmsDeleted++;
                 } catch (e) {
-                    await say(`[alarmService] ERROR deleting outdated alarm: ${key} - ${String((e as any)?.message || e)}`);
+                    await say(`[alarmService] ERROR deleting outdated alarm: ${key} - ${getErrorText(e)}`);
                 }
                 continue;
             }
@@ -232,7 +231,7 @@ export async function syncAlarmsForEvents(
 
                 if (bodyChanged || titleChanged || !isTodo) {
                     try {
-                        const patch: any = {};
+                        const patch: AlarmUpdatePatch = {};
                         if (bodyChanged) patch.body = newBody;
                         if (titleChanged) patch.title = todoTitle;
                         if (!isTodo) {
@@ -244,7 +243,7 @@ export async function syncAlarmsForEvents(
                         alarmsUpdated++;
                         log('alarmService', `Updated alarm: ${todoTitle}`);
                     } catch (e) {
-                        await say(`[alarmService] ERROR updating alarm: ${key} - ${String((e as any)?.message || e)}`);
+                        await say(`[alarmService] ERROR updating alarm: ${key} - ${getErrorText(e)}`);
                     }
                 }
             } else {
@@ -252,7 +251,7 @@ export async function syncAlarmsForEvents(
                     await deleteNote(joplin, alarm.id);
                     alarmsDeleted++;
                 } catch (e) {
-                    await say(`[alarmService] ERROR deleting invalid alarm: ${key} - ${String((e as any)?.message || e)}`);
+                    await say(`[alarmService] ERROR deleting invalid alarm: ${key} - ${getErrorText(e)}`);
                 }
             }
         }
@@ -287,16 +286,17 @@ export async function syncAlarmsForEvents(
                 const created = await createNote(joplin, noteBody);
                 if (created?.id) {
                     // NOTE: Keeping this as a safety measure in case Joplin doesn't persist todo_due on create reliably.
-                    await updateNote(joplin, created.id, {
+                    const patch: AlarmUpdatePatch = {
                         todo_due: alarmTime,
                         todo_completed: 0,
                         is_todo: 1,
-                    });
+                    };
+                    await updateNote(joplin, created.id, patch);
                 }
                 alarmsCreated++;
                 log('alarmService', `Created alarm: ${todoTitle} due ${new Date(alarmTime).toISOString()}`);
             } catch (e) {
-                await say(`[alarmService] ERROR creating alarm: ${key} - ${String((e as any)?.message || e)}`);
+                await say(`[alarmService] ERROR creating alarm: ${key} - ${getErrorText(e)}`);
             }
         }
     }
@@ -306,7 +306,7 @@ export async function syncAlarmsForEvents(
             await joplin.commands.execute('emptyTrash');
             await say('Trash emptied.');
         } catch (e) {
-            await say(`[alarmService] WARNING: Failed to empty trash: ${String((e as any)?.message || e)}`);
+            await say(`[alarmService] WARNING: Failed to empty trash: ${getErrorText(e)}`);
         }
     }
 

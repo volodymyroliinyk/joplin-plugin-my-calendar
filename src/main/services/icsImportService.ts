@@ -12,8 +12,10 @@ import {
 import {syncAlarmsForEvents, ExistingAlarm} from './alarmService';
 import {buildMyCalBlock} from './noteBuilder';
 import {Joplin} from '../types/joplin.interface';
-import {createNote, getAllNotesPaged, updateNote} from './joplinNoteService';
+import {createNote, getAllNotesPaged, NoteItem, updateNote} from './joplinNoteService';
 import {getIcsImportAlarmsEnabled, getDefaultEventColor} from '../settings/settings';
+import {getErrorText} from '../utils/errorUtils';
+import {createSafeTextReporter} from '../utils/statusNotifier';
 
 type ExistingEventNote = { id: string; title: string; body: string; parent_id?: string };
 type ExistingEventNoteMap = Record<string, ExistingEventNote>;
@@ -40,19 +42,6 @@ type ImportIcsResult = {
     alarmsDeleted: number;
     alarmsUpdated: number;
 };
-
-function safeStatus(onStatus?: (text: string) => Promise<void>) {
-    return async (t: string) => {
-        try {
-            if (onStatus) await onStatus(t);
-        } catch { /* ignore */
-        }
-    };
-}
-
-function getErrorMessage(error: unknown): string {
-    return String((error as { message?: string })?.message || error);
-}
 
 function indexExistingNotes(allNotes: ExistingNoteRow[]): {
     existingByKey: ExistingEventNoteMap;
@@ -121,7 +110,7 @@ export async function importIcsIntoNotes(
     defaultColor?: string,
     importAlarmRangeDays?: number,
 ): Promise<ImportIcsResult> {
-    const say = safeStatus(onStatus);
+    const say = createSafeTextReporter(onStatus);
     const resolvedDefaultColor = defaultColor || await getDefaultEventColor(joplin);
 
     const eventsRaw = parseImportText(ics);
@@ -137,7 +126,7 @@ export async function importIcsIntoNotes(
     try {
         alarmsEnabled = await getIcsImportAlarmsEnabled(joplin);
     } catch (e) {
-        await say(`[icsImportService] WARNING: Failed to read alarms setting; defaulting to enabled. ${getErrorMessage(e)}`);
+        await say(`[icsImportService] WARNING: Failed to read alarms setting; defaulting to enabled. ${getErrorText(e)}`);
     }
 
     let added = 0, updated = 0, skipped = 0, errors = 0;
@@ -169,7 +158,7 @@ export async function importIcsIntoNotes(
 
                 const newBody = replaceEventBlockByKey(currentBody, uid, rid, block);
 
-                const patch: Partial<ExistingEventNote> = {};
+                const patch: Partial<Pick<NoteItem, 'body' | 'title' | 'parent_id'>> = {};
                 let changedAtAll = false;
 
                 if (newBody !== currentBody) {
@@ -207,7 +196,7 @@ export async function importIcsIntoNotes(
                 importedEventNotes[key] = {id, parent_id: (targetFolderId || parent_id), title: desiredTitle};
             } catch (e) {
                 errors++;
-                await say(`[icsImportService] ERROR updating note: ${key} - ${getErrorMessage(e)}`);
+                await say(`[icsImportService] ERROR updating note: ${key} - ${getErrorText(e)}`);
             }
         } else {
             try {
@@ -219,7 +208,7 @@ export async function importIcsIntoNotes(
                 }
             } catch (e) {
                 errors++;
-                await say(`[icsImportService] ERROR creating note: ${key} - ${getErrorMessage(e)}`);
+                await say(`[icsImportService] ERROR creating note: ${key} - ${getErrorText(e)}`);
             }
         }
     }
