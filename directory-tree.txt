@@ -21,9 +21,11 @@ joplin-plugin-my-calendar/
 ├── publish/
 ├── scripts/
 │   ├── check-tests.sh
+│   ├── cleanup-jest.sh
 │   ├── pre-pack.sh
 │   ├── preview-changelog.sh
 │   ├── release.sh
+│   ├── run-tests.sh
 │   └── update-demo-ics.py
 ├── src/
 │   ├── main/
@@ -50,8 +52,10 @@ joplin-plugin-my-calendar/
 │   │   ├── utils/
 │   │   │   ├── dateTimeUtils.ts
 │   │   │   ├── dateUtils.ts
+│   │   │   ├── errorUtils.ts
 │   │   │   ├── joplinUtils.ts
 │   │   │   ├── logger.ts
+│   │   │   ├── statusNotifier.ts
 │   │   │   └── toast.ts
 │   │   ├── views/
 │   │   │   └── calendarView.ts
@@ -100,8 +104,10 @@ joplin-plugin-my-calendar/
 │   ├── utils/
 │   │   ├── dateTimeUtils.test.ts
 │   │   ├── dateUtils.test.ts
+│   │   ├── errorUtils.test.ts
 │   │   ├── joplinUtils.test.ts
 │   │   ├── logger.test.ts
+│   │   ├── statusNotifier.test.ts
 │   │   └── toast.test.ts
 │   ├── views/
 │   │   └── calendarView.test.ts

@@ -228,11 +228,13 @@ Customize your experience in the Joplin Settings (`Tools` > `Options` > `My Cale
 
 - `npm run build`: Compile the project.
 - `npm pack`: Create the `.jpl` distribution file.
-- `npm run pre-pack`: Run the pre-pack validation flow.
-- `npm test`: Run the extensive test suite (350+ cases).
+- `npm run pre-pack`: Run the pre-pack validation flow using the stable single-process Jest command before packaging.
+- `npm test`: Run the extensive test suite (350+ cases). This now performs Jest process cleanup first and retries once
+  in `--runInBand` if a worker crashes with `SIGSEGV`.
+- `npm run test:stable`: Run Jest in a single process from the start, with cleanup first. Use this for the most stable
+  pre-release check.
 - `npm run lint`: Check code style and common patterns.
-- `pkill -f jest || true;pkill -f node || true;rm -rf node_modules/.cache;rm -rf ~/.cache/jest;npx jest --clearCache`:
-  Cache cleaning.
+- `bash ./scripts/cleanup-jest.sh`: Kill stale Jest worker processes for this repository before rerunning tests.
 
 ### Automation Scripts
 
@@ -241,7 +243,8 @@ The project includes helper scripts in the `scripts/` directory to streamline de
 #### `scripts/pre-pack.sh`
 
 Ensures code quality before packaging. By default it runs the linter (failing on warnings), the full test suite, and
-then creates the package. Security fixes via `npm audit fix --force` are optional and must be enabled explicitly.
+then creates the package. The test step uses `npm run test:stable` so packaging does not depend on parallel Jest
+workers. Security fixes via `npm audit fix --force` are optional and must be enabled explicitly.
 
 ```bash
 npm run pre-pack
@@ -251,6 +254,26 @@ To include forced audit fixes before validation:
 
 ```bash
 npm run pre-pack -- --audit-fix
+```
+
+#### `scripts/cleanup-jest.sh`
+
+Finds and terminates stale `jest`, `jest-worker`, and `processChild.js` processes whose working directory belongs to
+this repository. This is useful when a previous Jest run leaves worker processes behind after a crash.
+
+```bash
+bash ./scripts/cleanup-jest.sh
+```
+
+#### `scripts/run-tests.sh`
+
+Wrapper used by `npm test`. It runs `scripts/cleanup-jest.sh`, starts the normal parallel Jest run, and if Jest reports
+that a worker died with `signal=SIGSEGV`, it performs cleanup again and retries once with `--runInBand`.
+
+For a fully serial run without the initial parallel attempt, use:
+
+```bash
+npm run test:stable
 ```
 
 #### `scripts/release.sh`
