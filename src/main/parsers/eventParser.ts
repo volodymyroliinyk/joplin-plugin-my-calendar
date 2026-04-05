@@ -70,7 +70,7 @@ function parseAllDayBool(v: string): boolean | undefined {
     return undefined;
 }
 
-function normalizeTz(z?: string): string | undefined {
+export function normalizeTz(z?: string): string | undefined {
     if (!z) return undefined;
     const tz = z.trim();
     if (!tz) return undefined;
@@ -85,7 +85,7 @@ function normalizeTz(z?: string): string | undefined {
 }
 
 // "2025-08-12 10:00:00-04:00" | "2025-08-12T10:00:00-04:00" | Without offset (з tz)
-function parseDateTimeToUTC(text: string, tz?: string): number | null {
+export function parseDateTimeToUTC(text: string, tz?: string): number | null {
     const trimmed = text.trim();
     if (!trimmed) return null;
 

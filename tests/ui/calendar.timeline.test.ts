@@ -76,6 +76,10 @@ describe('calendar.js timeline settings', () => {
         return Number(selected.dataset.utc);
     }
 
+    function localMidnightTs(d: Date) {
+        return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    }
+
     test('timeline and shared line are rendered when showEventTimeline=true and schedules timers', () => {
         loadScript();
 
@@ -143,7 +147,9 @@ describe('calendar.js timeline settings', () => {
 
         const dayStart = selectedDayUtc();
         const now = new Date('2025-01-01T12:00:00Z').getTime();
-        expect(now).toBe(dayStart + 12 * 60 * 60 * 1000);
+        expect(dayStart).toBe(localMidnightTs(new Date('2025-01-01T12:00:00Z')));
+        expect(now).toBeGreaterThanOrEqual(dayStart);
+        expect(now).toBeLessThan(dayStart + 24 * 60 * 60 * 1000);
 
         sendSettings({showEventTimeline: true, dayEventsViewMode: 'grouped', dayEventsRefreshMinutes: 1});
         sendRangeEvents([
@@ -182,7 +188,9 @@ describe('calendar.js timeline settings', () => {
 
         const dayStart = selectedDayUtc();
         const now = new Date('2025-01-01T12:00:00Z').getTime();
-        expect(now).toBe(dayStart + 12 * 60 * 60 * 1000);
+        expect(dayStart).toBe(localMidnightTs(new Date('2025-01-01T12:00:00Z')));
+        expect(now).toBeGreaterThanOrEqual(dayStart);
+        expect(now).toBeLessThan(dayStart + 24 * 60 * 60 * 1000);
 
         sendSettings({showEventTimeline: false, dayEventsViewMode: 'grouped', dayEventsRefreshMinutes: 1});
         sendRangeEvents([
@@ -246,7 +254,9 @@ describe('calendar.js timeline settings', () => {
 
         const dayStart = selectedDayUtc();
         const now = new Date('2025-01-01T12:00:00Z').getTime();
-        expect(now).toBe(dayStart + 12 * 60 * 60 * 1000);
+        expect(dayStart).toBe(localMidnightTs(new Date('2025-01-01T12:00:00Z')));
+        expect(now).toBeGreaterThanOrEqual(dayStart);
+        expect(now).toBeLessThan(dayStart + 24 * 60 * 60 * 1000);
 
         sendSettings({showEventTimeline: true, dayEventsViewMode: 'grouped', dayEventsRefreshMinutes: 1});
         sendRangeEvents([

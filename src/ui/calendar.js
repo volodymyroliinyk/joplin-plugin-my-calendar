@@ -1076,7 +1076,12 @@
 
                     cell.addEventListener('click', () => {
                         selectedDayUtc = cellTs;
-                        postToPlugin({name: 'dateClick', dateUtc: selectedDayUtc});
+                        postToPlugin({
+                            name: 'dateClick',
+                            dateUtc: selectedDayUtc,
+                            fromUtc: selectedDayUtc,
+                            toUtc: nextLocalMidnightTs(selectedDayUtc) - 1,
+                        });
                         renderDayEvents(selectedDayUtc);
                         paintSelection();
                     });

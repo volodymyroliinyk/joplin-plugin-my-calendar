@@ -10,6 +10,7 @@ import {Joplin} from '../types/joplin.interface';
 import {getAllFolders, flattenFolderTree} from '../services/folderService';
 import {EventInput} from '../parsers/eventParser';
 import {Occurrence} from '../utils/dateUtils';
+import {getErrorText} from '../utils/errorUtils';
 
 function isoDate(utc: number): string {
     return new Date(utc).toISOString().slice(0, 10);
@@ -54,7 +55,7 @@ type PanelMsg =
 }
     | { name: 'uiReady' }
     | { name: 'requestRangeEvents'; fromUtc: number; toUtc: number }
-    | { name: 'dateClick'; dateUtc: number }
+    | { name: 'dateClick'; dateUtc: number; fromUtc?: number; toUtc?: number }
     | { name: 'openNote'; id?: string }
     | { name: 'exportRangeIcs'; fromUtc: number; toUtc: number }
     | {
@@ -117,10 +118,6 @@ function getDayRange(dateUtc: number): UtcRange {
 
 function parseImportDefaultColor(value: unknown): string | undefined {
     return isString(value) && /^#[0-9a-fA-F]{6}$/.test(value) ? value : undefined;
-}
-
-function getErrorText(error: unknown): string {
-    return String((error as { message?: string })?.message || error);
 }
 
 async function postImportFailure(
@@ -236,7 +233,16 @@ export async function registerCalendarPanelController(
                 case 'dateClick': {
                     if (!isNumber(msg.dateUtc)) return;
 
-                    const {fromUtc: dayStart, toUtc: dayEnd} = getDayRange(msg.dateUtc);
+                    let dayStart: number;
+                    let dayEnd: number;
+                    if (isValidUtcRange(msg.fromUtc, msg.toUtc)) {
+                        dayStart = msg.fromUtc!;
+                        dayEnd = msg.toUtc!;
+                    } else {
+                        const range = getDayRange(msg.dateUtc);
+                        dayStart = range.fromUtc;
+                        dayEnd = range.toUtc;
+                    }
 
                     const all = await ensureAllEventsCache(joplin);
                     const list = helpers
