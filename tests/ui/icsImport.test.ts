@@ -485,7 +485,7 @@ describe('src/ui/icsImport.js', () => {
         expect(picker.value.toLowerCase()).toBe('#99ff66');
     });
 
-    test('uiSettings defaultEventColor overrides a valid remembered manual import color', () => {
+    test('uiSettings defaultEventColor does not override a valid remembered manual import color', () => {
         setupDom(true);
         const {getOnMessageCb} = installWebviewApi();
 
@@ -503,7 +503,7 @@ describe('src/ui/icsImport.js', () => {
         });
 
         const picker = qs('input[type="color"]') as HTMLInputElement;
-        expect(picker.value.toLowerCase()).toBe('#99ff66');
+        expect(picker.value.toLowerCase()).toBe('#abcdef');
     });
 
     test('legacy stored blue without customized flag is treated as fallback and replaced by plugin defaultEventColor', () => {
@@ -526,7 +526,7 @@ describe('src/ui/icsImport.js', () => {
         expect(picker.value.toLowerCase()).toBe('#99ff66');
     });
 
-    test('customized stored legacy blue is still replaced by plugin defaultEventColor', () => {
+    test('customized stored legacy blue remains selected in manual import picker', () => {
         setupDom(true);
         const {getOnMessageCb} = installWebviewApi();
 
@@ -544,10 +544,10 @@ describe('src/ui/icsImport.js', () => {
         });
 
         const picker = qs('input[type="color"]') as HTMLInputElement;
-        expect(picker.value.toLowerCase()).toBe('#99ff66');
+        expect(picker.value.toLowerCase()).toBe('#1470d9');
     });
 
-    test('manual import uses plugin defaultEventColor instead of remembered picker color when plugin setting is configured', () => {
+    test('manual import uses remembered picker color when default import color is enabled', () => {
         setupDom(true);
         const {getOnMessageCb, postMessage} = installWebviewApi();
 
@@ -593,7 +593,7 @@ describe('src/ui/icsImport.js', () => {
         importBtn.click();
 
         const call = postMessage.mock.calls.find(c => c[0]?.name === 'icsImport')?.[0];
-        expect(call.defaultColor).toBe('#99ff66');
+        expect(call.defaultColor).toBe('#abcdef');
     });
 
     test('import section is a form and submit is AJAX-only (prevents default)', () => {

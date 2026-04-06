@@ -94,14 +94,14 @@
     function shouldUseStoredImportColor(storedColor) {
         if (!isValidHexColor(storedColor)) return false;
         const normalizedStored = String(storedColor).toLowerCase();
-        if (normalizedStored === LEGACY_DEFAULT_IMPORT_COLOR) return false;
-        return hasCustomizedImportColor() || normalizedStored !== LEGACY_DEFAULT_IMPORT_COLOR;
+        if (normalizedStored === LEGACY_DEFAULT_IMPORT_COLOR) return hasCustomizedImportColor();
+        return true;
     }
 
     function resolveInitialImportColor(storedColor) {
         const pluginImportColor = getPluginImportDefaultColor();
-        if (pluginImportColor) return pluginImportColor;
         if (shouldUseStoredImportColor(storedColor)) return String(storedColor).toLowerCase();
+        if (pluginImportColor) return pluginImportColor;
         return getBuiltInImportDefaultColor();
     }
 
@@ -462,7 +462,7 @@
                             source: `filepicker:${f.name}`,
                             targetFolderId,
                             preserveLocalColor,
-                            defaultColor: defaultEventColorEnabled ? resolveInitialImportColor(defaultEventColorValue) : undefined,
+                            defaultColor: defaultEventColorEnabled ? defaultEventColorValue : undefined,
                         });
                         // IMPORTANT: keep import state until importDone/importError
                     } catch (e) {

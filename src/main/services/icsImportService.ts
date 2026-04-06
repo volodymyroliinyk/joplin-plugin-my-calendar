@@ -97,7 +97,9 @@ function applyImportColors(
         const existingColor = extractEventColorFromBody(existing[key].body, uid, rid);
         if (existingColor) ev.color = existingColor;
     }
-    if (!ev.color && defaultColor) ev.color = defaultColor;
+    if (!ev.color && defaultColor) {
+        ev.color = defaultColor;
+    }
     return key;
 }
 

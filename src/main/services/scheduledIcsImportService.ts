@@ -4,6 +4,7 @@ import {
     getScheduledIcsImportEntries,
     getScheduledIcsImportIntervalMinutes,
     getIcsImportAlarmRangeDays,
+    getDefaultEventColor,
 } from '../settings/settings';
 import {getAllFolders, resolveFolderIdByTitle} from './folderService';
 import {importIcsIntoNotes} from './icsImportService';
@@ -186,6 +187,7 @@ export async function startScheduledIcsImport(
 
             const folders = await getAllFolders(joplin);
             const importAlarmRangeDays = await getIcsImportAlarmRangeDays(joplin);
+            const defaultEventColor = await getDefaultEventColor(joplin);
             const summary = emptySummary();
             let importedAtLeastOne = false;
 
@@ -216,7 +218,7 @@ export async function startScheduledIcsImport(
                         },
                         folderId,
                         true,
-                        undefined,
+                        defaultEventColor || undefined,
                         importAlarmRangeDays,
                     );
                     importedAtLeastOne = true;

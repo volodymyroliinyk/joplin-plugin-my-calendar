@@ -4,6 +4,7 @@ jest.mock('../../src/main/settings/settings', () => ({
     getScheduledIcsImportEntries: jest.fn(),
     getScheduledIcsImportIntervalMinutes: jest.fn(),
     getIcsImportAlarmRangeDays: jest.fn(),
+    getDefaultEventColor: jest.fn(),
 }));
 
 jest.mock('../../src/main/services/icsImportService', () => ({
@@ -34,6 +35,7 @@ import {
     getScheduledIcsImportIntervalMinutes,
     getScheduledIcsImportEntries,
     getIcsImportAlarmRangeDays,
+    getDefaultEventColor,
 } from '../../src/main/settings/settings';
 import {getAllFolders, resolveFolderIdByTitle} from '../../src/main/services/folderService';
 import {importIcsIntoNotes} from '../../src/main/services/icsImportService';
@@ -50,6 +52,7 @@ describe('scheduledIcsImportService', () => {
         ]);
         (getScheduledIcsImportIntervalMinutes as jest.Mock).mockResolvedValue(15);
         (getIcsImportAlarmRangeDays as jest.Mock).mockResolvedValue(30);
+        (getDefaultEventColor as jest.Mock).mockResolvedValue('');
         (getAllFolders as jest.Mock).mockResolvedValue([{id: 'folder-1', title: 'Work', parent_id: null}]);
         (resolveFolderIdByTitle as jest.Mock).mockReturnValue({folderId: 'folder-1'});
         (importIcsIntoNotes as jest.Mock).mockResolvedValue({
@@ -206,6 +209,28 @@ describe('scheduledIcsImportService', () => {
             'warning',
             'Scheduled ICS import finished for Work: added=1, updated=0, skipped=0, errors=2, alarmsCreated=0, alarmsDeleted=0',
             5000,
+        );
+    });
+
+    test('passes configured default event color only to scheduled imports', async () => {
+        (getDefaultEventColor as jest.Mock).mockResolvedValue('#00ff00');
+
+        const downloadIcs = jest.fn().mockResolvedValue('BEGIN:VCALENDAR\nEND:VCALENDAR');
+        const joplin = {
+            versionInfo: jest.fn().mockResolvedValue({platform: 'desktop'}),
+        };
+
+        await startScheduledIcsImport(joplin as any, {downloadIcs});
+        await jest.advanceTimersByTimeAsync(15 * 60 * 1000);
+
+        expect(importIcsIntoNotes).toHaveBeenCalledWith(
+            joplin,
+            'BEGIN:VCALENDAR\nEND:VCALENDAR',
+            expect.any(Function),
+            'folder-1',
+            true,
+            '#00ff00',
+            30,
         );
     });
 
