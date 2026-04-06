@@ -53,6 +53,14 @@ type ImportColorPolicy = {
     fallbackColor?: string;
 };
 
+type ImportIcsOptions = {
+    targetFolderId?: string;
+    preserveLocalColor: boolean;
+    fallbackColor?: string;
+    importAlarmRangeDays?: number;
+    existingNotesFolderId?: string;
+};
+
 function normalizeExceptionDate(value: string): string | undefined {
     const raw = String(value || '').trim();
     if (!raw) return undefined;
@@ -184,6 +192,28 @@ function indexExistingNotes(allNotes: ExistingNoteRow[]): {
     return {existingByKey, existingAlarms, noteIdToKeys, duplicateOwnershipWarnings};
 }
 
+function compareExistingNotesForOwnership(a: ExistingNoteRow, b: ExistingNoteRow): number {
+    const byId = String(a.id || '').localeCompare(String(b.id || ''));
+    if (byId !== 0) return byId;
+    return String(a.parent_id || '').localeCompare(String(b.parent_id || ''));
+}
+
+function buildImportOptions(
+    targetFolderId?: string,
+    preserveLocalColor: boolean = true,
+    fallbackColor?: string,
+    importAlarmRangeDays?: number,
+    existingNotesFolderId?: string,
+): ImportIcsOptions {
+    return {
+        targetFolderId,
+        preserveLocalColor,
+        fallbackColor,
+        importAlarmRangeDays,
+        existingNotesFolderId,
+    };
+}
+
 function applyImportColors(
     ev: IcsEvent,
     existing: ExistingEventNoteMap,
@@ -214,9 +244,16 @@ export async function importIcsIntoNotes(
     existingNotesFolderId?: string,
 ): Promise<ImportIcsResult> {
     const say = createSafeTextReporter(onStatus);
-    const colorPolicy: ImportColorPolicy = {
+    const options = buildImportOptions(
+        targetFolderId,
         preserveLocalColor,
         fallbackColor,
+        importAlarmRangeDays,
+        existingNotesFolderId,
+    );
+    const colorPolicy: ImportColorPolicy = {
+        preserveLocalColor: options.preserveLocalColor,
+        fallbackColor: options.fallbackColor,
     };
 
     const eventsRaw = parseImportText(ics);
@@ -224,9 +261,10 @@ export async function importIcsIntoNotes(
     await say(`Parsed ${events.length} VEVENT(s)`);
 
     const noteFields = ['id', 'title', 'body', 'parent_id', 'todo_due', 'todo_completed', 'is_todo'];
-    const allNotes = existingNotesFolderId
-        ? await getFolderNotesPaged(joplin, existingNotesFolderId, noteFields)
+    const allNotes = options.existingNotesFolderId
+        ? await getFolderNotesPaged(joplin, options.existingNotesFolderId, noteFields)
         : await getAllNotesPaged(joplin, noteFields);
+    allNotes.sort(compareExistingNotesForOwnership);
 
     const {
         existingByKey: existing,
@@ -237,7 +275,7 @@ export async function importIcsIntoNotes(
 
     for (const warning of duplicateOwnershipWarnings) {
         await say(
-            `[icsImportService] WARNING: Duplicate event ownership detected for ${warning.key} in notes ${warning.existingNoteId} and ${warning.duplicateNoteId}; keeping first indexed note ${warning.existingNoteId}`,
+            `[icsImportService] WARNING: Duplicate event ownership detected for ${warning.key} in notes ${warning.existingNoteId} and ${warning.duplicateNoteId}; keeping lexicographically smallest note id ${warning.existingNoteId}`,
         );
     }
 
@@ -293,9 +331,9 @@ export async function importIcsIntoNotes(
                     changedAtAll = true;
                 }
 
-                if (targetFolderId && parent_id !== targetFolderId) {
-                    patch.parent_id = targetFolderId;
-                    existing[key].parent_id = targetFolderId;
+                if (options.targetFolderId && parent_id !== options.targetFolderId) {
+                    patch.parent_id = options.targetFolderId;
+                    existing[key].parent_id = options.targetFolderId;
                     changedAtAll = true;
                 }
 
@@ -312,18 +350,18 @@ export async function importIcsIntoNotes(
                     if (existing[k]) existing[k].body = existing[key].body;
                 }
 
-                importedEventNotes[key] = {id, parent_id: (targetFolderId || parent_id), title: desiredTitle};
+                importedEventNotes[key] = {id, parent_id: (options.targetFolderId || parent_id), title: desiredTitle};
             } catch (e) {
                 errors++;
                 await say(`[icsImportService] ERROR updating note: ${key} - ${getErrorText(e)}`);
             }
         } else {
             try {
-                const noteBody = {title: desiredTitle, body: block, parent_id: targetFolderId};
+                const noteBody = {title: desiredTitle, body: block, parent_id: options.targetFolderId};
                 const created = await createNote(joplin, noteBody);
                 added++;
                 if (created?.id) {
-                    importedEventNotes[key] = {id: created.id, parent_id: targetFolderId, title: desiredTitle};
+                    importedEventNotes[key] = {id: created.id, parent_id: options.targetFolderId, title: desiredTitle};
                 }
             } catch (e) {
                 errors++;
@@ -334,8 +372,8 @@ export async function importIcsIntoNotes(
 
 
     const alarmRes = await syncAlarmsForEvents(
-        joplin, events, importedEventNotes, existingAlarms, targetFolderId, onStatus, {
-            alarmRangeDays: importAlarmRangeDays,
+        joplin, events, importedEventNotes, existingAlarms, options.targetFolderId, onStatus, {
+            alarmRangeDays: options.importAlarmRangeDays,
             alarmsEnabled
         }
     );

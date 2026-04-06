@@ -187,7 +187,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
         );
     });
 
-    test('warns on duplicate event ownership and keeps the first indexed note as owner', async () => {
+    test('warns on duplicate event ownership and keeps the lexicographically smallest note id as owner', async () => {
         const ics = [
             'BEGIN:VCALENDAR',
             'BEGIN:VEVENT',
@@ -216,8 +216,8 @@ describe('icsImportService.importIcsIntoNotes', () => {
         const joplin = mkJoplin({
             get: jest.fn().mockResolvedValueOnce({
                 items: [
-                    {id: 'note-1', title: 'First', body: firstBody, parent_id: 'nb1'},
                     {id: 'note-2', title: 'Second', body: secondBody, parent_id: 'nb2'},
+                    {id: 'note-1', title: 'First', body: firstBody, parent_id: 'nb1'},
                 ],
                 has_more: false,
             }),
@@ -228,7 +228,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
         const res = await importIcsIntoNotes(joplin as any, ics, onStatus);
 
         expect(onStatus).toHaveBeenCalledWith(
-            '[icsImportService] WARNING: Duplicate event ownership detected for u-dup-owner| in notes note-1 and note-2; keeping first indexed note note-1',
+            '[icsImportService] WARNING: Duplicate event ownership detected for u-dup-owner| in notes note-1 and note-2; keeping lexicographically smallest note id note-1',
         );
         expect(joplin.data.put).toHaveBeenCalledTimes(1);
         expect(joplin.data.put).toHaveBeenCalledWith(
