@@ -12,7 +12,7 @@ import {
 import {syncAlarmsForEvents, ExistingAlarm} from './alarmService';
 import {buildMyCalBlock} from './noteBuilder';
 import {Joplin} from '../types/joplin.interface';
-import {createNote, getAllNotesPaged, NoteItem, updateNote} from './joplinNoteService';
+import {createNote, getAllNotesPaged, getFolderNotesPaged, NoteItem, updateNote} from './joplinNoteService';
 import {getIcsImportAlarmsEnabled} from '../settings/settings';
 import {getErrorText} from '../utils/errorUtils';
 import {createSafeTextReporter} from '../utils/statusNotifier';
@@ -23,6 +23,11 @@ type ImportedEventNote = { id: string; parent_id?: string; title: string };
 type ImportedEventNotes = Record<string, ImportedEventNote>;
 type ExistingAlarmsMap = Record<string, ExistingAlarm[]>;
 type NoteIdToKeysMap = Record<string, string[]>;
+type DuplicateOwnershipWarning = {
+    key: string;
+    existingNoteId: string;
+    duplicateNoteId: string;
+};
 type ExistingNoteRow = {
     id: string;
     title?: string;
@@ -132,10 +137,12 @@ function indexExistingNotes(allNotes: ExistingNoteRow[]): {
     existingByKey: ExistingEventNoteMap;
     existingAlarms: ExistingAlarmsMap;
     noteIdToKeys: NoteIdToKeysMap;
+    duplicateOwnershipWarnings: DuplicateOwnershipWarning[];
 } {
     const existingByKey: ExistingEventNoteMap = {};
     const existingAlarms: ExistingAlarmsMap = {};
     const noteIdToKeys: NoteIdToKeysMap = {};
+    const duplicateOwnershipWarnings: DuplicateOwnershipWarning[] = [];
 
     for (const n of allNotes) {
         if (typeof n.body !== 'string' || !n.body) continue;
@@ -146,6 +153,15 @@ function indexExistingNotes(allNotes: ExistingNoteRow[]): {
                 noteIdToKeys[n.id] = (noteIdToKeys[n.id] ?? []).concat(keys);
             }
             for (const k of keys) {
+                const existingOwner = existingByKey[k];
+                if (existingOwner) {
+                    duplicateOwnershipWarnings.push({
+                        key: k,
+                        existingNoteId: existingOwner.id,
+                        duplicateNoteId: n.id,
+                    });
+                    continue;
+                }
                 existingByKey[k] = {id: n.id, title: n.title || '', body: n.body, parent_id: n.parent_id};
             }
         }
@@ -165,7 +181,7 @@ function indexExistingNotes(allNotes: ExistingNoteRow[]): {
         }
     }
 
-    return {existingByKey, existingAlarms, noteIdToKeys};
+    return {existingByKey, existingAlarms, noteIdToKeys, duplicateOwnershipWarnings};
 }
 
 function applyImportColors(
@@ -195,6 +211,7 @@ export async function importIcsIntoNotes(
     preserveLocalColor: boolean = true,
     fallbackColor?: string,
     importAlarmRangeDays?: number,
+    existingNotesFolderId?: string,
 ): Promise<ImportIcsResult> {
     const say = createSafeTextReporter(onStatus);
     const colorPolicy: ImportColorPolicy = {
@@ -206,10 +223,23 @@ export async function importIcsIntoNotes(
     const events = prepareImportedEvents(eventsRaw);
     await say(`Parsed ${events.length} VEVENT(s)`);
 
-    // Request todo_due to optimize alarm syncing
-    const allNotes = await getAllNotesPaged(joplin, ['id', 'title', 'body', 'parent_id', 'todo_due', 'todo_completed', 'is_todo']);
+    const noteFields = ['id', 'title', 'body', 'parent_id', 'todo_due', 'todo_completed', 'is_todo'];
+    const allNotes = existingNotesFolderId
+        ? await getFolderNotesPaged(joplin, existingNotesFolderId, noteFields)
+        : await getAllNotesPaged(joplin, noteFields);
 
-    const {existingByKey: existing, existingAlarms, noteIdToKeys} = indexExistingNotes(allNotes);
+    const {
+        existingByKey: existing,
+        existingAlarms,
+        noteIdToKeys,
+        duplicateOwnershipWarnings,
+    } = indexExistingNotes(allNotes);
+
+    for (const warning of duplicateOwnershipWarnings) {
+        await say(
+            `[icsImportService] WARNING: Duplicate event ownership detected for ${warning.key} in notes ${warning.existingNoteId} and ${warning.duplicateNoteId}; keeping first indexed note ${warning.existingNoteId}`,
+        );
+    }
 
     let alarmsEnabled = true;
     try {

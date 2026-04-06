@@ -154,6 +154,97 @@ describe('icsImportService.importIcsIntoNotes', () => {
         });
     });
 
+    test('scans only notes from the provided existing-notes folder scope', async () => {
+        const ics = [
+            'BEGIN:VCALENDAR',
+            'BEGIN:VEVENT',
+            'UID:u-folder-scope',
+            'SUMMARY:Hello',
+            'DTSTART:20250115T100000Z',
+            'DTEND:20250115T113000Z',
+            'END:VEVENT',
+            'END:VCALENDAR',
+        ].join('\n');
+
+        const joplin = mkJoplin({
+            get: jest.fn().mockResolvedValueOnce({
+                items: [],
+                has_more: false,
+            }),
+            post: jest.fn().mockResolvedValue({id: 'new-id'}),
+            put: jest.fn(),
+        });
+
+        await importIcsIntoNotes(joplin as any, ics, undefined, 'target-folder', true, undefined, undefined, 'scan-folder');
+
+        expect(joplin.data.get).toHaveBeenCalledWith(
+            ['folders', 'scan-folder', 'notes'],
+            {
+                fields: ['id', 'title', 'body', 'parent_id', 'todo_due', 'todo_completed', 'is_todo'],
+                limit: 100,
+                page: 1
+            },
+        );
+    });
+
+    test('warns on duplicate event ownership and keeps the first indexed note as owner', async () => {
+        const ics = [
+            'BEGIN:VCALENDAR',
+            'BEGIN:VEVENT',
+            'UID:u-dup-owner',
+            'SUMMARY:Updated title',
+            'DTSTART:20250115T100000Z',
+            'DTEND:20250115T113000Z',
+            'END:VEVENT',
+            'END:VCALENDAR',
+        ].join('\n');
+
+        const onStatus = jest.fn();
+        const firstBody = block([
+            'uid: u-dup-owner',
+            'title: First title',
+            'start: 2025-01-15 10:00:00+00:00',
+            'end: 2025-01-15 11:30:00+00:00',
+        ].join('\n'));
+        const secondBody = block([
+            'uid: u-dup-owner',
+            'title: Second title',
+            'start: 2025-01-15 10:00:00+00:00',
+            'end: 2025-01-15 11:30:00+00:00',
+        ].join('\n'));
+
+        const joplin = mkJoplin({
+            get: jest.fn().mockResolvedValueOnce({
+                items: [
+                    {id: 'note-1', title: 'First', body: firstBody, parent_id: 'nb1'},
+                    {id: 'note-2', title: 'Second', body: secondBody, parent_id: 'nb2'},
+                ],
+                has_more: false,
+            }),
+            post: jest.fn(),
+            put: jest.fn(),
+        });
+
+        const res = await importIcsIntoNotes(joplin as any, ics, onStatus);
+
+        expect(onStatus).toHaveBeenCalledWith(
+            '[icsImportService] WARNING: Duplicate event ownership detected for u-dup-owner| in notes note-1 and note-2; keeping first indexed note note-1',
+        );
+        expect(joplin.data.put).toHaveBeenCalledTimes(1);
+        expect(joplin.data.put).toHaveBeenCalledWith(
+            ['notes', 'note-1'],
+            null,
+            expect.objectContaining({title: 'Updated title'}),
+        );
+        expect(joplin.data.put).not.toHaveBeenCalledWith(
+            ['notes', 'note-2'],
+            null,
+            expect.anything(),
+        );
+        expect(joplin.data.post).not.toHaveBeenCalled();
+        expect(res.updated).toBe(1);
+    });
+
     test('imports VALARM as valarm: {json} lines inside mycalendar-event block (supports multiple VALARM)', async () => {
         const ics = [
             'BEGIN:VCALENDAR',
