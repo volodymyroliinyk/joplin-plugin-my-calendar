@@ -13,7 +13,7 @@ import {syncAlarmsForEvents, ExistingAlarm} from './alarmService';
 import {buildMyCalBlock} from './noteBuilder';
 import {Joplin} from '../types/joplin.interface';
 import {createNote, getAllNotesPaged, NoteItem, updateNote} from './joplinNoteService';
-import {getIcsImportAlarmsEnabled, getDefaultEventColor} from '../settings/settings';
+import {getIcsImportAlarmsEnabled} from '../settings/settings';
 import {getErrorText} from '../utils/errorUtils';
 import {createSafeTextReporter} from '../utils/statusNotifier';
 
@@ -41,6 +41,11 @@ type ImportIcsResult = {
     alarmsCreated: number;
     alarmsDeleted: number;
     alarmsUpdated: number;
+};
+
+type ImportColorPolicy = {
+    preserveLocalColor: boolean;
+    fallbackColor?: string;
 };
 
 function normalizeExceptionDate(value: string): string | undefined {
@@ -166,19 +171,18 @@ function indexExistingNotes(allNotes: ExistingNoteRow[]): {
 function applyImportColors(
     ev: IcsEvent,
     existing: ExistingEventNoteMap,
-    preserveLocalColor: boolean,
-    defaultColor?: string,
+    policy: ImportColorPolicy,
 ) {
     const uid = (ev.uid || '').trim();
     const rid = (ev.recurrence_id || '').trim();
     const key = makeEventKey(uid, rid);
 
-    if (preserveLocalColor && existing[key] && !ev.color) {
+    if (policy.preserveLocalColor && existing[key] && !ev.color) {
         const existingColor = extractEventColorFromBody(existing[key].body, uid, rid);
         if (existingColor) ev.color = existingColor;
     }
-    if (!ev.color && defaultColor) {
-        ev.color = defaultColor;
+    if (!ev.color && policy.fallbackColor) {
+        ev.color = policy.fallbackColor;
     }
     return key;
 }
@@ -189,11 +193,14 @@ export async function importIcsIntoNotes(
     onStatus?: (text: string) => Promise<void>,
     targetFolderId?: string,
     preserveLocalColor: boolean = true,
-    defaultColor?: string,
+    fallbackColor?: string,
     importAlarmRangeDays?: number,
 ): Promise<ImportIcsResult> {
     const say = createSafeTextReporter(onStatus);
-    const resolvedDefaultColor = defaultColor || await getDefaultEventColor(joplin);
+    const colorPolicy: ImportColorPolicy = {
+        preserveLocalColor,
+        fallbackColor,
+    };
 
     const eventsRaw = parseImportText(ics);
     const events = prepareImportedEvents(eventsRaw);
@@ -222,7 +229,7 @@ export async function importIcsIntoNotes(
         }
 
         const rid = (ev.recurrence_id || '').trim();
-        const key = applyImportColors(ev, existing, preserveLocalColor, resolvedDefaultColor);
+        const key = applyImportColors(ev, existing, colorPolicy);
 
         if (!alarmsEnabled) {
             ev.valarms = [];

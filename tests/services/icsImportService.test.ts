@@ -209,9 +209,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
         });
     });
 
-    test('uses configured default event color setting when request does not pass defaultColor', async () => {
-        (settings.getDefaultEventColor as jest.Mock).mockResolvedValue('#1470d9');
-
+    test('does not apply plugin default event color setting when request does not pass fallback color', async () => {
         const ics = [
             'BEGIN:VCALENDAR',
             'BEGIN:VEVENT',
@@ -232,7 +230,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
         await importIcsIntoNotes(joplin as any, ics);
 
         const [, , noteBody] = joplin.data.post.mock.calls[0];
-        expect(noteBody.body).toContain('color: #1470d9');
+        expect(noteBody.body).not.toContain('color:');
     });
 
     test('creates todo+alarm notes from VALARM (only future alarms, within 60 days)', async () => {

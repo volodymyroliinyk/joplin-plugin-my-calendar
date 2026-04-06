@@ -24,9 +24,9 @@
     const LS = {
         targetFolderId: 'mycalendar.targetFolderId',
         preserveLocalColor: 'mycalendar_preserve_local_color',
-        defaultEventColorEnabled: 'mycalendar_default_event_color_enabled',
-        defaultEventColorValue: 'mycalendar_default_event_color_value',
-        defaultEventColorCustomized: 'mycalendar_default_event_color_customized',
+        manualImportColorEnabled: 'mycalendar_manual_import_color_enabled',
+        manualImportColorValue: 'mycalendar_manual_import_color_value',
+        manualImportColorCustomized: 'mycalendar_manual_import_color_customized',
     };
 
     const LEGACY_DEFAULT_IMPORT_COLOR = '#1470d9';
@@ -88,7 +88,7 @@
     }
 
     function hasCustomizedImportColor() {
-        return safeGetLS(LS.defaultEventColorCustomized, '0') === '1';
+        return safeGetLS(LS.manualImportColorCustomized, '0') === '1';
     }
 
     function shouldUseStoredImportColor(storedColor) {
@@ -382,9 +382,9 @@
         });
 
         let preserveLocalColor = safeGetLS(LS.preserveLocalColor, '1') !== '0';
-        let defaultEventColorEnabled = safeGetLS(LS.defaultEventColorEnabled, '0') === '1';
-        const storedImportColor = safeGetLS(LS.defaultEventColorValue, '');
-        let defaultEventColorValue = resolveInitialImportColor(storedImportColor);
+        let manualImportColorEnabled = safeGetLS(LS.manualImportColorEnabled, '0') === '1';
+        const storedImportColor = safeGetLS(LS.manualImportColorValue, '');
+        let manualImportColorValue = resolveInitialImportColor(storedImportColor);
 
         function getSafeExportLinks() {
             const rawLinks = Array.isArray(uiSettings.icsExportLinks) ? uiSettings.icsExportLinks : [];
@@ -409,12 +409,12 @@
 
         const importColorPicker = el('input', {
             type: 'color',
-            value: defaultEventColorValue,
-            disabled: !defaultEventColorEnabled,
+            value: manualImportColorValue,
+            disabled: !manualImportColorEnabled,
             onchange: () => {
-                defaultEventColorValue = String(importColorPicker.value || '').trim();
-                safeSetLS(LS.defaultEventColorValue, defaultEventColorValue);
-                safeSetLS(LS.defaultEventColorCustomized, '1');
+                manualImportColorValue = String(importColorPicker.value || '').trim();
+                safeSetLS(LS.manualImportColorValue, manualImportColorValue);
+                safeSetLS(LS.manualImportColorCustomized, '1');
             },
         });
 
@@ -462,7 +462,7 @@
                             source: `filepicker:${f.name}`,
                             targetFolderId,
                             preserveLocalColor,
-                            defaultColor: defaultEventColorEnabled ? defaultEventColorValue : undefined,
+                            defaultColor: manualImportColorEnabled ? manualImportColorValue : undefined,
                         });
                         // IMPORTANT: keep import state until importDone/importError
                     } catch (e) {
@@ -505,11 +505,11 @@
 
         const importColorEnabledInput = el('input', {
             type: 'checkbox',
-            checked: defaultEventColorEnabled,
+            checked: manualImportColorEnabled,
             onchange: () => {
-                defaultEventColorEnabled = !!importColorEnabledInput.checked;
-                importColorPicker.disabled = !defaultEventColorEnabled;
-                safeSetLS(LS.defaultEventColorEnabled, defaultEventColorEnabled ? '1' : '0');
+                manualImportColorEnabled = !!importColorEnabledInput.checked;
+                importColorPicker.disabled = !manualImportColorEnabled;
+                safeSetLS(LS.manualImportColorEnabled, manualImportColorEnabled ? '1' : '0');
             },
         });
 
@@ -521,11 +521,11 @@
             ]),
             el('label', {class: 'mc-import-option-label'}, [
                 importColorEnabledInput,
-                el('span', {}, ['Set default color for imported events without color']),
+                el('span', {}, ['Apply fallback color during this manual import']),
             ]),
             el('div', {class: 'mc-import-color-picker-row'}, [
                 importColorPicker,
-                el('span', {class: 'mc-import-color-picker-label'}, ['Default import color']),
+                el('span', {class: 'mc-import-color-picker-label'}, ['Manual import fallback color']),
             ]),
         ]);
 
@@ -544,8 +544,8 @@
                     if (typeof msg.debug === 'boolean') uiSettings.debug = msg.debug;
                     if (typeof msg.defaultEventColor === 'string') uiSettings.defaultEventColor = msg.defaultEventColor;
                     if (Array.isArray(msg.icsExportLinks)) uiSettings.icsExportLinks = msg.icsExportLinks;
-                    defaultEventColorValue = resolveInitialImportColor(safeGetLS(LS.defaultEventColorValue, ''));
-                    importColorPicker.value = defaultEventColorValue;
+                    manualImportColorValue = resolveInitialImportColor(safeGetLS(LS.manualImportColorValue, ''));
+                    importColorPicker.value = manualImportColorValue;
                     applyDebugUI();
                 },
                 [MSG.IMPORT_STATUS]: () => {

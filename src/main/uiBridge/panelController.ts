@@ -146,7 +146,7 @@ async function handleIcsImportMessage(
 
         const targetFolderId = isString(msg.targetFolderId) ? msg.targetFolderId : undefined;
         const preserveLocalColor = msg.preserveLocalColor !== false;
-        const defaultColor = parseImportDefaultColor(msg.defaultColor);
+        const fallbackColor = parseImportDefaultColor(msg.defaultColor);
         const importAlarmRangeDays = await getIcsImportAlarmRangeDays(joplin);
 
         const res = await importIcsIntoNotes(
@@ -155,7 +155,7 @@ async function handleIcsImportMessage(
             sendStatus,
             targetFolderId,
             preserveLocalColor,
-            defaultColor,
+            fallbackColor,
             importAlarmRangeDays
         ) as ImportResultLike;
 
