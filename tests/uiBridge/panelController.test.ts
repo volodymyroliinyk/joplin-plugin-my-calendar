@@ -245,6 +245,33 @@ describe('panelController', () => {
         });
     });
 
+    test('dateClick -> keeps overnight events that overlap the clicked day even if they started before dayStart', async () => {
+        const {handler, postMessage, helpers} = await setup();
+
+        const dayStart = Date.UTC(2025, 0, 11, 0, 0, 0, 0);
+        // const dayEnd = dayStart + 24 * 60 * 60 * 1000 - 1;
+        const overnightStart = dayStart - 60 * 60 * 1000;
+        const overnightEnd = dayStart + 2 * 60 * 60 * 1000;
+
+        (ensureAllEventsCache as jest.Mock).mockResolvedValue([{any: 'all'}]);
+
+        helpers.expandAllInRange.mockReturnValue([
+            {id: 'overnight', startUtc: overnightStart, endUtc: overnightEnd},
+            {id: 'same-day', startUtc: dayStart + 60 * 60 * 1000, endUtc: dayStart + 2 * 60 * 60 * 1000},
+        ]);
+
+        await handler({name: 'dateClick', dateUtc: dayStart});
+
+        expect(postMessage).toHaveBeenCalledWith('panel-1', {
+            name: 'showEvents',
+            dateUtc: dayStart,
+            events: [
+                {id: 'overnight', startUtc: overnightStart, endUtc: overnightEnd},
+                {id: 'same-day', startUtc: dayStart + 60 * 60 * 1000, endUtc: dayStart + 2 * 60 * 60 * 1000},
+            ],
+        });
+    });
+
     test('dateClick -> ignores when dateUtc is missing / invalid', async () => {
         const {handler, postMessage} = await setup();
 

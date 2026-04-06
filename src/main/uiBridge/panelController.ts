@@ -248,7 +248,9 @@ export async function registerCalendarPanelController(
                     const list = helpers
                         .expandAllInRange(all, dayStart, dayEnd)
                         .filter((e) => {
-                            return isNumber(e.startUtc) && e.startUtc >= dayStart && e.startUtc <= dayEnd;
+                            if (!isNumber(e.startUtc)) return false;
+                            const endUtc = isNumber(e.endUtc) ? e.endUtc : e.startUtc;
+                            return endUtc >= dayStart && e.startUtc <= dayEnd;
                         });
 
                     await post({
