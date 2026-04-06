@@ -43,6 +43,86 @@ type ImportIcsResult = {
     alarmsUpdated: number;
 };
 
+function normalizeExceptionDate(value: string): string | undefined {
+    const raw = String(value || '').trim();
+    if (!raw) return undefined;
+
+    const dateOnly = raw.match(/^DATE:(\d{8})$/i);
+    if (dateOnly) {
+        return `${dateOnly[1].slice(0, 4)}-${dateOnly[1].slice(4, 6)}-${dateOnly[1].slice(6, 8)} 00:00:00`;
+    }
+
+    const tzPrefixed = raw.match(/^[^:]+:(\d{8}T\d{6}Z?)$/);
+    if (tzPrefixed) {
+        const dt = tzPrefixed[1];
+        if (/Z$/i.test(dt)) {
+            return `${dt.slice(0, 4)}-${dt.slice(4, 6)}-${dt.slice(6, 8)} ${dt.slice(9, 11)}:${dt.slice(11, 13)}:${dt.slice(13, 15)}+00:00`;
+        }
+        return `${dt.slice(0, 4)}-${dt.slice(4, 6)}-${dt.slice(6, 8)} ${dt.slice(9, 11)}:${dt.slice(11, 13)}:${dt.slice(13, 15)}`;
+    }
+
+    const plainDateTime = raw.match(/^(\d{8})T(\d{6}Z?)$/);
+    if (plainDateTime) {
+        const date = plainDateTime[1];
+        const time = plainDateTime[2];
+        if (/Z$/i.test(time)) {
+            return `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)} ${time.slice(0, 2)}:${time.slice(2, 4)}:${time.slice(4, 6)}+00:00`;
+        }
+        return `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)} ${time.slice(0, 2)}:${time.slice(2, 4)}:${time.slice(4, 6)}`;
+    }
+
+    return raw;
+}
+
+function pushUniqueExdate(target: IcsEvent | undefined, exdate: string | undefined): void {
+    if (!target || !exdate) return;
+    const normalized = exdate.trim();
+    if (!normalized) return;
+
+    if (!target.exdates) {
+        target.exdates = [normalized];
+        return;
+    }
+
+    if (!target.exdates.includes(normalized)) {
+        target.exdates.push(normalized);
+    }
+}
+
+function prepareImportedEvents(eventsRaw: IcsEvent[]): IcsEvent[] {
+    const events = eventsRaw.map((e) => ({
+        ...e,
+        exdates: Array.isArray(e.exdates) ? [...e.exdates] : undefined,
+        valarms: Array.isArray(e.valarms) ? e.valarms.map((alarm) => ({...alarm})) : undefined,
+    }));
+
+    const mastersByUid = new Map<string, IcsEvent>();
+    for (const ev of events) {
+        const uid = String(ev.uid || '').trim();
+        if (!uid || ev.recurrence_id) continue;
+        if (!mastersByUid.has(uid)) {
+            mastersByUid.set(uid, ev);
+        }
+    }
+
+    const prepared: IcsEvent[] = [];
+    for (const ev of events) {
+        const uid = String(ev.uid || '').trim();
+        const rid = String(ev.recurrence_id || '').trim();
+        if (uid && rid) {
+            pushUniqueExdate(mastersByUid.get(uid), normalizeExceptionDate(rid));
+        }
+
+        if (String(ev.status || '').trim().toLowerCase() === 'cancelled') {
+            continue;
+        }
+
+        prepared.push(ev);
+    }
+
+    return prepared;
+}
+
 function indexExistingNotes(allNotes: ExistingNoteRow[]): {
     existingByKey: ExistingEventNoteMap;
     existingAlarms: ExistingAlarmsMap;
@@ -116,7 +196,7 @@ export async function importIcsIntoNotes(
     const resolvedDefaultColor = defaultColor || await getDefaultEventColor(joplin);
 
     const eventsRaw = parseImportText(ics);
-    const events = eventsRaw.map(e => ({...e})); // avoid mutating parser output
+    const events = prepareImportedEvents(eventsRaw);
     await say(`Parsed ${events.length} VEVENT(s)`);
 
     // Request todo_due to optimize alarm syncing

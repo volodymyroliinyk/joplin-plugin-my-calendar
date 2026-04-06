@@ -65,6 +65,8 @@ export function normalizeRepeatFreq(freq?: string): 'none' | 'daily' | 'weekly' 
 function hasMeaningfulEvent(ev: IcsEvent): boolean {
     return !!(
         ev.uid ||
+        ev.recurrence_id ||
+        ev.status ||
         ev.title ||
         ev.start ||
         ev.end ||
@@ -75,8 +77,28 @@ function hasMeaningfulEvent(ev: IcsEvent): boolean {
         ev.byweekday ||
         ev.bymonthday ||
         ev.repeat_until ||
+        (ev.exdates && ev.exdates.length) ||
         (ev.valarms && ev.valarms.length)
     );
+}
+
+function normalizeExceptionDate(value: string): string | undefined {
+    return icsDateToMyCalText(value) || value.trim() || undefined;
+}
+
+function appendUniqueExdate(ev: IcsEvent, exdate: string | undefined): void {
+    if (!exdate) return;
+    const normalized = exdate.trim();
+    if (!normalized) return;
+
+    if (!ev.exdates) {
+        ev.exdates = [normalized];
+        return;
+    }
+
+    if (!ev.exdates.includes(normalized)) {
+        ev.exdates.push(normalized);
+    }
 }
 
 export function parseRRule(rrule?: string): Partial<IcsEvent> {
@@ -126,7 +148,8 @@ export function parseMyCalKeyValueText(text: string): IcsEvent[] {
     const flush = () => {
         const hasAny =
             !!cur.uid || !!cur.title || !!cur.start || !!cur.end || !!cur.description || !!cur.location || !!cur.color ||
-            !!cur.repeat || !!cur.byweekday || !!cur.bymonthday || !!cur.repeat_until || !!(cur.valarms && cur.valarms.length);
+            !!cur.repeat || !!cur.byweekday || !!cur.bymonthday || !!cur.repeat_until || !!cur.recurrence_id ||
+            !!cur.status || !!(cur.exdates && cur.exdates.length) || !!(cur.valarms && cur.valarms.length);
         if (hasAny) {
             events.push(cur);
             cur = {};
@@ -177,6 +200,8 @@ export function parseMyCalKeyValueText(text: string): IcsEvent[] {
         } else if (k === 'repeat_until') cur.repeat_until = v;
         else if (k === 'byweekday') cur.byweekday = v;
         else if (k === 'bymonthday') cur.bymonthday = v;
+        else if (k === 'status') cur.status = v.toLowerCase();
+        else if (k === 'exdate') appendUniqueExdate(cur, v);
     }
 
     flush();
@@ -246,10 +271,17 @@ export function parseIcs(ics: string): IcsEvent[] {
             (params['VALUE'] || '').toUpperCase() === 'DATE' || /^\d{8}$/.test(value.trim());
 
         if (key === 'UID') cur.uid = value.trim();
+        else if (key === 'STATUS') cur.status = value.trim().toLowerCase();
         else if (key === 'SUMMARY') cur.title = unescapeIcsText(value);
         else if (key === 'DESCRIPTION') cur.description = unescapeIcsText(value);
         else if (key === 'LOCATION') cur.location = unescapeIcsText(value);
         else if (key === 'X-COLOR') cur.color = value.trim();
+        else if (key === 'EXDATE') {
+            const values = value.split(',').map((part) => part.trim()).filter(Boolean);
+            for (const part of values) {
+                appendUniqueExdate(cur, normalizeExceptionDate(part));
+            }
+        }
 
         else if (key === 'DTSTART') {
             cur.start = icsDateToMyCalText(value) || value.trim();

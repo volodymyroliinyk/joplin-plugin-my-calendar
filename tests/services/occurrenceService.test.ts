@@ -132,4 +132,29 @@ describe('occurrenceService.expandOccurrences', () => {
             '2028-02-29T10:00:00.000Z',
         ]);
     });
+
+    test('recurring event excludes occurrences listed in exdates', () => {
+        const ev: IcsEvent = {
+            start: '2025-01-01 10:00:00+00:00',
+            end: '2025-01-01 11:00:00+00:00',
+            repeat: 'weekly',
+            exdates: ['2025-01-08 10:00:00+00:00'],
+        };
+        const occs = expandOccurrences(ev, new Date('2025-01-01T00:00:00Z'), new Date('2025-01-20T00:00:00Z'));
+        expect(occs.map(o => isoLocal(o.start))).toEqual([
+            '2025-01-01T10:00:00.000Z',
+            '2025-01-15T10:00:00.000Z',
+        ]);
+    });
+
+    test('cancelled event expands to no occurrences', () => {
+        const ev: IcsEvent = {
+            start: '2025-01-01 10:00:00+00:00',
+            end: '2025-01-01 11:00:00+00:00',
+            repeat: 'weekly',
+            status: 'cancelled',
+        };
+        const occs = expandOccurrences(ev, new Date('2025-01-01T00:00:00Z'), new Date('2025-01-20T00:00:00Z'));
+        expect(occs).toEqual([]);
+    });
 });

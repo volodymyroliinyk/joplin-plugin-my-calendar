@@ -4,6 +4,7 @@ ai_prompts/
 coverage/
 dist/
 node_modules/
+reports/
 
 .test-status
 AGENTS.md

@@ -197,6 +197,32 @@ END:VCALENDAR
             expect(ev.valarms).toHaveLength(1);
             expect(ev.valarms![0].related).toBe('START');
         });
+
+        test('parses EXDATE values and cancelled recurrence exception status', () => {
+            const ics = `
+BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:u7
+SUMMARY:Series
+DTSTART;TZID=America/Toronto:20250115T100000
+RRULE:FREQ=WEEKLY
+EXDATE;TZID=America/Toronto:20250122T100000,20250129T100000
+END:VEVENT
+BEGIN:VEVENT
+UID:u7
+RECURRENCE-ID;TZID=America/Toronto:20250205T100000
+STATUS:CANCELLED
+END:VEVENT
+END:VCALENDAR
+            `;
+            const [master, cancelled] = parseIcs(ics);
+            expect(master.exdates).toEqual([
+                '20250122T100000',
+                '20250129T100000',
+            ]);
+            expect(cancelled.recurrence_id).toBe('America/Toronto:20250205T100000');
+            expect(cancelled.status).toBe('cancelled');
+        });
     });
 
     describe('parseMyCalKeyValueText', () => {

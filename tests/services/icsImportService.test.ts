@@ -538,6 +538,74 @@ describe('icsImportService.importIcsIntoNotes', () => {
         expect(noteBody.body).toContain('recurrence_id: America/Toronto:20250115T090000');
     });
 
+    test('moved recurrence exception excludes original master occurrence via exdate and keeps exception note', async () => {
+        const ics = [
+            'BEGIN:VCALENDAR',
+            'BEGIN:VEVENT',
+            'UID:u-move',
+            'SUMMARY:Series',
+            'DTSTART;TZID=America/Toronto:20250115T090000',
+            'RRULE:FREQ=WEEKLY',
+            'END:VEVENT',
+            'BEGIN:VEVENT',
+            'UID:u-move',
+            'SUMMARY:Moved occurrence',
+            'RECURRENCE-ID;TZID=America/Toronto:20250122T090000',
+            'DTSTART;TZID=America/Toronto:20250122T120000',
+            'END:VEVENT',
+            'END:VCALENDAR',
+        ].join('\n');
+
+        const joplin = mkJoplin({
+            get: jest.fn().mockResolvedValue({items: [], has_more: false}),
+            post: jest.fn().mockResolvedValue({id: 'created'}),
+        });
+
+        const res = await importIcsIntoNotes(joplin as any, ics);
+
+        expect(res.added).toBe(2);
+        const masterBody = joplin.data.post.mock.calls[0][2].body as string;
+        const movedBody = joplin.data.post.mock.calls[1][2].body as string;
+
+        expect(masterBody).toContain('repeat: weekly');
+        expect(masterBody).toContain('exdate: 2025-01-22 09:00:00');
+        expect(movedBody).toContain('recurrence_id: America/Toronto:20250122T090000');
+        expect(movedBody).toContain('start: 2025-01-22 12:00:00');
+    });
+
+    test('cancelled recurrence exception is not imported as a note and still excludes master occurrence', async () => {
+        const ics = [
+            'BEGIN:VCALENDAR',
+            'BEGIN:VEVENT',
+            'UID:u-cancel',
+            'SUMMARY:Series',
+            'DTSTART;TZID=America/Toronto:20250115T090000',
+            'RRULE:FREQ=WEEKLY',
+            'END:VEVENT',
+            'BEGIN:VEVENT',
+            'UID:u-cancel',
+            'RECURRENCE-ID;TZID=America/Toronto:20250122T090000',
+            'STATUS:CANCELLED',
+            'END:VEVENT',
+            'END:VCALENDAR',
+        ].join('\n');
+
+        const joplin = mkJoplin({
+            get: jest.fn().mockResolvedValue({items: [], has_more: false}),
+            post: jest.fn().mockResolvedValue({id: 'created'}),
+        });
+
+        const res = await importIcsIntoNotes(joplin as any, ics);
+
+        expect(res.added).toBe(1);
+        expect(joplin.data.post).toHaveBeenCalledTimes(1);
+
+        const masterBody = joplin.data.post.mock.calls[0][2].body as string;
+        expect(masterBody).toContain('repeat: weekly');
+        expect(masterBody).toContain('exdate: 2025-01-22 09:00:00');
+        expect(masterBody).not.toContain('status: cancelled');
+    });
+
     test('parses non-ICS input as key:value format and supports "---" separator + inline comments', async () => {
         const text = [
             'uid: u1',

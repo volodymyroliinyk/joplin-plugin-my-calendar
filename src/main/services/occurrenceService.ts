@@ -73,8 +73,18 @@ function toUtcOrNull(text: string | undefined, tz: string): number | null {
     return parseDateTimeToUTC(text, tz);
 }
 
+function buildExcludedStartSet(exdates: string[] | undefined, tz: string): Set<number> {
+    const out = new Set<number>();
+    for (const exdate of exdates ?? []) {
+        const utc = toUtcOrNull(exdate, tz);
+        if (utc != null) out.add(utc);
+    }
+    return out;
+}
+
 export function expandOccurrences(ev: IcsEvent, windowStart: Date, windowEnd: Date): Occurrence[] {
     if (!ev.start) return [];
+    if (String(ev.status || '').trim().toLowerCase() === 'cancelled') return [];
 
     const tz = resolveOccurrenceTimeZone(ev);
     const startUtc = toUtcOrNull(ev.start, tz);
@@ -97,6 +107,7 @@ export function expandOccurrences(ev: IcsEvent, windowStart: Date, windowEnd: Da
         repeatUntilUtc,
         byWeekdays: parseByWeekdaysStrToMon0(ev.byweekday),
         byMonthDay: parseByMonthDaySafe(ev.bymonthday),
+        exdates: ev.exdates,
     };
 
     const occs = expandOccurrencesInRange(eventInput, windowStart.getTime(), windowEnd.getTime());
@@ -116,10 +127,12 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
     }
 
     const dur = (ev.endUtc ?? ev.startUtc) - ev.startUtc;
+    const excludedStarts = buildExcludedStartSet(ev.exdates, tz);
     const push = (start: number, out: UiOccurrence[]) => {
         if (start > toUtc) return false;
         const end = dur ? start + dur : start;
         if (end < fromUtc) return true;
+        if (excludedStarts.has(start)) return true;
         out.push({...ev, occurrenceId: `${ev.id}#${start}`, startUtc: start, endUtc: dur ? end : undefined});
         return true;
     };

@@ -111,6 +111,11 @@ export function buildMyCalBlock(ev: IcsEvent): string {
         pushKV(lines, 'repeat_until', ev.repeat_until);
         pushKV(lines, 'byweekday', ev.byweekday);
         pushKV(lines, 'bymonthday', ev.bymonthday);
+        if (Array.isArray(ev.exdates)) {
+            for (const exdate of ev.exdates) {
+                pushKV(lines, 'exdate', exdate);
+            }
+        }
     }
 
     if (ev.all_day) lines.push(`all_day: true`);

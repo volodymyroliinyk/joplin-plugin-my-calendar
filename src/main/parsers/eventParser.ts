@@ -13,6 +13,7 @@ type EventInput = {
     description?: string;
     location?: string;
     color?: string;
+    exdates?: string[];
 
     startUtc: number;
     endUtc?: number;
@@ -212,6 +213,7 @@ export function parseEventsFromBody(noteId: string, titleFallback: string, body:
             bymonthday?: string;
             all_day?: string;
             valarm?: string;
+            exdate?: string[];
         };
 
         const fields: ParsedBlockFields = {};
@@ -222,7 +224,11 @@ export function parseEventsFromBody(noteId: string, titleFallback: string, body:
             const kv = parseKeyVal(rawLine);
             if (kv) {
                 const [k, v] = kv;
-                (fields as any)[k] = v;
+                if (k === 'exdate') {
+                    ((fields as any)[k] ??= []).push(v);
+                } else {
+                    (fields as any)[k] = v;
+                }
                 currentKey = multilineKeys.has(k) ? k : null;
                 continue;
             }
@@ -245,6 +251,7 @@ export function parseEventsFromBody(noteId: string, titleFallback: string, body:
         const byWeekdays = fields.byweekday ? parseByWeekdays(fields.byweekday) : undefined;
         const byMonthDay = fields.bymonthday ? parseByMonthDay(fields.bymonthday) : undefined;
         const allDay = fields.all_day ? parseAllDayBool(fields.all_day) : undefined;
+        const exdates = Array.isArray(fields.exdate) ? fields.exdate.filter(Boolean) : undefined;
 
         if (!startText) continue;
 
@@ -294,6 +301,7 @@ export function parseEventsFromBody(noteId: string, titleFallback: string, body:
             repeatUntilUtc,
             byWeekdays,
             byMonthDay,
+            exdates,
 
             allDay,
             hasAlarms: !!fields.valarm,
