@@ -63,6 +63,7 @@ describe('scheduledIcsImportService', () => {
             alarmsCreated: 4,
             alarmsDeleted: 5,
             alarmsUpdated: 6,
+            issues: 0,
         });
     });
 
@@ -113,6 +114,7 @@ describe('scheduledIcsImportService', () => {
             alarmsCreated: 4,
             alarmsDeleted: 5,
             alarmsUpdated: 6,
+            issues: 0,
         });
         expect(importIcsIntoNotes).toHaveBeenCalledTimes(1);
         controller.stop();
@@ -184,6 +186,7 @@ describe('scheduledIcsImportService', () => {
             alarmsCreated: 4,
             alarmsDeleted: 5,
             alarmsUpdated: 6,
+            issues: 0,
         });
     });
 
@@ -196,6 +199,7 @@ describe('scheduledIcsImportService', () => {
             alarmsCreated: 0,
             alarmsDeleted: 0,
             alarmsUpdated: 0,
+            issues: 3,
         });
 
         const downloadIcs = jest.fn().mockResolvedValue('BEGIN:VCALENDAR\nEND:VCALENDAR');
@@ -208,7 +212,7 @@ describe('scheduledIcsImportService', () => {
 
         expect(showToast).toHaveBeenCalledWith(
             'warning',
-            'Scheduled ICS import finished for Work: added=1, updated=0, skipped=0, errors=2, alarmsCreated=0, alarmsDeleted=0',
+            'Scheduled ICS import finished for Work: added=1, updated=0, skipped=0, errors=2, alarmsCreated=0, alarmsDeleted=0, issues=3',
             5000,
         );
     });

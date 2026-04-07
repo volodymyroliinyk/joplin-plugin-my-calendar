@@ -22,6 +22,7 @@ type ImportSummary = {
     alarmsCreated: number;
     alarmsDeleted: number;
     alarmsUpdated: number;
+    issues: number;
 };
 
 export type ScheduledIcsImportController = {
@@ -47,6 +48,7 @@ function emptySummary(): ImportSummary {
         alarmsCreated: 0,
         alarmsDeleted: 0,
         alarmsUpdated: 0,
+        issues: 0,
     };
 }
 
@@ -58,6 +60,7 @@ function mergeSummary(target: ImportSummary, next: ImportSummary): ImportSummary
     target.alarmsCreated += next.alarmsCreated;
     target.alarmsDeleted += next.alarmsDeleted;
     target.alarmsUpdated += next.alarmsUpdated;
+    target.issues += next.issues;
     return target;
 }
 
@@ -71,7 +74,11 @@ function redactUrlFromText(text: string, url: string): string {
 }
 
 function buildImportDoneText(notebookTitle: string, result: ImportSummary): string {
-    return `Scheduled ICS import finished for ${notebookTitle}: added=${result.added}, updated=${result.updated}, skipped=${result.skipped}, errors=${result.errors}, alarmsCreated=${result.alarmsCreated}, alarmsDeleted=${result.alarmsDeleted}`;
+    const base = `Scheduled ICS import finished for ${notebookTitle}: added=${result.added}, updated=${result.updated}, skipped=${result.skipped}, errors=${result.errors}, alarmsCreated=${result.alarmsCreated}, alarmsDeleted=${result.alarmsDeleted}`;
+    if (result.issues > 0) {
+        return `${base}, issues=${result.issues}`;
+    }
+    return base;
 }
 
 async function showScheduledImportDoneToast(notebookTitle: string, result: ImportSummary): Promise<void> {

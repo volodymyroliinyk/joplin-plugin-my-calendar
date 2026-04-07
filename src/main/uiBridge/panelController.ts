@@ -77,7 +77,16 @@ type ImportResultLike = {
     errors: number;
     alarmsCreated: number;
     alarmsDeleted: number;
+    issues?: number;
 };
+
+function buildImportDoneText(result: ImportResultLike): string {
+    const base = `ICS import finished: added=${result.added}, updated=${result.updated}, skipped=${result.skipped}, errors=${result.errors}, alarmsCreated=${result.alarmsCreated}, alarmsDeleted=${result.alarmsDeleted}`;
+    if ((result.issues ?? 0) > 0) {
+        return `${base}, issues=${result.issues}`;
+    }
+    return base;
+}
 
 type UtcRange = {
     fromUtc: number;
@@ -163,7 +172,7 @@ async function handleIcsImportMessage(
         invalidateAllEventsCache();
         await post({name: 'importDone', ...res});
 
-        const doneText = `ICS import finished: added=${res.added}, updated=${res.updated}, skipped=${res.skipped}, errors=${res.errors}, alarmsCreated=${res.alarmsCreated}, alarmsDeleted=${res.alarmsDeleted}`;
+        const doneText = buildImportDoneText(res);
         await showToast(res.errors > 0 ? 'warning' : 'success', doneText, 5000);
     } catch (error) {
         await postImportFailure(post, getErrorText(error));

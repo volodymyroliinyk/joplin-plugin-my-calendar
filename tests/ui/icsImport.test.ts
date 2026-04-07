@@ -613,7 +613,7 @@ describe('src/ui/icsImport.js', () => {
         loadIcsImportFresh();
 
         sendPluginMessage(getOnMessageCb, {name: 'importStatus', text: 'Parsing'});
-        sendPluginMessage(getOnMessageCb, {name: 'importDone', added: 1, updated: 2, skipped: 3, errors: 0});
+        sendPluginMessage(getOnMessageCb, {name: 'importDone', added: 1, updated: 2, skipped: 3, errors: 0, issues: 2});
         sendPluginMessage(getOnMessageCb, {name: 'importError', error: 'boom'});
 
         expectConsoleLogContains(logSpy, '[STATUS]');
@@ -621,7 +621,7 @@ describe('src/ui/icsImport.js', () => {
         expectConsoleLogContains(logSpy, '[DONE]');
         expect(logSpy).toHaveBeenCalledWith(
             expect.stringContaining('[DONE]'),
-            'added=1 updated=2 skipped=3 errors=0'
+            'added=1 updated=2 skipped=3 errors=0 issues=2'
         );
 
         expectConsoleLogContains(logSpy, '[ERROR]');

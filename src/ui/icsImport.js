@@ -552,9 +552,11 @@
                     uiLogger.log('[STATUS]', msg.text);
                 },
                 [MSG.IMPORT_DONE]: () => {
+                    const summary = `added=${msg.added} updated=${msg.updated} skipped=${msg.skipped} errors=${msg.errors}`
+                        + ((Number(msg.issues) || 0) > 0 ? ` issues=${msg.issues}` : '');
                     uiLogger.log(
                         '[DONE]',
-                        `added=${msg.added} updated=${msg.updated} skipped=${msg.skipped} errors=${msg.errors}`,
+                        summary,
                     );
                     setImportState(false);
                 },

@@ -366,7 +366,7 @@ describe('panelController', () => {
             ) => {
                 await sendStatus('Parsing...');
                 await sendStatus('Saving...');
-                return {added: 1, updated: 2, skipped: 3, errors: 0, alarmsCreated: 4, alarmsDeleted: 5};
+                return {added: 1, updated: 2, skipped: 3, errors: 0, alarmsCreated: 4, alarmsDeleted: 5, issues: 2};
             }
         );
 
@@ -397,12 +397,13 @@ describe('panelController', () => {
             errors: 0,
             alarmsCreated: 4,
             alarmsDeleted: 5,
+            issues: 2,
         });
 
         // final toast success (because errors=0)
         expect(showToast).toHaveBeenCalledWith(
             'success',
-            'ICS import finished: added=1, updated=2, skipped=3, errors=0, alarmsCreated=4, alarmsDeleted=5',
+            'ICS import finished: added=1, updated=2, skipped=3, errors=0, alarmsCreated=4, alarmsDeleted=5, issues=2',
             5000
         );
 
@@ -424,14 +425,15 @@ describe('panelController', () => {
             skipped: 0,
             errors: 2,
             alarmsCreated: 0,
-            alarmsDeleted: 0
+            alarmsDeleted: 0,
+            issues: 3,
         });
 
         await handler({name: 'icsImport', ics: 'X'});
 
         expect(showToast).toHaveBeenCalledWith(
             'warning',
-            'ICS import finished: added=0, updated=0, skipped=0, errors=2, alarmsCreated=0, alarmsDeleted=0',
+            'ICS import finished: added=0, updated=0, skipped=0, errors=2, alarmsCreated=0, alarmsDeleted=0, issues=3',
             5000
         );
     });

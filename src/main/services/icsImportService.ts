@@ -16,6 +16,7 @@ import {createNote, getAllNotesPaged, getFolderNotesPaged, NoteItem, updateNote}
 import {getIcsImportAlarmsEnabled} from '../settings/settings';
 import {getErrorText} from '../utils/errorUtils';
 import {createSafeTextReporter} from '../utils/statusNotifier';
+import {dbg, err, warn} from '../utils/logger';
 
 type ExistingEventNote = { id: string; title: string; body: string; parent_id?: string };
 type ExistingEventNoteMap = Record<string, ExistingEventNote>;
@@ -46,6 +47,7 @@ type ImportIcsResult = {
     alarmsCreated: number;
     alarmsDeleted: number;
     alarmsUpdated: number;
+    issues: number;
 };
 
 type ImportColorPolicy = {
@@ -273,8 +275,12 @@ export async function importIcsIntoNotes(
         duplicateOwnershipWarnings,
     } = indexExistingNotes(allNotes);
 
+    let issues = 0;
+
     for (const warning of duplicateOwnershipWarnings) {
-        await say(
+        issues++;
+        dbg(
+            'icsImportService',
             `[icsImportService] WARNING: Duplicate event ownership detected for ${warning.key} in notes ${warning.existingNoteId} and ${warning.duplicateNoteId}; keeping lexicographically smallest note id ${warning.existingNoteId}`,
         );
     }
@@ -283,7 +289,8 @@ export async function importIcsIntoNotes(
     try {
         alarmsEnabled = await getIcsImportAlarmsEnabled(joplin);
     } catch (e) {
-        await say(`[icsImportService] WARNING: Failed to read alarms setting; defaulting to disabled. ${getErrorText(e)}`);
+        issues++;
+        warn('icsImportService', `Failed to read alarms setting; defaulting to disabled. ${getErrorText(e)}`);
     }
 
     let added = 0, updated = 0, skipped = 0, errors = 0;
@@ -353,7 +360,8 @@ export async function importIcsIntoNotes(
                 importedEventNotes[key] = {id, parent_id: (options.targetFolderId || parent_id), title: desiredTitle};
             } catch (e) {
                 errors++;
-                await say(`[icsImportService] ERROR updating note: ${key} - ${getErrorText(e)}`);
+                issues++;
+                err('icsImportService', `ERROR updating note: ${key} - ${getErrorText(e)}`);
             }
         } else {
             try {
@@ -365,7 +373,8 @@ export async function importIcsIntoNotes(
                 }
             } catch (e) {
                 errors++;
-                await say(`[icsImportService] ERROR creating note: ${key} - ${getErrorText(e)}`);
+                issues++;
+                err('icsImportService', `ERROR creating note: ${key} - ${getErrorText(e)}`);
             }
         }
     }
@@ -378,5 +387,14 @@ export async function importIcsIntoNotes(
         }
     );
 
-    return {added, updated, skipped, errors, ...alarmRes};
+    return {
+        added,
+        updated,
+        skipped,
+        errors,
+        alarmsCreated: alarmRes.alarmsCreated,
+        alarmsDeleted: alarmRes.alarmsDeleted,
+        alarmsUpdated: alarmRes.alarmsUpdated,
+        issues: issues + alarmRes.issues,
+    };
 }

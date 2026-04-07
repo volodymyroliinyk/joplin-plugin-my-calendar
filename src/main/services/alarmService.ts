@@ -18,7 +18,7 @@ import {
 } from '../settings/settings';
 import {Joplin} from '../types/joplin.interface';
 import {createNote, deleteNote, NoteItem, updateNote} from './joplinNoteService';
-import {log} from '../utils/logger';
+import {err, log, warn} from '../utils/logger';
 import {getErrorText} from '../utils/errorUtils';
 import {createSafeTextReporter} from '../utils/statusNotifier';
 
@@ -26,6 +26,7 @@ export type AlarmSyncResult = {
     alarmsCreated: number;
     alarmsDeleted: number;
     alarmsUpdated: number;
+    issues: number;
 };
 
 export type ExistingAlarm = {
@@ -163,6 +164,7 @@ export async function syncAlarmsForEvents(
     let alarmsDeleted = 0;
     let alarmsCreated = 0;
     let alarmsUpdated = 0;
+    let issues = 0;
 
     for (const ev of events) {
         const uid = (ev.uid || '').trim();
@@ -189,7 +191,8 @@ export async function syncAlarmsForEvents(
                     await deleteNote(joplin, alarm.id);
                     alarmsDeleted++;
                 } catch (e) {
-                    await say(`[alarmService] ERROR deleting outdated alarm: ${key} - ${getErrorText(e)}`);
+                    issues++;
+                    err('alarmService', `ERROR deleting outdated alarm: ${key} - ${getErrorText(e)}`);
                 }
                 continue;
             }
@@ -243,7 +246,8 @@ export async function syncAlarmsForEvents(
                         alarmsUpdated++;
                         log('alarmService', `Updated alarm: ${todoTitle}`);
                     } catch (e) {
-                        await say(`[alarmService] ERROR updating alarm: ${key} - ${getErrorText(e)}`);
+                        issues++;
+                        err('alarmService', `ERROR updating alarm: ${key} - ${getErrorText(e)}`);
                     }
                 }
             } else {
@@ -251,7 +255,8 @@ export async function syncAlarmsForEvents(
                     await deleteNote(joplin, alarm.id);
                     alarmsDeleted++;
                 } catch (e) {
-                    await say(`[alarmService] ERROR deleting invalid alarm: ${key} - ${getErrorText(e)}`);
+                    issues++;
+                    err('alarmService', `ERROR deleting invalid alarm: ${key} - ${getErrorText(e)}`);
                 }
             }
         }
@@ -296,7 +301,8 @@ export async function syncAlarmsForEvents(
                 alarmsCreated++;
                 log('alarmService', `Created alarm: ${todoTitle} due ${new Date(alarmTime).toISOString()}`);
             } catch (e) {
-                await say(`[alarmService] ERROR creating alarm: ${key} - ${getErrorText(e)}`);
+                issues++;
+                err('alarmService', `ERROR creating alarm: ${key} - ${getErrorText(e)}`);
             }
         }
     }
@@ -306,7 +312,8 @@ export async function syncAlarmsForEvents(
             await joplin.commands.execute('emptyTrash');
             await say('Trash emptied.');
         } catch (e) {
-            await say(`[alarmService] WARNING: Failed to empty trash: ${getErrorText(e)}`);
+            issues++;
+            warn('alarmService', `Failed to empty trash: ${getErrorText(e)}`);
         }
     }
 
@@ -314,5 +321,5 @@ export async function syncAlarmsForEvents(
         await say(`Alarms sync summary: deleted ${alarmsDeleted}, created ${alarmsCreated}, updated ${alarmsUpdated} (next ${alarmRangeDays} days)`);
     }
 
-    return {alarmsCreated, alarmsDeleted, alarmsUpdated};
+    return {alarmsCreated, alarmsDeleted, alarmsUpdated, issues};
 }

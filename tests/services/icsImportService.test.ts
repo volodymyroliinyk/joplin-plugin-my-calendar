@@ -14,7 +14,7 @@
 // - defaultColor
 // - master vs recurrence instance
 // - uid missing => skipped
-// - error paths update/create + onStatus message
+// - error paths update/create + non-fatal error logging
 // - targetFolderId for notes to be created
 //
 // Recommendation: run with TZ=UTC (you already have it in scripts).
@@ -63,6 +63,8 @@ describe('icsImportService.importIcsIntoNotes', () => {
     beforeEach(() => {
         jest.spyOn(console, 'log').mockImplementation(() => {
         });
+        jest.spyOn(console, 'warn').mockImplementation(() => {
+        });
         jest.spyOn(console, 'error').mockImplementation(() => {
         });
         // Default: alarms enabled
@@ -72,6 +74,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
 
     afterEach(() => {
         (console.log as any).mockRestore?.();
+        (console.warn as any).mockRestore?.();
         (console.error as any).mockRestore?.();
         jest.clearAllMocks();
     });
@@ -150,7 +153,8 @@ describe('icsImportService.importIcsIntoNotes', () => {
             errors: 0,
             alarmsCreated: 0,
             alarmsDeleted: 0,
-            alarmsUpdated: 0
+            alarmsUpdated: 0,
+            issues: 0,
         });
     });
 
@@ -187,7 +191,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
         );
     });
 
-    test('warns on duplicate event ownership and keeps the lexicographically smallest note id as owner', async () => {
+    test('keeps the lexicographically smallest note id as owner without surfacing duplicate ownership warning in import status', async () => {
         const ics = [
             'BEGIN:VCALENDAR',
             'BEGIN:VEVENT',
@@ -227,7 +231,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
 
         const res = await importIcsIntoNotes(joplin as any, ics, onStatus);
 
-        expect(onStatus).toHaveBeenCalledWith(
+        expect(onStatus).not.toHaveBeenCalledWith(
             '[icsImportService] WARNING: Duplicate event ownership detected for u-dup-owner| in notes note-1 and note-2; keeping lexicographically smallest note id note-1',
         );
         expect(joplin.data.put).toHaveBeenCalledTimes(1);
@@ -243,6 +247,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
         );
         expect(joplin.data.post).not.toHaveBeenCalled();
         expect(res.updated).toBe(1);
+        expect(res.issues).toBe(1);
     });
 
     test('imports VALARM as valarm: {json} lines inside mycalendar-event block (supports multiple VALARM)', async () => {
@@ -296,7 +301,8 @@ describe('icsImportService.importIcsIntoNotes', () => {
             errors: 0,
             alarmsCreated: 0,
             alarmsDeleted: 0,
-            alarmsUpdated: 0
+            alarmsUpdated: 0,
+            issues: 0,
         });
     });
 
@@ -747,7 +753,8 @@ describe('icsImportService.importIcsIntoNotes', () => {
             errors: 0,
             alarmsCreated: 0,
             alarmsDeleted: 0,
-            alarmsUpdated: 0
+            alarmsUpdated: 0,
+            issues: 0,
         });
         expect(joplin.data.post).not.toHaveBeenCalled();
         expect(joplin.data.put).not.toHaveBeenCalled();
@@ -978,7 +985,8 @@ describe('icsImportService.importIcsIntoNotes', () => {
             errors: 0,
             alarmsCreated: 0,
             alarmsDeleted: 0,
-            alarmsUpdated: 0
+            alarmsUpdated: 0,
+            issues: 0,
         });
         expect(joplin.data.put).not.toHaveBeenCalled();
     });
@@ -1138,7 +1146,8 @@ describe('icsImportService.importIcsIntoNotes', () => {
             errors: 0,
             alarmsCreated: 0,
             alarmsDeleted: 0,
-            alarmsUpdated: 0
+            alarmsUpdated: 0,
+            issues: 0,
         });
         expect(joplin.data.put).not.toHaveBeenCalled();
         expect(joplin.data.post).not.toHaveBeenCalled();
@@ -1553,8 +1562,9 @@ describe('icsImportService.importIcsIntoNotes', () => {
 
         const res = await importIcsIntoNotes(joplin as any, ics, onStatus, 'nb1');
         expect(joplin.data.delete).toHaveBeenCalledWith(['notes', 'a1']);
-        expect(onStatus).toHaveBeenCalledWith(expect.stringContaining('[alarmService] ERROR deleting invalid alarm: u1| - delete fail'));
+        expect(onStatus).not.toHaveBeenCalledWith(expect.stringContaining('[alarmService] ERROR deleting invalid alarm: u1| - delete fail'));
         expect(res.alarmsCreated).toBe(1);
+        expect(res.issues).toBe(1);
 
         jest.useRealTimers();
     });
@@ -1635,6 +1645,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
 
     test('if getIcsImportAlarmsEnabled throws, defaults to disabled', async () => {
         (settings.getIcsImportAlarmsEnabled as jest.Mock).mockRejectedValue(new Error('boom'));
+        const onStatus = jest.fn();
 
         const joplin = mkJoplin({
             get: jest.fn().mockResolvedValue({items: [], has_more: false}),
@@ -1658,13 +1669,17 @@ describe('icsImportService.importIcsIntoNotes', () => {
         jest.useFakeTimers();
         jest.setSystemTime(new Date('2025-01-01T00:00:00Z'));
 
-        const res = await importIcsIntoNotes(joplin as any, ics, undefined, 'nb1');
+        const res = await importIcsIntoNotes(joplin as any, ics, onStatus, 'nb1');
 
         const createdPayloads = joplin.data.post.mock.calls.map(c => c[2]);
         const todoCreates = createdPayloads.filter((p: any) => p && p.is_todo === 1);
         expect(todoCreates).toHaveLength(0);
         expect(res.alarmsCreated).toBe(0);
         expect(res.alarmsDeleted).toBe(0);
+        expect(res.issues).toBe(1);
+        expect(onStatus).not.toHaveBeenCalledWith(
+            '[icsImportService] WARNING: Failed to read alarms setting; defaulting to disabled. boom',
+        );
 
         jest.useRealTimers();
     });
