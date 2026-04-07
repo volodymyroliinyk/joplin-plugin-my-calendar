@@ -504,6 +504,29 @@ describe('panelController', () => {
         expect(call[6]).toBe(30); // importAlarmRangeDays default
     });
 
+    test('icsImport -> short hex defaultColor is accepted', async () => {
+        const {handler} = await setup();
+
+        (importIcsIntoNotes as jest.Mock).mockResolvedValue({
+            added: 0,
+            updated: 0,
+            skipped: 0,
+            errors: 0,
+            alarmsCreated: 0,
+            alarmsDeleted: 0
+        });
+
+        await handler({
+            name: 'icsImport',
+            ics: 'X',
+            defaultColor: '#0f0',
+        });
+
+        const call = (importIcsIntoNotes as jest.Mock).mock.calls[0];
+        expect(call[5]).toBe('#0f0');
+        expect(call[6]).toBe(30);
+    });
+
     test('icsImport failure -> posts importError and shows error toast; does NOT invalidate cache', async () => {
         const {handler, postMessage} = await setup();
 

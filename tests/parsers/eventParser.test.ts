@@ -24,4 +24,23 @@ describe('eventParser.parseEventsFromBody', () => {
             '2025-01-29 09:00:00',
         ]);
     });
+
+    test('normalizes duplicated and unsorted byweekday values', () => {
+        const body = [
+            '```mycalendar-event',
+            'title: Series',
+            'start: 2025-01-15 09:00:00',
+            'tz: America/Toronto',
+            'repeat: weekly',
+            'byweekday: WE,MO,WE,XX',
+            '',
+            'uid: u2',
+            '```',
+        ].join('\n');
+
+        const events = parseEventsFromBody('note-1', 'Fallback', body);
+
+        expect(events).toHaveLength(1);
+        expect(events[0].byWeekdays).toEqual([0, 2]);
+    });
 });

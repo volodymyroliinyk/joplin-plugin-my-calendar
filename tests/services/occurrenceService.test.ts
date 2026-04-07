@@ -88,6 +88,23 @@ describe('occurrenceService.expandOccurrences', () => {
         ]);
     });
 
+    test('weekly recurrence ignores duplicated byweekday entries and keeps chronological order', () => {
+        const ev: IcsEvent = {
+            start: '2025-01-01 10:00:00+00:00', // Wed
+            end: '2025-01-01 11:00:00+00:00',
+            repeat: 'weekly',
+            byweekday: 'WE,MO,WE',
+        };
+        const occs = expandOccurrences(ev, new Date('2025-01-01T00:00:00Z'), new Date('2025-01-15T23:59:59Z'));
+        expect(occs.map(o => isoLocal(o.start))).toEqual([
+            '2025-01-01T10:00:00.000Z',
+            '2025-01-06T10:00:00.000Z',
+            '2025-01-08T10:00:00.000Z',
+            '2025-01-13T10:00:00.000Z',
+            '2025-01-15T10:00:00.000Z',
+        ]);
+    });
+
     test('weekly recurrence with interval=2 and byweekday matches RFC (bi-weekly)', () => {
         const ev: IcsEvent = {
             start: '2025-01-01 10:00:00+00:00', // Wednesday (W1)

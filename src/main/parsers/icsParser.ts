@@ -3,6 +3,10 @@
 import {IcsEvent, IcsValarm} from '../types/icsTypes';
 import {icsDateToMyCalText} from '../utils/dateTimeUtils';
 
+function isValarmCandidate(value: unknown): value is Pick<IcsValarm, 'trigger'> & Partial<IcsValarm> {
+    return typeof value === 'object' && value !== null && typeof (value as { trigger?: unknown }).trigger === 'string';
+}
+
 export function unfoldIcsLines(ics: string): string[] {
     const raw = ics.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
     const out: string[] = [];
@@ -58,7 +62,7 @@ export function normalizeRepeatFreq(freq?: string): 'none' | 'daily' | 'weekly' 
     if (!freq) return undefined;
     const f = freq.toLowerCase();
     if (f === 'none') return 'none';
-    if (f === 'daily' || f === 'weekly' || f === 'monthly' || f === 'yearly') return f as any;
+    if (f === 'daily' || f === 'weekly' || f === 'monthly' || f === 'yearly') return f;
     return undefined;
 }
 
@@ -187,8 +191,8 @@ export function parseMyCalKeyValueText(text: string): IcsEvent[] {
         else if (k === 'valarm') {
             try {
                 const obj = JSON.parse(v);
-                if (obj && typeof obj === 'object' && typeof (obj as any).trigger === 'string') {
-                    (cur.valarms ??= []).push(obj as IcsValarm);
+                if (isValarmCandidate(obj)) {
+                    (cur.valarms ??= []).push(obj);
                 }
             } catch {
                 // ignore
@@ -251,7 +255,7 @@ export function parseIcs(ics: string): IcsEvent[] {
             if (key === 'TRIGGER') {
                 curAlarm.trigger = value.trim();
                 const rel = (params['RELATED'] || '').toUpperCase();
-                if (rel === 'START' || rel === 'END') curAlarm.related = rel as any;
+                if (rel === 'START' || rel === 'END') curAlarm.related = rel;
             } else if (key === 'ACTION') {
                 curAlarm.action = value.trim();
             } else if (key === 'DESCRIPTION') {

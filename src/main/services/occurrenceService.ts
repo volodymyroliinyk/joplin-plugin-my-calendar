@@ -28,9 +28,11 @@ function formatLocalYmdHms(msUtc: number, tz: string): string {
 function parseByWeekdaysStrToMon0(v?: string): number[] | undefined {
     if (!v) return undefined;
     const arr = v.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
-    const out: number[] = [];
-    for (const t of arr) if (t in WD_MAP_MON0) out.push(WD_MAP_MON0[t]);
-    return out.length ? out : undefined;
+    const out = new Set<number>();
+    for (const t of arr) {
+        if (t in WD_MAP_MON0) out.add(WD_MAP_MON0[t]);
+    }
+    return out.size ? Array.from(out).sort((a, b) => a - b) : undefined;
 }
 
 function parseByMonthDaySafe(v?: string): number | undefined {

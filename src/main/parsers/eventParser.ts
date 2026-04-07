@@ -40,6 +40,26 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // Map: MO..SU -> 0..6 (Mon..Sun)
 const WD_MAP: Record<string, number> = {MO: 0, TU: 1, WE: 2, TH: 3, FR: 4, SA: 5, SU: 6};
 
+type ParsedBlockFields = {
+    title?: string;
+    description?: string;
+    location?: string;
+    color?: string;
+    start?: string;
+    end?: string;
+    tz?: string;
+    repeat?: string;
+    repeat_interval?: string;
+    repeat_until?: string;
+    byweekday?: string;
+    bymonthday?: string;
+    all_day?: string;
+    valarm?: string;
+    exdate?: string[];
+};
+
+type ParsedBlockScalarKey = Exclude<keyof ParsedBlockFields, 'exdate'>;
+
 function parseKeyVal(line: string): [string, string] | null {
     const m = line.match(/^\s*([a-zA-Z_]+)\s*:\s*(.+)\s*$/);
     if (!m) return null;
@@ -49,9 +69,11 @@ function parseKeyVal(line: string): [string, string] | null {
 
 function parseByWeekdays(v: string): number[] | undefined {
     const arr = v.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
-    const out: number[] = [];
-    for (const t of arr) if (t in WD_MAP) out.push(WD_MAP[t]);
-    return out.length ? out : undefined;
+    const out = new Set<number>();
+    for (const t of arr) {
+        if (t in WD_MAP) out.add(WD_MAP[t]);
+    }
+    return out.size ? Array.from(out).sort((a, b) => a - b) : undefined;
 }
 
 function parseIntSafe(v?: string): number | undefined {
@@ -185,6 +207,14 @@ function parseRepeatFreq(v: string): RepeatFreq | undefined {
     return undefined;
 }
 
+function assignParsedField(fields: ParsedBlockFields, key: ParsedBlockScalarKey, value: string): void {
+    fields[key] = value;
+}
+
+function appendParsedExdate(fields: ParsedBlockFields, value: string): void {
+    (fields.exdate ??= []).push(value);
+}
+
 export function parseEventsFromBody(noteId: string, titleFallback: string, body: string): EventInput[] {
     const out: EventInput[] = [];
     let m: RegExpExecArray | null;
@@ -198,43 +228,25 @@ export function parseEventsFromBody(noteId: string, titleFallback: string, body:
         const block = m[1];
         const lines = block.split('\n').map(l => l.replace(/\r$/, ''));
 
-        type ParsedBlockFields = {
-            title?: string;
-            description?: string;
-            location?: string;
-            color?: string;
-            start?: string;
-            end?: string;
-            tz?: string;
-            repeat?: string;
-            repeat_interval?: string;
-            repeat_until?: string;
-            byweekday?: string;
-            bymonthday?: string;
-            all_day?: string;
-            valarm?: string;
-            exdate?: string[];
-        };
-
         const fields: ParsedBlockFields = {};
-        let currentKey: string | null = null;
-        const multilineKeys = new Set(['description']);
+        let currentKey: ParsedBlockScalarKey | null = null;
+        const multilineKeys = new Set<ParsedBlockScalarKey>(['description']);
 
         for (const rawLine of lines) {
             const kv = parseKeyVal(rawLine);
             if (kv) {
                 const [k, v] = kv;
                 if (k === 'exdate') {
-                    ((fields as any)[k] ??= []).push(v);
+                    appendParsedExdate(fields, v);
                 } else {
-                    (fields as any)[k] = v;
+                    assignParsedField(fields, k as ParsedBlockScalarKey, v);
                 }
-                currentKey = multilineKeys.has(k) ? k : null;
+                currentKey = multilineKeys.has(k as ParsedBlockScalarKey) ? (k as ParsedBlockScalarKey) : null;
                 continue;
             }
             if (currentKey && multilineKeys.has(currentKey)) {
-                const existing = (fields as any)[currentKey] ?? '';
-                (fields as any)[currentKey] = existing ? `${existing}\n${rawLine}` : rawLine;
+                const existing = fields[currentKey] ?? '';
+                fields[currentKey] = existing ? `${existing}\n${rawLine}` : rawLine;
             }
         }
 
