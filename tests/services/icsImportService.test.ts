@@ -1633,7 +1633,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
     });
 
 
-    test('if getIcsImportAlarmsEnabled throws, defaults to enabled for backward compatibility', async () => {
+    test('if getIcsImportAlarmsEnabled throws, defaults to disabled', async () => {
         (settings.getIcsImportAlarmsEnabled as jest.Mock).mockRejectedValue(new Error('boom'));
 
         const joplin = mkJoplin({
@@ -1660,11 +1660,11 @@ describe('icsImportService.importIcsIntoNotes', () => {
 
         const res = await importIcsIntoNotes(joplin as any, ics, undefined, 'nb1');
 
-        // There should be at least one todo note created for the alarm
         const createdPayloads = joplin.data.post.mock.calls.map(c => c[2]);
         const todoCreates = createdPayloads.filter((p: any) => p && p.is_todo === 1);
-        expect(todoCreates.length).toBeGreaterThanOrEqual(1);
-        expect(res.alarmsCreated).toBeGreaterThanOrEqual(1);
+        expect(todoCreates).toHaveLength(0);
+        expect(res.alarmsCreated).toBe(0);
+        expect(res.alarmsDeleted).toBe(0);
 
         jest.useRealTimers();
     });

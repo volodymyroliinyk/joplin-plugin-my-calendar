@@ -1,4 +1,4 @@
-import {parseEventsFromBody} from '../../src/main/parsers/eventParser';
+import {parseEventsFromBody, parseRepeatUntilToUTC} from '../../src/main/parsers/eventParser';
 
 describe('eventParser.parseEventsFromBody', () => {
     test('parses repeated exdate lines from mycalendar-event block', () => {
@@ -42,5 +42,11 @@ describe('eventParser.parseEventsFromBody', () => {
 
         expect(events).toHaveLength(1);
         expect(events[0].byWeekdays).toEqual([0, 2]);
+    });
+
+    test('parseRepeatUntilToUTC treats date-only values as inclusive end of day', () => {
+        const utc = parseRepeatUntilToUTC('2026-12-31', 'America/Toronto');
+        expect(utc).not.toBeNull();
+        expect(new Date(utc as number).toISOString()).toBe('2027-01-01T04:59:59.000Z');
     });
 });

@@ -201,6 +201,21 @@ export function parseDateTimeToUTC(text: string, tz?: string): number | null {
     return utc;
 }
 
+function isDateOnlyText(text: string): boolean {
+    return /^\d{4}-\d{2}-\d{2}$/.test(text.trim());
+}
+
+export function parseRepeatUntilToUTC(text: string, tz?: string): number | null {
+    const trimmed = text.trim();
+    if (!trimmed) return null;
+
+    if (isDateOnlyText(trimmed)) {
+        return parseDateTimeToUTC(`${trimmed} 23:59:59`, tz);
+    }
+
+    return parseDateTimeToUTC(trimmed, tz);
+}
+
 function parseRepeatFreq(v: string): RepeatFreq | undefined {
     const vv = v.trim().toLowerCase();
     if (vv === 'daily' || vv === 'weekly' || vv === 'monthly' || vv === 'yearly' || vv === 'none') return vv;
@@ -279,7 +294,7 @@ export function parseEventsFromBody(noteId: string, titleFallback: string, body:
         // repeat_until parsed AFTER tz is known (order-independent)
         let repeatUntilUtc: number | undefined;
         if (fields.repeat_until) {
-            const u = parseDateTimeToUTC(fields.repeat_until, tz);
+            const u = parseRepeatUntilToUTC(fields.repeat_until, tz);
             if (u != null) repeatUntilUtc = u;
         }
 

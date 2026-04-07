@@ -1,5 +1,5 @@
 import {IcsEvent} from '../types/icsTypes';
-import {EventInput, parseDateTimeToUTC} from '../parsers/eventParser';
+import {EventInput, parseDateTimeToUTC, parseRepeatUntilToUTC} from '../parsers/eventParser';
 import {
     parseYmdHmsLocal,
     zonedTimeToUtcMs,
@@ -94,7 +94,7 @@ export function expandOccurrences(ev: IcsEvent, windowStart: Date, windowEnd: Da
 
     const endUtc = toUtcOrNull(ev.end, tz) ?? startUtc;
 
-    const repeatUntilUtc = toUtcOrNull(ev.repeat_until, tz) ?? undefined;
+    const repeatUntilUtc = ev.repeat_until ? (parseRepeatUntilToUTC(ev.repeat_until, tz) ?? undefined) : undefined;
 
     const eventInput: EventInput = {
         id: ev.uid || 'ics',

@@ -56,6 +56,22 @@ describe('occurrenceService.expandOccurrences', () => {
         ]);
     });
 
+    test('date-only repeat_until keeps occurrences on the same local calendar day', () => {
+        const ev: IcsEvent = {
+            start: '2026-12-29 10:00:00',
+            end: '2026-12-29 11:00:00',
+            tz: 'America/Toronto',
+            repeat: 'daily',
+            repeat_until: '2026-12-31',
+        };
+        const occs = expandOccurrences(ev, new Date('2026-12-29T00:00:00Z'), new Date('2027-01-02T00:00:00Z'));
+        expect(occs.map(o => isoLocal(o.start))).toEqual([
+            '2026-12-29T15:00:00.000Z',
+            '2026-12-30T15:00:00.000Z',
+            '2026-12-31T15:00:00.000Z',
+        ]);
+    });
+
     test('weekly recurrence defaults to DTSTART weekday when byweekday is missing', () => {
         // 2025-01-01 is Wednesday
         const ev: IcsEvent = {

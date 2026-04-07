@@ -279,11 +279,11 @@ export async function importIcsIntoNotes(
         );
     }
 
-    let alarmsEnabled = true;
+    let alarmsEnabled = false;
     try {
         alarmsEnabled = await getIcsImportAlarmsEnabled(joplin);
     } catch (e) {
-        await say(`[icsImportService] WARNING: Failed to read alarms setting; defaulting to enabled. ${getErrorText(e)}`);
+        await say(`[icsImportService] WARNING: Failed to read alarms setting; defaulting to disabled. ${getErrorText(e)}`);
     }
 
     let added = 0, updated = 0, skipped = 0, errors = 0;
