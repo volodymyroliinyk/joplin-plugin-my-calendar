@@ -20,6 +20,8 @@ joplin-plugin-my-calendar/
 │   └── timezone-handling.md
 ├── publish/
 ├── scripts/
+│   ├── __pycache__/
+│   │   └── update-demo-ics.cpython-312.pyc
 │   ├── check-tests.sh
 │   ├── cleanup-jest.sh
 │   ├── pre-pack.sh
