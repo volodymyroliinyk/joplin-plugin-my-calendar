@@ -166,7 +166,8 @@ async function handleIcsImportMessage(
             targetFolderId,
             preserveLocalColor,
             fallbackColor,
-            importAlarmRangeDays
+            importAlarmRangeDays,
+            targetFolderId,
         ) as ImportResultLike;
 
         invalidateAllEventsCache();

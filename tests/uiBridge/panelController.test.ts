@@ -414,6 +414,7 @@ describe('panelController', () => {
         expect(call[4]).toBe(true); // preserveLocalColor default true
         expect(call[5]).toBe('#aabbcc'); // defaultColor is valid
         expect(call[6]).toBe(30); // importAlarmRangeDays default
+        expect(call[7]).toBeUndefined(); // existingNotesFolderId
     });
 
     test('icsImport success -> errors>0 triggers warning toast', async () => {
@@ -453,12 +454,14 @@ describe('panelController', () => {
         await handler({name: 'icsImport', ics: 'X', targetFolderId: 'folder-123'});
         let call = (importIcsIntoNotes as jest.Mock).mock.calls[0];
         expect(call[3]).toBe('folder-123');
+        expect(call[7]).toBe('folder-123');
 
         (importIcsIntoNotes as jest.Mock).mockClear();
 
         await handler({name: 'icsImport', ics: 'X', targetFolderId: 123});
         call = (importIcsIntoNotes as jest.Mock).mock.calls[0];
         expect(call[3]).toBeUndefined();
+        expect(call[7]).toBeUndefined();
     });
 
     test('icsImport -> preserveLocalColor=false is passed through', async () => {

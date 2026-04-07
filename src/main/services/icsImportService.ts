@@ -63,6 +63,14 @@ type ImportIcsOptions = {
     existingNotesFolderId?: string;
 };
 
+type PendingCreate = {
+    key: string;
+    desiredTitle: string;
+    block: string;
+};
+
+const CREATE_NOTES_CONCURRENCY = 6;
+
 function normalizeExceptionDate(value: string): string | undefined {
     const raw = String(value || '').trim();
     if (!raw) return undefined;
@@ -235,6 +243,26 @@ function applyImportColors(
     return key;
 }
 
+async function runWithConcurrency<T>(
+    items: readonly T[],
+    concurrency: number,
+    worker: (item: T, index: number) => Promise<void>,
+): Promise<void> {
+    const limit = Math.max(1, Math.trunc(concurrency) || 1);
+    let nextIndex = 0;
+
+    const consume = async (): Promise<void> => {
+        while (true) {
+            const currentIndex = nextIndex++;
+            if (currentIndex >= items.length) return;
+            await worker(items[currentIndex], currentIndex);
+        }
+    };
+
+    const workers = Array.from({length: Math.min(limit, items.length)}, () => consume());
+    await Promise.all(workers);
+}
+
 export async function importIcsIntoNotes(
     joplin: Joplin,
     ics: string,
@@ -295,6 +323,7 @@ export async function importIcsIntoNotes(
 
     let added = 0, updated = 0, skipped = 0, errors = 0;
     const importedEventNotes: ImportedEventNotes = {};
+    const pendingCreates: PendingCreate[] = [];
 
     for (const ev of events) {
         const uid = (ev.uid || '').trim();
@@ -364,21 +393,28 @@ export async function importIcsIntoNotes(
                 err('icsImportService', `ERROR updating note: ${key} - ${getErrorText(e)}`);
             }
         } else {
-            try {
-                const noteBody = {title: desiredTitle, body: block, parent_id: options.targetFolderId};
-                const created = await createNote(joplin, noteBody);
-                added++;
-                if (created?.id) {
-                    importedEventNotes[key] = {id: created.id, parent_id: options.targetFolderId, title: desiredTitle};
-                }
-            } catch (e) {
-                errors++;
-                issues++;
-                err('icsImportService', `ERROR creating note: ${key} - ${getErrorText(e)}`);
-            }
+            pendingCreates.push({key, desiredTitle, block});
         }
     }
 
+    await runWithConcurrency(pendingCreates, CREATE_NOTES_CONCURRENCY, async (item) => {
+        try {
+            const noteBody = {title: item.desiredTitle, body: item.block, parent_id: options.targetFolderId};
+            const created = await createNote(joplin, noteBody);
+            added++;
+            if (created?.id) {
+                importedEventNotes[item.key] = {
+                    id: created.id,
+                    parent_id: options.targetFolderId,
+                    title: item.desiredTitle
+                };
+            }
+        } catch (e) {
+            errors++;
+            issues++;
+            err('icsImportService', `ERROR creating note: ${item.key} - ${getErrorText(e)}`);
+        }
+    });
 
     const alarmRes = await syncAlarmsForEvents(
         joplin, events, importedEventNotes, existingAlarms, options.targetFolderId, onStatus, {
