@@ -4,6 +4,25 @@ import sys
 import os
 from datetime import datetime, timedelta
 
+DATE_VALUE_RE = re.compile(r'^\d{8}(?:T\d{6}Z?)?$')
+
+
+def shift_date_value(date_val, offset):
+    if 'T' in date_val:
+        if date_val.endswith('Z'):
+            dt = datetime.strptime(date_val, '%Y%m%dT%H%M%SZ')
+            new_dt = dt + offset
+            return new_dt.strftime('%Y%m%dT%H%M%SZ')
+
+        dt = datetime.strptime(date_val, '%Y%m%dT%H%M%S')
+        new_dt = dt + offset
+        return new_dt.strftime('%Y%m%dT%H%M%S')
+
+    dt = datetime.strptime(date_val, '%Y%m%d')
+    new_dt = dt + offset
+    return new_dt.strftime('%Y%m%d')
+
+
 def update_ics_dates(file_path):
     if not os.path.exists(file_path):
         print(f"Error: File {file_path} not found.")
@@ -37,27 +56,38 @@ def update_ics_dates(file_path):
         prefix = m.group(1)
         params = m.group(2) or ""
         date_val = m.group(3)
-        
+
         try:
-            if 'T' in date_val:
-                if date_val.endswith('Z'):
-                    dt = datetime.strptime(date_val, '%Y%m%dT%H%M%SZ')
-                    new_dt = dt + offset
-                    return f"{prefix}{params}:{new_dt.strftime('%Y%m%dT%H%M%SZ')}"
-                else:
-                    dt = datetime.strptime(date_val, '%Y%m%dT%H%M%S')
-                    new_dt = dt + offset
-                    return f"{prefix}{params}:{new_dt.strftime('%Y%m%dT%H%M%S')}"
-            else:
-                dt = datetime.strptime(date_val, '%Y%m%d')
-                new_dt = dt + offset
-                return f"{prefix}{params}:{new_dt.strftime('%Y%m%d')}"
+            if prefix == 'EXDATE':
+                shifted_values = []
+                for item in date_val.split(','):
+                    stripped = item.strip()
+                    if DATE_VALUE_RE.match(stripped):
+                        shifted_values.append(shift_date_value(stripped, offset))
+                    else:
+                        shifted_values.append(stripped)
+                return f"{prefix}{params}:{','.join(shifted_values)}"
+
+            return f"{prefix}{params}:{shift_date_value(date_val, offset)}"
         except Exception as e:
             print(f"Error parsing date {date_val}: {e}")
             return m.group(0)
 
-    # Pattern handles DTSTART, DTEND, DTSTAMP
-    new_content = re.sub(r'(DTSTART|DTEND|DTSTAMP)([^:\n]*):(\d{8}T?\d{0,6}Z?)', shift_match, content)
+    def shift_rrule_until(m):
+        date_val = m.group(1)
+        try:
+            return f"UNTIL={shift_date_value(date_val, offset)}"
+        except Exception as e:
+            print(f"Error parsing RRULE UNTIL {date_val}: {e}")
+            return m.group(0)
+
+    # Pattern handles event timestamps and recurrence anchors.
+    new_content = re.sub(
+        r'(DTSTART|DTEND|DTSTAMP|RECURRENCE-ID|EXDATE)([^:\n]*):([^\n]+)',
+        shift_match,
+        content,
+    )
+    new_content = re.sub(r'UNTIL=(\d{8}(?:T\d{6}Z?)?)', shift_rrule_until, new_content)
 
     with open(file_path, 'w') as f:
         f.write(new_content)
