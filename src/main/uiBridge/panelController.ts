@@ -11,7 +11,6 @@ import {getAllFolders, flattenFolderTree} from '../services/folderService';
 import {EventInput} from '../parsers/eventParser';
 import {Occurrence} from '../utils/dateUtils';
 import {getErrorText} from '../utils/errorUtils';
-import {isValidHexColor} from '../services/noteBuilder';
 import {normalizeHexColor} from '../utils/colorUtils';
 
 function isoDate(utc: number): string {
@@ -128,7 +127,7 @@ function getDayRange(dateUtc: number): UtcRange {
 }
 
 function parseImportDefaultColor(value: unknown): string | undefined {
-    if (!isString(value) || !isValidHexColor(value)) return undefined;
+    if (!isString(value)) return undefined;
     return normalizeHexColor(value, {allowShort: true}) || undefined;
 }
 

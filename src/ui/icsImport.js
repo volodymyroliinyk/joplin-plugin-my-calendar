@@ -75,13 +75,9 @@
         }
     }
 
-    function isValidHexColor(value) {
-        return /^#[0-9a-fA-F]{6}$/.test(String(value || '').trim());
-    }
-
     function normalizeHexColor(value) {
         const raw = String(value || '').trim();
-        return isValidHexColor(raw) ? raw.toLowerCase() : '';
+        return /^#[0-9a-fA-F]{6}$/.test(raw) ? raw.toLowerCase() : '';
     }
 
     function getPluginImportDefaultColor() {
@@ -97,8 +93,8 @@
     }
 
     function shouldUseStoredImportColor(storedColor) {
-        if (!isValidHexColor(storedColor)) return false;
         const normalizedStored = normalizeHexColor(storedColor);
+        if (!normalizedStored) return false;
         if (normalizedStored === LEGACY_DEFAULT_IMPORT_COLOR) return hasCustomizedImportColor();
         return true;
     }
