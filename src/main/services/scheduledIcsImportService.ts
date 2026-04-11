@@ -68,9 +68,30 @@ function isDesktopPlatform(platform: unknown): boolean {
     return String(platform ?? '').toLowerCase() !== 'mobile';
 }
 
-function redactUrlFromText(text: string, url: string): string {
+function maskUrlQuery(url: string): string {
+    const raw = String(url || '').trim();
+    if (!raw) return raw;
+
+    try {
+        const parsed = new URL(raw);
+        if (!parsed.search) return parsed.toString();
+
+        const redacted = new URLSearchParams();
+        const source = new URLSearchParams(parsed.search);
+        for (const [key] of source.entries()) {
+            redacted.append(key, '[redacted]');
+        }
+        parsed.search = redacted.toString() ? `?${redacted.toString()}` : '';
+        return parsed.toString();
+    } catch {
+        return raw;
+    }
+}
+
+function maskUrlQueryInText(text: string, url: string): string {
     if (!text || !url) return text;
-    return text.split(url).join('[redacted]');
+    const masked = maskUrlQuery(url);
+    return text.split(url).join(masked);
 }
 
 function buildImportDoneText(notebookTitle: string, result: ImportSummary): string {
@@ -200,6 +221,7 @@ export async function startScheduledIcsImport(
 
             for (const entry of entries) {
                 const url = entry.url;
+                const safeUrl = maskUrlQuery(url);
                 try {
                     if (!isCurrentVersion(version)) return;
                     const {folderId, reason} = resolveFolderIdByTitle(folders, entry.notebookTitle);
@@ -214,14 +236,14 @@ export async function startScheduledIcsImport(
                         continue;
                     }
 
-                    log('scheduledIcsImport', `Downloading ICS from ${url}`);
+                    log('scheduledIcsImport', `Downloading ICS from ${safeUrl}`);
                     const ics = await (options.downloadIcs ?? downloadIcsFromUrl)(url);
                     if (!isCurrentVersion(version)) return;
                     const result = await importIcsIntoNotes(
                         joplin,
                         ics,
                         async (text: string) => {
-                            dbg('scheduledIcsImport', `[${url}] ${text}`);
+                            dbg('scheduledIcsImport', `[${safeUrl}] ${text}`);
                         },
                         folderId,
                         true,
@@ -233,7 +255,7 @@ export async function startScheduledIcsImport(
                     mergeSummary(summary, result);
                     log(
                         'scheduledIcsImport',
-                        `Imported ${url}: added=${result.added}, updated=${result.updated}, skipped=${result.skipped}, errors=${result.errors}`,
+                        `Imported ${safeUrl}: added=${result.added}, updated=${result.updated}, skipped=${result.skipped}, errors=${result.errors}`,
                     );
                     if (isCurrentVersion(version)) {
                         log('scheduledIcsImport', buildImportDoneText(entry.notebookTitle, result));
@@ -242,9 +264,9 @@ export async function startScheduledIcsImport(
                 } catch (error) {
                     summary.errors += 1;
                     const errText = getErrorText(error);
-                    warn('scheduledIcsImport', `Failed to import ${url}:`, error);
+                    warn('scheduledIcsImport', `Failed to import ${safeUrl}:`, error);
                     if (isCurrentVersion(version)) {
-                        const safeErrorText = redactUrlFromText(errText, url);
+                        const safeErrorText = maskUrlQueryInText(errText, url);
                         warn('scheduledIcsImport', `Scheduled ICS import failed for ${entry.notebookTitle}: ${safeErrorText}`);
                         await showScheduledImportErrorToast(entry.notebookTitle, safeErrorText);
                     }

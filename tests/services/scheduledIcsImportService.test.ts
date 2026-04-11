@@ -41,6 +41,7 @@ import {getAllFolders, resolveFolderIdByTitle} from '../../src/main/services/fol
 import {importIcsIntoNotes} from '../../src/main/services/icsImportService';
 import {invalidateAllEventsCache} from '../../src/main/services/eventsCache';
 import {showToast} from '../../src/main/utils/toast';
+import {dbg, log} from '../../src/main/utils/logger';
 
 describe('scheduledIcsImportService', () => {
     beforeEach(() => {
@@ -298,8 +299,11 @@ describe('scheduledIcsImportService', () => {
         expect(invalidateAllEventsCache).toHaveBeenCalledTimes(1);
     });
 
-    test('redacts the ICS URL from error toast text when an error message includes it', async () => {
-        const url = 'https://example.com/a.ics';
+    test('masks query params in error toast text when an error message includes the URL', async () => {
+        const url = 'https://example.com/a.ics?token=secret&user=alice';
+        (getScheduledIcsImportEntries as jest.Mock).mockResolvedValue([
+            {url, notebookTitle: 'Work'},
+        ]);
         const downloadIcs = jest.fn().mockRejectedValue(new Error(`Failed to fetch ${url}`));
         const joplin = {
             versionInfo: jest.fn().mockResolvedValue({platform: 'desktop'}),
@@ -310,8 +314,45 @@ describe('scheduledIcsImportService', () => {
 
         expect(showToast).toHaveBeenCalledWith(
             'error',
-            'Scheduled ICS import failed for Work: Failed to fetch [redacted]',
+            'Scheduled ICS import failed for Work: Failed to fetch https://example.com/a.ics?token=%5Bredacted%5D&user=%5Bredacted%5D',
             5000,
+        );
+    });
+
+    test('masks query params in scheduled import logs', async () => {
+        (getScheduledIcsImportEntries as jest.Mock).mockResolvedValue([
+            {url: 'https://example.com/a.ics?token=secret', notebookTitle: 'Work'},
+        ]);
+        (importIcsIntoNotes as jest.Mock).mockImplementation(
+            async (_joplin: any, _ics: string, onStatus: (text: string) => Promise<void>) => {
+                await onStatus('Parsed 0 VEVENT(s)');
+                return {
+                    added: 0,
+                    updated: 0,
+                    skipped: 0,
+                    errors: 0,
+                    alarmsCreated: 0,
+                    alarmsDeleted: 0,
+                    alarmsUpdated: 0,
+                    issues: 0,
+                };
+            },
+        );
+        const downloadIcs = jest.fn().mockResolvedValue('BEGIN:VCALENDAR\nEND:VCALENDAR');
+        const joplin = {
+            versionInfo: jest.fn().mockResolvedValue({platform: 'desktop'}),
+        };
+
+        await startScheduledIcsImport(joplin as any, {downloadIcs});
+        await jest.advanceTimersByTimeAsync(15 * 60 * 1000);
+
+        expect(log).toHaveBeenCalledWith(
+            'scheduledIcsImport',
+            'Downloading ICS from https://example.com/a.ics?token=%5Bredacted%5D',
+        );
+        expect(dbg).toHaveBeenCalledWith(
+            'scheduledIcsImport',
+            '[https://example.com/a.ics?token=%5Bredacted%5D] Parsed 0 VEVENT(s)',
         );
     });
 });
