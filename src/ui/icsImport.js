@@ -79,8 +79,13 @@
         return /^#[0-9a-fA-F]{6}$/.test(String(value || '').trim());
     }
 
+    function normalizeHexColor(value) {
+        const raw = String(value || '').trim();
+        return isValidHexColor(raw) ? raw.toLowerCase() : '';
+    }
+
     function getPluginImportDefaultColor() {
-        return isValidHexColor(uiSettings.defaultEventColor) ? String(uiSettings.defaultEventColor).toLowerCase() : '';
+        return normalizeHexColor(uiSettings.defaultEventColor);
     }
 
     function getBuiltInImportDefaultColor() {
@@ -93,14 +98,14 @@
 
     function shouldUseStoredImportColor(storedColor) {
         if (!isValidHexColor(storedColor)) return false;
-        const normalizedStored = String(storedColor).toLowerCase();
+        const normalizedStored = normalizeHexColor(storedColor);
         if (normalizedStored === LEGACY_DEFAULT_IMPORT_COLOR) return hasCustomizedImportColor();
         return true;
     }
 
     function resolveInitialImportColor(storedColor) {
         const pluginImportColor = getPluginImportDefaultColor();
-        if (shouldUseStoredImportColor(storedColor)) return String(storedColor).toLowerCase();
+        if (shouldUseStoredImportColor(storedColor)) return normalizeHexColor(storedColor);
         if (pluginImportColor) return pluginImportColor;
         return getBuiltInImportDefaultColor();
     }
@@ -412,7 +417,8 @@
             value: manualImportColorValue,
             disabled: !manualImportColorEnabled,
             onchange: () => {
-                manualImportColorValue = String(importColorPicker.value || '').trim();
+                manualImportColorValue = normalizeHexColor(importColorPicker.value);
+                importColorPicker.value = manualImportColorValue || getBuiltInImportDefaultColor();
                 safeSetLS(LS.manualImportColorValue, manualImportColorValue);
                 safeSetLS(LS.manualImportColorCustomized, '1');
             },

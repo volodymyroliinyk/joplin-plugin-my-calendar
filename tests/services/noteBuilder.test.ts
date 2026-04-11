@@ -75,7 +75,7 @@ describe('noteBuilder', () => {
                 start: '2025-01-15 10:00',
                 color: '#AABBCC',
             });
-            expect(withColor).toContain('color: #AABBCC');
+            expect(withColor).toContain('color: #aabbcc');
             const badColor = buildMyCalBlock({
                 title: 'BadColor',
                 start: '2025-01-15 10:00',

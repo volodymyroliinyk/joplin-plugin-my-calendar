@@ -1,6 +1,7 @@
 // src/main/settings/settings.ts
 
 import {setDebugEnabled} from '../utils/logger';
+import {normalizeHexColor} from '../utils/colorUtils';
 
 // Common
 export const SETTING_DEBUG = 'mycalendar.debug';
@@ -210,9 +211,7 @@ export function sanitizeTitle(input: unknown): string {
 }
 
 export function sanitizeHexColor(input: unknown): string {
-    const s = String(input ?? '').trim();
-    if (!s) return '';
-    return /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(s) ? s : '';
+    return normalizeHexColor(input, {allowShort: true});
 }
 
 async function isMobile(joplin: any): Promise<boolean> {

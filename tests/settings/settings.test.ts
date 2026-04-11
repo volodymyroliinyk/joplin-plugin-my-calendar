@@ -62,9 +62,9 @@ describe('settings.ts logic', () => {
     });
 
     describe('sanitizeHexColor', () => {
-        test('keeps valid short and full hex colors', () => {
+        test('keeps valid short and full hex colors and normalizes to lowercase', () => {
             expect(settings.sanitizeHexColor('#abc')).toBe('#abc');
-            expect(settings.sanitizeHexColor('#A1B2C3')).toBe('#A1B2C3');
+            expect(settings.sanitizeHexColor('#A1B2C3')).toBe('#a1b2c3');
         });
 
         test('returns empty string for invalid values', () => {
@@ -202,6 +202,7 @@ describe('settings.ts logic', () => {
 
         test('returns sanitized hex color or empty string', async () => {
             await expect(settings.getTimelineNowLineColor(mkJoplin('#ffa334'))).resolves.toBe('#ffa334');
+            await expect(settings.getTimelineNowLineColor(mkJoplin('#FFA334'))).resolves.toBe('#ffa334');
             await expect(settings.getTimelineNowLineColor(mkJoplin('bad-color'))).resolves.toBe('');
             await expect(settings.getTimelineNowLineColor(mkJoplin(''))).resolves.toBe('');
         });
@@ -214,6 +215,7 @@ describe('settings.ts logic', () => {
 
         test('returns sanitized hex color or empty string', async () => {
             await expect(settings.getDefaultEventColor(mkJoplin('#1470d9'))).resolves.toBe('#1470d9');
+            await expect(settings.getDefaultEventColor(mkJoplin('#AABBCC'))).resolves.toBe('#aabbcc');
             await expect(settings.getDefaultEventColor(mkJoplin('blue'))).resolves.toBe('');
             await expect(settings.getDefaultEventColor(mkJoplin(''))).resolves.toBe('');
         });

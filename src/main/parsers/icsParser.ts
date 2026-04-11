@@ -2,6 +2,7 @@
 
 import {IcsEvent, IcsValarm} from '../types/icsTypes';
 import {icsDateToMyCalText} from '../utils/dateTimeUtils';
+import {normalizeColorIfHex} from '../utils/colorUtils';
 
 function isValarmCandidate(value: unknown): value is Pick<IcsValarm, 'trigger'> & Partial<IcsValarm> {
     return typeof value === 'object' && value !== null && typeof (value as { trigger?: unknown }).trigger === 'string';
@@ -137,6 +138,8 @@ function stripInlineComment(line: string): string {
         const prev = i > 0 ? line[i - 1] : '';
         if (prev === '\\') continue;
         if (i > 0 && /\s/.test(prev)) {
+            const hashTail = line.slice(i).trim();
+            if (/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(hashTail)) continue;
             return line.slice(0, i).trimEnd();
         }
     }
@@ -182,7 +185,7 @@ export function parseMyCalKeyValueText(text: string): IcsEvent[] {
         else if (k === 'title' || k === 'summary') cur.title = v;
         else if (k === 'description') cur.description = v;
         else if (k === 'location') cur.location = v;
-        else if (k === 'color') cur.color = v;
+        else if (k === 'color') cur.color = normalizeColorIfHex(v, {allowShort: true});
 
         else if (k === 'start') cur.start = v;
         else if (k === 'end') cur.end = v;
@@ -279,7 +282,7 @@ export function parseIcs(ics: string): IcsEvent[] {
         else if (key === 'SUMMARY') cur.title = unescapeIcsText(value);
         else if (key === 'DESCRIPTION') cur.description = unescapeIcsText(value);
         else if (key === 'LOCATION') cur.location = unescapeIcsText(value);
-        else if (key === 'X-COLOR') cur.color = value.trim();
+        else if (key === 'X-COLOR') cur.color = normalizeColorIfHex(value, {allowShort: true});
         else if (key === 'EXDATE') {
             const values = value.split(',').map((part) => part.trim()).filter(Boolean);
             for (const part of values) {

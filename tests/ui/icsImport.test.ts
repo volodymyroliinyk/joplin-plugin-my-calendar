@@ -310,7 +310,7 @@ describe('src/ui/icsImport.js', () => {
         installWebviewApi();
 
         localStorage.setItem('mycalendar_manual_import_color_enabled', '1');
-        localStorage.setItem('mycalendar_manual_import_color_value', '#aabbcc');
+        localStorage.setItem('mycalendar_manual_import_color_value', '#AABBCC');
 
         loadIcsImportFresh();
 
@@ -333,17 +333,17 @@ describe('src/ui/icsImport.js', () => {
         expect(picker.disabled).toBe(false);
     });
 
-    test('color picker change persists value', () => {
+    test('color picker change persists lowercase value', () => {
         setupDom(true);
         installWebviewApi();
 
         loadIcsImportFresh();
 
         const picker = qs('input[type="color"]') as HTMLInputElement;
-        picker.value = '#112233';
+        picker.value = '#AABBCC';
         picker.dispatchEvent(new Event('change'));
 
-        expect(localStorage.getItem('mycalendar_manual_import_color_value')).toBe('#112233');
+        expect(localStorage.getItem('mycalendar_manual_import_color_value')).toBe('#aabbcc');
     });
 
     test('Import button: no file selected -> logs "No file selected." and does not post message', async () => {

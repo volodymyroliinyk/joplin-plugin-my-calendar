@@ -4,6 +4,7 @@
 // Hand-written calendar notes are treated as untrusted input.
 // Any invalid syntax, date, or timezone MUST NOT break calendar rendering.
 // Invalid events are silently skipped.
+import {normalizeColorIfHex} from '../utils/colorUtils';
 
 type RepeatFreq = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
 
@@ -268,7 +269,7 @@ export function parseEventsFromBody(noteId: string, titleFallback: string, body:
         const title = (fields.title?.trim() ? fields.title.trim() : titleFallback);
         const description = fields.description;
         const location = fields.location;
-        const color = fields.color;
+        const color = normalizeColorIfHex(fields.color, {allowShort: true}) || undefined;
         const startText = fields.start;
         const endText = fields.end;
         const tz = fields.tz?.trim();

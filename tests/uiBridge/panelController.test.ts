@@ -375,7 +375,7 @@ describe('panelController', () => {
             ics: 'BEGIN:VCALENDAR...',
             // targetFolderId missing -> should go undefined
             // preserveLocalColor is not set -> default true
-            defaultColor: '#aabbcc',
+            defaultColor: '#AABBCC',
         });
 
         // 2 statuses → 2 messages + 2 toasts info
@@ -412,7 +412,7 @@ describe('panelController', () => {
         expect(call[1]).toBe('BEGIN:VCALENDAR...');
         expect(call[3]).toBeUndefined(); // targetFolderId
         expect(call[4]).toBe(true); // preserveLocalColor default true
-        expect(call[5]).toBe('#aabbcc'); // defaultColor is valid
+        expect(call[5]).toBe('#aabbcc'); // defaultColor is normalized
         expect(call[6]).toBe(30); // importAlarmRangeDays default
         expect(call[7]).toBeUndefined(); // existingNotesFolderId
     });
