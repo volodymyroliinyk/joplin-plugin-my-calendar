@@ -2,7 +2,7 @@
 
 import {IcsEvent, IcsValarm} from '../types/icsTypes';
 import {icsDateToMyCalText} from '../utils/dateTimeUtils';
-import {normalizeColorIfHex} from '../utils/colorUtils';
+import {normalizeColorIfHex, normalizeHexColor} from '../utils/colorUtils';
 
 function isValarmCandidate(value: unknown): value is Pick<IcsValarm, 'trigger'> & Partial<IcsValarm> {
     return typeof value === 'object' && value !== null && typeof (value as { trigger?: unknown }).trigger === 'string';
@@ -133,13 +133,16 @@ export function parseRRule(rrule?: string): Partial<IcsEvent> {
 }
 
 function stripInlineComment(line: string): string {
+    const isColorPrefix = (textBeforeHash: string): boolean => /^\s*color\s*:\s*$/i.test(textBeforeHash);
+
     for (let i = 0; i < line.length; i++) {
         if (line[i] !== '#') continue;
         const prev = i > 0 ? line[i - 1] : '';
         if (prev === '\\') continue;
         if (i > 0 && /\s/.test(prev)) {
             const hashTail = line.slice(i).trim();
-            if (/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(hashTail)) continue;
+            const head = line.slice(0, i);
+            if (isColorPrefix(head) && normalizeHexColor(hashTail, {allowShort: true})) continue;
             return line.slice(0, i).trimEnd();
         }
     }

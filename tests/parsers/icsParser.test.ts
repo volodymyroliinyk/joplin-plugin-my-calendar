@@ -275,6 +275,18 @@ color: #A1B2C3
             expect(events).toHaveLength(1);
             expect(events[0].color).toBe('#a1b2c3');
         });
+
+        test('treats #hex as value only for color field, keeps comment behavior for other fields', () => {
+            const text = `
+title: Release note #AABBCC
+start: 2025-01-15 10:00
+color: #AABBCC
+            `;
+            const events = parseMyCalKeyValueText(text);
+            expect(events).toHaveLength(1);
+            expect(events[0].title).toBe('Release note');
+            expect(events[0].color).toBe('#aabbcc');
+        });
     });
 
     describe('parseImportText', () => {
