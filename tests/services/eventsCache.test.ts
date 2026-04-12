@@ -282,6 +282,47 @@ describe('eventsCache.ts', () => {
         expect(all2).toEqual([]);
     });
 
+    test('refreshNoteCache does not crash if cache is invalidated while note fetch is in-flight', async () => {
+        const parseEventsFromBody = jest.fn()
+            .mockReturnValueOnce([
+                {id: 'note-1', title: 'E1', startText: '2025-01-01T00:00:00Z', startUtc: 1},
+            ])
+            .mockReturnValueOnce([
+                {id: 'note-1', title: 'E2', startText: '2025-01-02T00:00:00Z', startUtc: 2},
+            ]);
+
+        const mod = await loadModuleWithMockedParser({parseEventsFromBody});
+
+        const get = jest
+            .fn()
+            // initial full scan
+            .mockResolvedValueOnce({
+                items: [{id: 'note-1', title: 'Note', body: 'body'}],
+                has_more: false,
+            })
+            // refresh single note: invalidate cache during in-flight fetch
+            .mockImplementationOnce(async () => {
+                mod.invalidateAllEventsCache();
+                return {id: 'note-1', title: 'Note', body: 'body-2'};
+            })
+            // next ensureAllEventsCache should rebuild from scratch
+            .mockResolvedValueOnce({
+                items: [],
+                has_more: false,
+            });
+
+        const joplin = mkJoplin(get);
+
+        const all1 = await mod.ensureAllEventsCache(joplin);
+        expect(all1).toHaveLength(1);
+
+        await expect(mod.refreshNoteCache(joplin, 'note-1')).resolves.toBeUndefined();
+
+        const all2 = await mod.ensureAllEventsCache(joplin);
+        expect(all2).toEqual([]);
+        expect(get).toHaveBeenCalledTimes(3);
+    });
+
     test('on error: rebuild catches (no throw), keeps cache usable, and releases rebuilding flag so rebuild can be called again', async () => {
         // 1) arrange
         const parseEventsFromBody = jest.fn().mockReturnValue([]);

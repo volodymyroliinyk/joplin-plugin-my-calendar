@@ -7,7 +7,7 @@
 // Backend-focused tests for weekStart propagation.
 // NOTE: mocks ensureAllEventsCache returns [] to avoid noisy console errors.
 //
-import runPlugin from '../../src/main/pluginMain';
+import runPlugin, {__resetPluginMainForTests} from '../../src/main/pluginMain';
 
 jest.mock('../../src/main/views/calendarView', () => ({
     createCalendarPanel: jest.fn(),
@@ -23,12 +23,22 @@ jest.mock('../../src/main/uiBridge/panelController', () => ({
     registerCalendarPanelController: jest.fn().mockResolvedValue(undefined),
 }));
 
+jest.mock('../../src/main/services/scheduledIcsImportService', () => ({
+    startScheduledIcsImport: jest.fn().mockResolvedValue({
+        refresh: jest.fn().mockResolvedValue(undefined),
+        stop: jest.fn(),
+    }),
+}));
+
 jest.mock('../../src/main/settings/settings', () => ({
+    SCHEDULED_ICS_IMPORT_SETTING_KEYS: ['mycalendar.icsScheduledImportPairs'],
     registerSettings: jest.fn().mockResolvedValue(undefined),
     getWeekStart: jest.fn(),
     getDebugEnabled: jest.fn().mockResolvedValue(false),
     getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(1),
     getShowEventTimeline: jest.fn().mockResolvedValue(true),
+    getDefaultEventColor: jest.fn().mockResolvedValue(''),
+    getTimelineNowLineColor: jest.fn().mockResolvedValue(''),
     getShowWeekNumbers: jest.fn().mockResolvedValue(false),
     getTimeFormat: jest.fn().mockResolvedValue('24h'),
     getDayEventsViewMode: jest.fn().mockResolvedValue('single'),
@@ -89,6 +99,7 @@ function makeJoplinMock() {
 describe('weekStart flow (backend)', () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        __resetPluginMainForTests();
     });
 
     test('pushes uiSettings on startup (initial weekStart)', async () => {

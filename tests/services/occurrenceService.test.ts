@@ -56,6 +56,22 @@ describe('occurrenceService.expandOccurrences', () => {
         ]);
     });
 
+    test('date-only repeat_until keeps occurrences on the same local calendar day', () => {
+        const ev: IcsEvent = {
+            start: '2026-12-29 10:00:00',
+            end: '2026-12-29 11:00:00',
+            tz: 'America/Toronto',
+            repeat: 'daily',
+            repeat_until: '2026-12-31',
+        };
+        const occs = expandOccurrences(ev, new Date('2026-12-29T00:00:00Z'), new Date('2027-01-02T00:00:00Z'));
+        expect(occs.map(o => isoLocal(o.start))).toEqual([
+            '2026-12-29T15:00:00.000Z',
+            '2026-12-30T15:00:00.000Z',
+            '2026-12-31T15:00:00.000Z',
+        ]);
+    });
+
     test('weekly recurrence defaults to DTSTART weekday when byweekday is missing', () => {
         // 2025-01-01 is Wednesday
         const ev: IcsEvent = {
@@ -85,6 +101,23 @@ describe('occurrenceService.expandOccurrences', () => {
             '2025-01-08T10:00:00.000Z', // WE
             '2025-01-13T10:00:00.000Z', // MO
             '2025-01-15T10:00:00.000Z', // WE
+        ]);
+    });
+
+    test('weekly recurrence ignores duplicated byweekday entries and keeps chronological order', () => {
+        const ev: IcsEvent = {
+            start: '2025-01-01 10:00:00+00:00', // Wed
+            end: '2025-01-01 11:00:00+00:00',
+            repeat: 'weekly',
+            byweekday: 'WE,MO,WE',
+        };
+        const occs = expandOccurrences(ev, new Date('2025-01-01T00:00:00Z'), new Date('2025-01-15T23:59:59Z'));
+        expect(occs.map(o => isoLocal(o.start))).toEqual([
+            '2025-01-01T10:00:00.000Z',
+            '2025-01-06T10:00:00.000Z',
+            '2025-01-08T10:00:00.000Z',
+            '2025-01-13T10:00:00.000Z',
+            '2025-01-15T10:00:00.000Z',
         ]);
     });
 
@@ -131,5 +164,30 @@ describe('occurrenceService.expandOccurrences', () => {
             '2024-02-29T10:00:00.000Z',
             '2028-02-29T10:00:00.000Z',
         ]);
+    });
+
+    test('recurring event excludes occurrences listed in exdates', () => {
+        const ev: IcsEvent = {
+            start: '2025-01-01 10:00:00+00:00',
+            end: '2025-01-01 11:00:00+00:00',
+            repeat: 'weekly',
+            exdates: ['2025-01-08 10:00:00+00:00'],
+        };
+        const occs = expandOccurrences(ev, new Date('2025-01-01T00:00:00Z'), new Date('2025-01-20T00:00:00Z'));
+        expect(occs.map(o => isoLocal(o.start))).toEqual([
+            '2025-01-01T10:00:00.000Z',
+            '2025-01-15T10:00:00.000Z',
+        ]);
+    });
+
+    test('cancelled event expands to no occurrences', () => {
+        const ev: IcsEvent = {
+            start: '2025-01-01 10:00:00+00:00',
+            end: '2025-01-01 11:00:00+00:00',
+            repeat: 'weekly',
+            status: 'cancelled',
+        };
+        const occs = expandOccurrences(ev, new Date('2025-01-01T00:00:00Z'), new Date('2025-01-20T00:00:00Z'));
+        expect(occs).toEqual([]);
     });
 });

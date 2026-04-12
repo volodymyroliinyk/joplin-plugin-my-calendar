@@ -178,6 +178,21 @@ END:VCALENDAR
             expect(ev.tz).toBe('America/Toronto');
         });
 
+        test('normalizes X-COLOR hex values to lowercase', () => {
+            const ics = `
+BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:u5-color
+SUMMARY:Color Event
+DTSTART:20250115T100000Z
+X-COLOR:#AABBCC
+END:VEVENT
+END:VCALENDAR
+            `;
+            const [ev] = parseIcs(ics);
+            expect(ev.color).toBe('#aabbcc');
+        });
+
         test('parses VALARM TRIGGER;RELATED=START', () => {
             const ics = `
 BEGIN:VCALENDAR
@@ -196,6 +211,32 @@ END:VCALENDAR
             const [ev] = parseIcs(ics);
             expect(ev.valarms).toHaveLength(1);
             expect(ev.valarms![0].related).toBe('START');
+        });
+
+        test('parses EXDATE values and cancelled recurrence exception status', () => {
+            const ics = `
+BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:u7
+SUMMARY:Series
+DTSTART;TZID=America/Toronto:20250115T100000
+RRULE:FREQ=WEEKLY
+EXDATE;TZID=America/Toronto:20250122T100000,20250129T100000
+END:VEVENT
+BEGIN:VEVENT
+UID:u7
+RECURRENCE-ID;TZID=America/Toronto:20250205T100000
+STATUS:CANCELLED
+END:VEVENT
+END:VCALENDAR
+            `;
+            const [master, cancelled] = parseIcs(ics);
+            expect(master.exdates).toEqual([
+                '20250122T100000',
+                '20250129T100000',
+            ]);
+            expect(cancelled.recurrence_id).toBe('America/Toronto:20250205T100000');
+            expect(cancelled.status).toBe('cancelled');
         });
     });
 
@@ -222,6 +263,29 @@ valarm: not-json
             expect(events).toHaveLength(1);
             expect(events[0].valarms).toHaveLength(1);
             expect(events[0].valarms![0].trigger).toBe('-PT15M');
+        });
+
+        test('normalizes color hex values to lowercase', () => {
+            const text = `
+title: Colored
+start: 2025-01-15 10:00
+color: #A1B2C3
+            `;
+            const events = parseMyCalKeyValueText(text);
+            expect(events).toHaveLength(1);
+            expect(events[0].color).toBe('#a1b2c3');
+        });
+
+        test('treats #hex as value only for color field, keeps comment behavior for other fields', () => {
+            const text = `
+title: Release note #AABBCC
+start: 2025-01-15 10:00
+color: #AABBCC
+            `;
+            const events = parseMyCalKeyValueText(text);
+            expect(events).toHaveLength(1);
+            expect(events[0].title).toBe('Release note');
+            expect(events[0].color).toBe('#aabbcc');
         });
     });
 

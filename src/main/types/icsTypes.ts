@@ -13,6 +13,7 @@ export type IcsValarm = {
 export type IcsEvent = {
     uid?: string;
     recurrence_id?: string;
+    status?: string;
 
     // MyCalendar normalized fields (what we write into ```mycalendar-event``` blocks)
     title?: string;
@@ -29,6 +30,7 @@ export type IcsEvent = {
     repeat_until?: string;
     byweekday?: string;   // "MO,TU,WE"
     bymonthday?: string;  // "12"
+    exdates?: string[];
 
     all_day?: boolean;
     valarms?: IcsValarm[];

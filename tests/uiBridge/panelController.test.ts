@@ -245,6 +245,33 @@ describe('panelController', () => {
         });
     });
 
+    test('dateClick -> keeps overnight events that overlap the clicked day even if they started before dayStart', async () => {
+        const {handler, postMessage, helpers} = await setup();
+
+        const dayStart = Date.UTC(2025, 0, 11, 0, 0, 0, 0);
+        // const dayEnd = dayStart + 24 * 60 * 60 * 1000 - 1;
+        const overnightStart = dayStart - 60 * 60 * 1000;
+        const overnightEnd = dayStart + 2 * 60 * 60 * 1000;
+
+        (ensureAllEventsCache as jest.Mock).mockResolvedValue([{any: 'all'}]);
+
+        helpers.expandAllInRange.mockReturnValue([
+            {id: 'overnight', startUtc: overnightStart, endUtc: overnightEnd},
+            {id: 'same-day', startUtc: dayStart + 60 * 60 * 1000, endUtc: dayStart + 2 * 60 * 60 * 1000},
+        ]);
+
+        await handler({name: 'dateClick', dateUtc: dayStart});
+
+        expect(postMessage).toHaveBeenCalledWith('panel-1', {
+            name: 'showEvents',
+            dateUtc: dayStart,
+            events: [
+                {id: 'overnight', startUtc: overnightStart, endUtc: overnightEnd},
+                {id: 'same-day', startUtc: dayStart + 60 * 60 * 1000, endUtc: dayStart + 2 * 60 * 60 * 1000},
+            ],
+        });
+    });
+
     test('dateClick -> ignores when dateUtc is missing / invalid', async () => {
         const {handler, postMessage} = await setup();
 
@@ -335,11 +362,11 @@ describe('panelController', () => {
                 sendStatus: (t: string) => Promise<void>,
                 _targetFolderId?: string,
                 _preserveLocalColor?: boolean,
-                _importDefaultColor?: string
+                _defaultColor?: string
             ) => {
                 await sendStatus('Parsing...');
                 await sendStatus('Saving...');
-                return {added: 1, updated: 2, skipped: 3, errors: 0, alarmsCreated: 4, alarmsDeleted: 5};
+                return {added: 1, updated: 2, skipped: 3, errors: 0, alarmsCreated: 4, alarmsDeleted: 5, issues: 2};
             }
         );
 
@@ -348,7 +375,7 @@ describe('panelController', () => {
             ics: 'BEGIN:VCALENDAR...',
             // targetFolderId missing -> should go undefined
             // preserveLocalColor is not set -> default true
-            importDefaultColor: '#aabbcc',
+            defaultColor: '#AABBCC',
         });
 
         // 2 statuses → 2 messages + 2 toasts info
@@ -370,12 +397,13 @@ describe('panelController', () => {
             errors: 0,
             alarmsCreated: 4,
             alarmsDeleted: 5,
+            issues: 2,
         });
 
         // final toast success (because errors=0)
         expect(showToast).toHaveBeenCalledWith(
             'success',
-            'ICS import finished: added=1, updated=2, skipped=3, errors=0, alarmsCreated=4, alarmsDeleted=5',
+            'ICS import finished: added=1, updated=2, skipped=3, errors=0, alarmsCreated=4, alarmsDeleted=5, issues=2',
             5000
         );
 
@@ -384,8 +412,9 @@ describe('panelController', () => {
         expect(call[1]).toBe('BEGIN:VCALENDAR...');
         expect(call[3]).toBeUndefined(); // targetFolderId
         expect(call[4]).toBe(true); // preserveLocalColor default true
-        expect(call[5]).toBe('#aabbcc'); // importDefaultColor is valid
+        expect(call[5]).toBe('#aabbcc'); // defaultColor is normalized
         expect(call[6]).toBe(30); // importAlarmRangeDays default
+        expect(call[7]).toBeUndefined(); // existingNotesFolderId
     });
 
     test('icsImport success -> errors>0 triggers warning toast', async () => {
@@ -397,14 +426,15 @@ describe('panelController', () => {
             skipped: 0,
             errors: 2,
             alarmsCreated: 0,
-            alarmsDeleted: 0
+            alarmsDeleted: 0,
+            issues: 3,
         });
 
         await handler({name: 'icsImport', ics: 'X'});
 
         expect(showToast).toHaveBeenCalledWith(
             'warning',
-            'ICS import finished: added=0, updated=0, skipped=0, errors=2, alarmsCreated=0, alarmsDeleted=0',
+            'ICS import finished: added=0, updated=0, skipped=0, errors=2, alarmsCreated=0, alarmsDeleted=0, issues=3',
             5000
         );
     });
@@ -424,12 +454,14 @@ describe('panelController', () => {
         await handler({name: 'icsImport', ics: 'X', targetFolderId: 'folder-123'});
         let call = (importIcsIntoNotes as jest.Mock).mock.calls[0];
         expect(call[3]).toBe('folder-123');
+        expect(call[7]).toBe('folder-123');
 
         (importIcsIntoNotes as jest.Mock).mockClear();
 
         await handler({name: 'icsImport', ics: 'X', targetFolderId: 123});
         call = (importIcsIntoNotes as jest.Mock).mock.calls[0];
         expect(call[3]).toBeUndefined();
+        expect(call[7]).toBeUndefined();
     });
 
     test('icsImport -> preserveLocalColor=false is passed through', async () => {
@@ -454,7 +486,7 @@ describe('panelController', () => {
         expect(call[4]).toBe(false);
     });
 
-    test('icsImport -> invalid importDefaultColor is ignored (undefined)', async () => {
+    test('icsImport -> invalid defaultColor is ignored (undefined)', async () => {
         const {handler} = await setup();
 
         (importIcsIntoNotes as jest.Mock).mockResolvedValue({
@@ -469,12 +501,35 @@ describe('panelController', () => {
         await handler({
             name: 'icsImport',
             ics: 'X',
-            importDefaultColor: 'blue', // invalid
+            defaultColor: 'blue', // invalid
         });
 
         const call = (importIcsIntoNotes as jest.Mock).mock.calls[0];
         expect(call[5]).toBeUndefined();
         expect(call[6]).toBe(30); // importAlarmRangeDays default
+    });
+
+    test('icsImport -> short hex defaultColor is accepted', async () => {
+        const {handler} = await setup();
+
+        (importIcsIntoNotes as jest.Mock).mockResolvedValue({
+            added: 0,
+            updated: 0,
+            skipped: 0,
+            errors: 0,
+            alarmsCreated: 0,
+            alarmsDeleted: 0
+        });
+
+        await handler({
+            name: 'icsImport',
+            ics: 'X',
+            defaultColor: '#0f0',
+        });
+
+        const call = (importIcsIntoNotes as jest.Mock).mock.calls[0];
+        expect(call[5]).toBe('#0f0');
+        expect(call[6]).toBe(30);
     });
 
     test('icsImport failure -> posts importError and shows error toast; does NOT invalidate cache', async () => {

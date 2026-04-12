@@ -7,6 +7,8 @@
         debug: false,
         dayEventsRefreshMinutes: 1,
         showEventTimeline: true,
+        defaultEventColor: '',
+        timelineNowLineColor: '',
         showWeekNumbers: false,
         timeFormat: '24h',
         dayEventsViewMode: 'single',
@@ -29,6 +31,9 @@
         CLEAR_EVENTS_CACHE: 'clearEventsCache',
     });
 
+    function postToPlugin(message) {
+        window.webviewApi?.postMessage?.(message);
+    }
 
     function createUiLogger(prefix, outputBoxId) {
 
@@ -126,6 +131,24 @@
         if (box) box.style.display = (uiSettings.debug === true) ? '' : 'none';
     }
 
+    function applyTimelineNowLineColor() {
+        const color = typeof uiSettings.timelineNowLineColor === 'string' ? uiSettings.timelineNowLineColor.trim() : '';
+        if (color) {
+            document.documentElement.style.setProperty('--mc-current-time-v-line-color', color);
+        } else {
+            document.documentElement.style.removeProperty('--mc-current-time-v-line-color');
+        }
+    }
+
+    function applyDefaultEventColor() {
+        const color = typeof uiSettings.defaultEventColor === 'string' ? uiSettings.defaultEventColor.trim() : '';
+        if (color) {
+            document.documentElement.style.setProperty('--mc-event-color', color);
+        } else {
+            document.documentElement.style.removeProperty('--mc-event-color');
+        }
+    }
+
 
     function mcRegisterOnMessage(handler) {
         window.__mcMsgHandlers = window.__mcMsgHandlers || [];
@@ -151,6 +174,8 @@
     function init() {
         try {
             log('init start');
+            applyDefaultEventColor();
+            applyTimelineNowLineColor();
 
             const DAY = 24 * 60 * 60 * 1000;
 
@@ -391,6 +416,15 @@
                 return minutes * 60 * 1000;
             }
 
+            function refreshDayEventUi() {
+                clearDayEventsRefreshTimer();
+                clearDayNowTimelineTimer();
+                markPastDayEvents();
+                updateDayNowTimelineDot();
+                scheduleDayNowTimelineTick();
+                scheduleDayEventsRefresh();
+            }
+
             function clampPct(p) {
                 if (!Number.isFinite(p)) return 0;
                 return Math.max(0, Math.min(100, p));
@@ -513,7 +547,7 @@
             // Connecting with backend.
             if (window.webviewApi?.postMessage) {
                 applyDebugUI();
-                window.webviewApi.postMessage({name: 'uiReady'});
+                postToPlugin({name: 'uiReady'});
                 log('uiReady sent');
 
                 // Desktop/Mobile: panel can be hidden/shown without reloading the plugin backend.
@@ -525,7 +559,7 @@
                     _uiReadyDebounce = setTimeout(() => {
                         try {
                             log('sending uiReady again (visibility/focus)');
-                            window.webviewApi?.postMessage?.({name: 'uiReady'});
+                            postToPlugin({name: 'uiReady'});
                             // Also trigger a redraw to ensure UI is not stuck
                             drawMonth();
                         } catch (_err) {
@@ -573,7 +607,7 @@
                     }
 
                     if (!window.__mcUiReadySent) {
-                        window.webviewApi.postMessage({name: 'uiReady'});
+                        postToPlugin({name: 'uiReady'});
                         window.__mcUiReadySent = true;
                         log('uiReady sent');
                     }
@@ -644,98 +678,98 @@
                 log('onMessage:', msg && msg.name ? msg.name : msg);
                 if (!msg || !msg.name) return;
 
+                function applyUiSettingsMessage() {
+                    const prevWeekStart = uiSettings.weekStart;
+                    const prevShowEventTimeline = uiSettings.showEventTimeline;
+                    const prevShowWeekNumbers = uiSettings.showWeekNumbers;
+                    const prevTimeFormat = uiSettings.timeFormat;
+                    const prevDayEventsViewMode = getDayEventsViewMode();
+
+                    if (msg.weekStart === 'monday' || msg.weekStart === 'sunday') {
+                        uiSettings.weekStart = msg.weekStart;
+                    }
+
+                    if (typeof msg.showWeekNumbers === 'boolean') {
+                        uiSettings.showWeekNumbers = msg.showWeekNumbers;
+                    }
+
+                    if (typeof msg.debug === 'boolean') {
+                        uiSettings.debug = msg.debug;
+                        applyDebugUI();
+                    }
+
+                    if (msg.dayEventsRefreshMinutes !== undefined) {
+                        const v = Number(msg.dayEventsRefreshMinutes);
+                        if (Number.isFinite(v) && v > 0) {
+                            uiSettings.dayEventsRefreshMinutes = v;
+                        }
+                    }
+
+                    if (typeof msg.showEventTimeline === 'boolean') {
+                        uiSettings.showEventTimeline = msg.showEventTimeline;
+                    }
+
+                    if (typeof msg.defaultEventColor === 'string') {
+                        uiSettings.defaultEventColor = msg.defaultEventColor;
+                        applyDefaultEventColor();
+                    }
+
+                    if (typeof msg.timelineNowLineColor === 'string') {
+                        uiSettings.timelineNowLineColor = msg.timelineNowLineColor;
+                        applyTimelineNowLineColor();
+                    }
+
+                    if (msg.timeFormat === '12h' || msg.timeFormat === '24h') {
+                        uiSettings.timeFormat = msg.timeFormat;
+                    }
+
+                    if (msg.dayEventsViewMode === 'single' || msg.dayEventsViewMode === 'grouped') {
+                        uiSettings.dayEventsViewMode = msg.dayEventsViewMode;
+                    }
+
+                    if (prevShowEventTimeline !== uiSettings.showEventTimeline) {
+                        applyDayTimelineVisibility();
+                    }
+
+                    const dayEventsViewModeChanged = prevDayEventsViewMode !== getDayEventsViewMode();
+                    if (dayEventsViewModeChanged) {
+                        renderDayEvents(selectedDayUtc);
+                    } else {
+                        refreshDayEventUi();
+                    }
+
+                    const weekStartChanged = prevWeekStart !== uiSettings.weekStart;
+                    const showWeekNumbersChanged = prevShowWeekNumbers !== uiSettings.showWeekNumbers;
+                    const timeFormatChanged = prevTimeFormat !== uiSettings.timeFormat;
+                    const firstSettingsArrived = !__mcHasUiSettings;
+                    __mcHasUiSettings = true;
+
+                    if (weekStartChanged || showWeekNumbersChanged || timeFormatChanged || (firstSettingsArrived && !gridEvents.length)) {
+                        drawMonth();
+                    }
+                }
+
+                function handleImportCompletion() {
+                    log('import finished -> refreshing calendar grid');
+                    gridEvents = [];
+                    setGridLoading(true);
+                    drawMonth();
+                }
+
                 const handlers = {
                     [MSG.UI_ACK]: () => {
                         log('uiAck received');
                     },
 
-                    [MSG.UI_SETTINGS]: () => {
-                        const prevWeekStart = uiSettings.weekStart;
-                        const prevShowEventTimeline = uiSettings.showEventTimeline;
-                        const prevShowWeekNumbers = uiSettings.showWeekNumbers;
-                        const prevTimeFormat = uiSettings.timeFormat;
-                        const prevDayEventsViewMode = getDayEventsViewMode();
-
-                        if (msg.weekStart === 'monday' || msg.weekStart === 'sunday') {
-                            uiSettings.weekStart = msg.weekStart;
-                        }
-
-                        if (typeof msg.showWeekNumbers === 'boolean') {
-                            uiSettings.showWeekNumbers = msg.showWeekNumbers;
-                        }
-
-                        if (typeof msg.debug === 'boolean') {
-                            uiSettings.debug = msg.debug;
-                            applyDebugUI();
-                        }
-
-                        if (msg.dayEventsRefreshMinutes !== undefined) {
-                            const v = Number(msg.dayEventsRefreshMinutes);
-                            if (Number.isFinite(v) && v > 0) {
-                                uiSettings.dayEventsRefreshMinutes = v;
-                            }
-                        }
-
-                        if (typeof msg.showEventTimeline === 'boolean') {
-                            uiSettings.showEventTimeline = msg.showEventTimeline;
-                        }
-
-                        if (msg.timeFormat === '12h' || msg.timeFormat === '24h') {
-                            uiSettings.timeFormat = msg.timeFormat;
-                        }
-
-                        if (msg.dayEventsViewMode === 'single' || msg.dayEventsViewMode === 'grouped') {
-                            uiSettings.dayEventsViewMode = msg.dayEventsViewMode;
-                        }
-
-                        // Apply immediately (no re-render required)
-                        if (prevShowEventTimeline !== uiSettings.showEventTimeline) {
-                            applyDayTimelineVisibility();
-                        }
-
-                        const dayEventsViewModeChanged = prevDayEventsViewMode !== getDayEventsViewMode();
-                        if (dayEventsViewModeChanged) {
-                            renderDayEvents(selectedDayUtc);
-                        }
-
-                        // Recompute day-list UI markers and timers according to new settings
-                        if (!dayEventsViewModeChanged) {
-                            clearDayEventsRefreshTimer();
-                            clearDayNowTimelineTimer();
-                            markPastDayEvents();
-                            updateDayNowTimelineDot();
-                            scheduleDayNowTimelineTick();
-                            scheduleDayEventsRefresh();
-                        }
-
-                        const weekStartChanged = prevWeekStart !== uiSettings.weekStart;
-                        const showWeekNumbersChanged = prevShowWeekNumbers !== uiSettings.showWeekNumbers;
-                        const timeFormatChanged = prevTimeFormat !== uiSettings.timeFormat;
-                        const firstSettingsArrived = !__mcHasUiSettings;
-                        __mcHasUiSettings = true;
-
-                        if (weekStartChanged || showWeekNumbersChanged || timeFormatChanged || (firstSettingsArrived && !gridEvents.length)) {
-                            drawMonth();
-                        }
-                    },
+                    [MSG.UI_SETTINGS]: applyUiSettingsMessage,
 
                     [MSG.REDRAW_MONTH]: () => {
                         drawMonth();
                     },
 
                     // --- ICS import complete (success or error) -> restart grid ---
-                    [MSG.IMPORT_DONE]: () => {
-                        log('import finished -> refreshing calendar grid');
-                        gridEvents = [];
-                        setGridLoading(true);
-                        drawMonth();
-                    },
-                    [MSG.IMPORT_ERROR]: () => {
-                        log('import finished -> refreshing calendar grid');
-                        gridEvents = [];
-                        setGridLoading(true);
-                        drawMonth();
-                    },
+                    [MSG.IMPORT_DONE]: handleImportCompletion,
+                    [MSG.IMPORT_ERROR]: handleImportCompletion,
 
                     [MSG.RANGE_EVENTS]: () => {
                         log('got rangeEvents:', (msg.events || []).length);
@@ -901,7 +935,7 @@
                     isPickerOpen = false;
                     gridEvents = [];
                     setGridLoading(true);
-                    window.webviewApi?.postMessage?.({name: MSG.CLEAR_EVENTS_CACHE});
+                    postToPlugin({name: MSG.CLEAR_EVENTS_CACHE});
                 });
                 btnClearCache.classList.add('mc-cache-clear-btn');
                 btnClearCache.setAttribute('aria-label', 'Clear events cache');
@@ -942,7 +976,7 @@
                 // First request
                 ensureBackendReady(() => {
                     log('requestRange', from.toISOString(), '→', to.toISOString());
-                    window.webviewApi.postMessage({
+                    postToPlugin({
                         name: 'requestRangeEvents',
                         fromUtc: from.getTime(),
                         toUtc: to.getTime(),
@@ -954,7 +988,7 @@
                         if (!Array.isArray(gridEvents) || gridEvents.length === 0) {
                             log('rangeEvents timeout - retrying once');
                             // Backend is already confirmed ready here
-                            window.webviewApi.postMessage({
+                            postToPlugin({
                                 name: 'requestRangeEvents',
                                 fromUtc: from.getTime(),
                                 toUtc: to.getTime(),
@@ -1042,7 +1076,12 @@
 
                     cell.addEventListener('click', () => {
                         selectedDayUtc = cellTs;
-                        window.webviewApi?.postMessage?.({name: 'dateClick', dateUtc: selectedDayUtc});
+                        postToPlugin({
+                            name: 'dateClick',
+                            dateUtc: selectedDayUtc,
+                            fromUtc: selectedDayUtc,
+                            toUtc: nextLocalMidnightTs(selectedDayUtc) - 1,
+                        });
                         renderDayEvents(selectedDayUtc);
                         paintSelection();
                     });
@@ -1227,7 +1266,7 @@
                     li.className = 'mc-event';
                     const color = document.createElement('span');
                     color.className = 'mc-color';
-                    color.style.background = ev.color || 'var(--mc-default-event-color)';
+                    color.style.background = ev.color || 'var(--mc-event-color, var(--mc-default-event-color))';
                     const title = document.createElement('span');
                     title.className = 'mc-title';
                     title.textContent = ev.title || '(without a title)';
@@ -1258,7 +1297,7 @@
 
                         const seg = document.createElement('div');
                         seg.className = 'mc-event-timeline-seg';
-                        seg.style.background = ev.color || 'var(--mc-default-event-color)';
+                        seg.style.background = ev.color || 'var(--mc-event-color, var(--mc-default-event-color))';
 
                         const startPct = clampPct(((slice.startUtc - dayStartUtc) / DAY) * 100);
                         const endPct = clampPct(((slice.endUtc - dayStartUtc) / DAY) * 100);
@@ -1273,7 +1312,7 @@
                     }
 
                     li.addEventListener('click', () => {
-                        window.webviewApi?.postMessage?.({name: 'openNote', id: ev.id});
+                        postToPlugin({name: 'openNote', id: ev.id});
                     });
 
                     li.dataset.startUtc = String(slice.startUtc);

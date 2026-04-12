@@ -5,7 +5,7 @@
 // TZ=UTC npx jest tests/services/joplinNoteService.test.ts --runInBand --no-cache;
 //
 import {deleteNote} from '../../src/main/services/joplinNoteService';
-import {createNote, getAllNotesPaged, updateNote} from '../../src/main/services/joplinNoteService';
+import {createNote, getAllNotesPaged, getFolderNotesPaged, updateNote} from '../../src/main/services/joplinNoteService';
 import {Joplin} from '../../src/main/types/joplin.interface';
 
 describe('joplinNoteService', () => {
@@ -88,7 +88,22 @@ describe('joplinNoteService', () => {
             });
 
             await expect(getAllNotesPaged(mockJoplin, ['id'], {maxPages: 2})).rejects.toThrow(
-                'getAllNotesPaged exceeded maxPages=2'
+                'getPagedNotes exceeded maxPages=2'
+            );
+        });
+
+        it('should load notes from a single folder path', async () => {
+            (mockJoplin.data.get as jest.Mock).mockResolvedValueOnce({
+                items: [{id: '1', title: 't1', body: 'b1', parent_id: 'folder-1'}],
+                has_more: false,
+            });
+
+            const res = await getFolderNotesPaged(mockJoplin, 'folder-1');
+
+            expect(res).toEqual([{id: '1', title: 't1', body: 'b1', parent_id: 'folder-1'}]);
+            expect(mockJoplin.data.get).toHaveBeenCalledWith(
+                ['folders', 'folder-1', 'notes'],
+                {fields: ['id', 'title', 'body', 'parent_id'], limit: 100, page: 1}
             );
         });
     });

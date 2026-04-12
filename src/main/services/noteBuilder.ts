@@ -1,6 +1,7 @@
 // src/main/services/noteBuilder.ts
 
 import {IcsEvent, IcsValarm} from '../types/icsTypes';
+import {normalizeHexColor} from '../utils/colorUtils';
 
 const MAX_TITLE_LEN = 500;
 const MAX_LOCATION_LEN = 1000;
@@ -25,8 +26,7 @@ export function sanitizeForMarkdownBlock(input: unknown, singleLine = true): str
 }
 
 export function isValidHexColor(c?: string): boolean {
-    if (!c) return false;
-    return /^#(?:[0-9a-fA-F]{3}){1,2}$/.test(c);
+    return normalizeHexColor(c, {allowShort: true}) !== '';
 }
 
 export function isValidJoplinNoteId(id?: string): boolean {
@@ -81,8 +81,9 @@ export function buildMyCalBlock(ev: IcsEvent): string {
     pushKV(lines, 'end', ev.end);
     pushKV(lines, 'tz', ev.tz);
 
-    if (isValidHexColor(ev.color)) {
-        lines.push(`color: ${ev.color}`);
+    const normalizedColor = normalizeHexColor(ev.color, {allowShort: true});
+    if (normalizedColor) {
+        lines.push(`color: ${normalizedColor}`);
     }
 
     pushKV(lines, 'location', ev.location, {maxLen: MAX_LOCATION_LEN});
@@ -111,6 +112,11 @@ export function buildMyCalBlock(ev: IcsEvent): string {
         pushKV(lines, 'repeat_until', ev.repeat_until);
         pushKV(lines, 'byweekday', ev.byweekday);
         pushKV(lines, 'bymonthday', ev.bymonthday);
+        if (Array.isArray(ev.exdates)) {
+            for (const exdate of ev.exdates) {
+                pushKV(lines, 'exdate', exdate);
+            }
+        }
     }
 
     if (ev.all_day) lines.push(`all_day: true`);

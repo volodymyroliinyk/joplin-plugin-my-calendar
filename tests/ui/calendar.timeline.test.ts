@@ -76,6 +76,10 @@ describe('calendar.js timeline settings', () => {
         return Number(selected.dataset.utc);
     }
 
+    function localMidnightTs(d: Date) {
+        return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    }
+
     test('timeline and shared line are rendered when showEventTimeline=true and schedules timers', () => {
         loadScript();
 
@@ -143,7 +147,9 @@ describe('calendar.js timeline settings', () => {
 
         const dayStart = selectedDayUtc();
         const now = new Date('2025-01-01T12:00:00Z').getTime();
-        expect(now).toBe(dayStart + 12 * 60 * 60 * 1000);
+        expect(dayStart).toBe(localMidnightTs(new Date('2025-01-01T12:00:00Z')));
+        expect(now).toBeGreaterThanOrEqual(dayStart);
+        expect(now).toBeLessThan(dayStart + 24 * 60 * 60 * 1000);
 
         sendSettings({showEventTimeline: true, dayEventsViewMode: 'grouped', dayEventsRefreshMinutes: 1});
         sendRangeEvents([
@@ -182,7 +188,9 @@ describe('calendar.js timeline settings', () => {
 
         const dayStart = selectedDayUtc();
         const now = new Date('2025-01-01T12:00:00Z').getTime();
-        expect(now).toBe(dayStart + 12 * 60 * 60 * 1000);
+        expect(dayStart).toBe(localMidnightTs(new Date('2025-01-01T12:00:00Z')));
+        expect(now).toBeGreaterThanOrEqual(dayStart);
+        expect(now).toBeLessThan(dayStart + 24 * 60 * 60 * 1000);
 
         sendSettings({showEventTimeline: false, dayEventsViewMode: 'grouped', dayEventsRefreshMinutes: 1});
         sendRangeEvents([
@@ -206,12 +214,49 @@ describe('calendar.js timeline settings', () => {
         expect(document.querySelector('[data-group-list=\"past\"]')?.textContent || '').toContain('Moving event');
     });
 
+    test('applies custom now-line color override and removes it when setting becomes empty', () => {
+        loadScript();
+
+        sendSettings({showEventTimeline: true, timelineNowLineColor: '#12ab34', dayEventsRefreshMinutes: 1});
+        expect(document.documentElement.style.getPropertyValue('--mc-current-time-v-line-color')).toBe('#12ab34');
+
+        sendSettings({timelineNowLineColor: ''});
+        expect(document.documentElement.style.getPropertyValue('--mc-current-time-v-line-color')).toBe('');
+    });
+
+    test('applies custom default event color override and removes it when setting becomes empty', () => {
+        loadScript();
+
+        sendSettings({showEventTimeline: true, defaultEventColor: '#1470d9', dayEventsRefreshMinutes: 1});
+        expect(document.documentElement.style.getPropertyValue('--mc-event-color')).toBe('#1470d9');
+
+        sendSettings({defaultEventColor: ''});
+        expect(document.documentElement.style.getPropertyValue('--mc-event-color')).toBe('');
+    });
+
+    test('day events without explicit color use the configurable default event color variable', () => {
+        loadScript();
+
+        sendSettings({showEventTimeline: true, defaultEventColor: '#99ff66', dayEventsRefreshMinutes: 1});
+        sendRangeEvents(futureEvent());
+
+        const colorDot = document.querySelector('.mc-color') as HTMLElement | null;
+        const timelineSeg = document.querySelector('.mc-event-timeline-seg') as HTMLElement | null;
+
+        expect(colorDot).not.toBeNull();
+        expect(timelineSeg).not.toBeNull();
+        expect(colorDot?.style.background).toBe('var(--mc-event-color, var(--mc-default-event-color))');
+        expect(timelineSeg?.style.background).toBe('var(--mc-event-color, var(--mc-default-event-color))');
+    });
+
     test('grouped mode hides empty sections (example: only past events)', () => {
         loadScript();
 
         const dayStart = selectedDayUtc();
         const now = new Date('2025-01-01T12:00:00Z').getTime();
-        expect(now).toBe(dayStart + 12 * 60 * 60 * 1000);
+        expect(dayStart).toBe(localMidnightTs(new Date('2025-01-01T12:00:00Z')));
+        expect(now).toBeGreaterThanOrEqual(dayStart);
+        expect(now).toBeLessThan(dayStart + 24 * 60 * 60 * 1000);
 
         sendSettings({showEventTimeline: true, dayEventsViewMode: 'grouped', dayEventsRefreshMinutes: 1});
         sendRangeEvents([

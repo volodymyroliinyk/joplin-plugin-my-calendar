@@ -11,10 +11,10 @@
 // - building existing map (pagination, filters)
 // - update vs create (put/post), patch logic (only body / only title / nothing => skipped)
 // - preserveLocalColor ON/OFF
-// - importDefaultColor
+// - defaultColor
 // - master vs recurrence instance
 // - uid missing => skipped
-// - error paths update/create + onStatus message
+// - error paths update/create + non-fatal error logging
 // - targetFolderId for notes to be created
 //
 // Recommendation: run with TZ=UTC (you already have it in scripts).
@@ -28,6 +28,7 @@ jest.mock('../../src/main/settings/settings', () => {
     return {
         ...original,
         getIcsImportAlarmsEnabled: jest.fn(),
+        getDefaultEventColor: jest.fn(),
     };
 });
 
@@ -62,14 +63,18 @@ describe('icsImportService.importIcsIntoNotes', () => {
     beforeEach(() => {
         jest.spyOn(console, 'log').mockImplementation(() => {
         });
+        jest.spyOn(console, 'warn').mockImplementation(() => {
+        });
         jest.spyOn(console, 'error').mockImplementation(() => {
         });
         // Default: alarms enabled
         (settings.getIcsImportAlarmsEnabled as jest.Mock).mockResolvedValue(true);
+        (settings.getDefaultEventColor as jest.Mock).mockResolvedValue('');
     });
 
     afterEach(() => {
         (console.log as any).mockRestore?.();
+        (console.warn as any).mockRestore?.();
         (console.error as any).mockRestore?.();
         jest.clearAllMocks();
     });
@@ -148,8 +153,101 @@ describe('icsImportService.importIcsIntoNotes', () => {
             errors: 0,
             alarmsCreated: 0,
             alarmsDeleted: 0,
-            alarmsUpdated: 0
+            alarmsUpdated: 0,
+            issues: 0,
         });
+    });
+
+    test('scans only notes from the provided existing-notes folder scope', async () => {
+        const ics = [
+            'BEGIN:VCALENDAR',
+            'BEGIN:VEVENT',
+            'UID:u-folder-scope',
+            'SUMMARY:Hello',
+            'DTSTART:20250115T100000Z',
+            'DTEND:20250115T113000Z',
+            'END:VEVENT',
+            'END:VCALENDAR',
+        ].join('\n');
+
+        const joplin = mkJoplin({
+            get: jest.fn().mockResolvedValueOnce({
+                items: [],
+                has_more: false,
+            }),
+            post: jest.fn().mockResolvedValue({id: 'new-id'}),
+            put: jest.fn(),
+        });
+
+        await importIcsIntoNotes(joplin as any, ics, undefined, 'target-folder', true, undefined, undefined, 'scan-folder');
+
+        expect(joplin.data.get).toHaveBeenCalledWith(
+            ['folders', 'scan-folder', 'notes'],
+            {
+                fields: ['id', 'title', 'body', 'parent_id', 'todo_due', 'todo_completed', 'is_todo'],
+                limit: 100,
+                page: 1
+            },
+        );
+    });
+
+    test('keeps the lexicographically smallest note id as owner without surfacing duplicate ownership warning in import status', async () => {
+        const ics = [
+            'BEGIN:VCALENDAR',
+            'BEGIN:VEVENT',
+            'UID:u-dup-owner',
+            'SUMMARY:Updated title',
+            'DTSTART:20250115T100000Z',
+            'DTEND:20250115T113000Z',
+            'END:VEVENT',
+            'END:VCALENDAR',
+        ].join('\n');
+
+        const onStatus = jest.fn();
+        const firstBody = block([
+            'uid: u-dup-owner',
+            'title: First title',
+            'start: 2025-01-15 10:00:00+00:00',
+            'end: 2025-01-15 11:30:00+00:00',
+        ].join('\n'));
+        const secondBody = block([
+            'uid: u-dup-owner',
+            'title: Second title',
+            'start: 2025-01-15 10:00:00+00:00',
+            'end: 2025-01-15 11:30:00+00:00',
+        ].join('\n'));
+
+        const joplin = mkJoplin({
+            get: jest.fn().mockResolvedValueOnce({
+                items: [
+                    {id: 'note-2', title: 'Second', body: secondBody, parent_id: 'nb2'},
+                    {id: 'note-1', title: 'First', body: firstBody, parent_id: 'nb1'},
+                ],
+                has_more: false,
+            }),
+            post: jest.fn(),
+            put: jest.fn(),
+        });
+
+        const res = await importIcsIntoNotes(joplin as any, ics, onStatus);
+
+        expect(onStatus).not.toHaveBeenCalledWith(
+            '[icsImportService] WARNING: Duplicate event ownership detected for u-dup-owner| in notes note-1 and note-2; keeping lexicographically smallest note id note-1',
+        );
+        expect(joplin.data.put).toHaveBeenCalledTimes(1);
+        expect(joplin.data.put).toHaveBeenCalledWith(
+            ['notes', 'note-1'],
+            null,
+            expect.objectContaining({title: 'Updated title'}),
+        );
+        expect(joplin.data.put).not.toHaveBeenCalledWith(
+            ['notes', 'note-2'],
+            null,
+            expect.anything(),
+        );
+        expect(joplin.data.post).not.toHaveBeenCalled();
+        expect(res.updated).toBe(1);
+        expect(res.issues).toBe(1);
     });
 
     test('imports VALARM as valarm: {json} lines inside mycalendar-event block (supports multiple VALARM)', async () => {
@@ -203,8 +301,33 @@ describe('icsImportService.importIcsIntoNotes', () => {
             errors: 0,
             alarmsCreated: 0,
             alarmsDeleted: 0,
-            alarmsUpdated: 0
+            alarmsUpdated: 0,
+            issues: 0,
         });
+    });
+
+    test('does not apply plugin default event color setting when request does not pass fallback color', async () => {
+        const ics = [
+            'BEGIN:VCALENDAR',
+            'BEGIN:VEVENT',
+            'UID:u-color-setting',
+            'SUMMARY:Color from setting',
+            'DTSTART:20250115T100000Z',
+            'DTEND:20250115T113000Z',
+            'END:VEVENT',
+            'END:VCALENDAR',
+        ].join('\n');
+
+        const joplin = mkJoplin({
+            get: jest.fn().mockResolvedValueOnce({items: [], has_more: false}),
+            post: jest.fn().mockResolvedValue({id: 'new-id'}),
+            put: jest.fn(),
+        });
+
+        await importIcsIntoNotes(joplin as any, ics);
+
+        const [, , noteBody] = joplin.data.post.mock.calls[0];
+        expect(noteBody.body).not.toContain('color:');
     });
 
     test('creates todo+alarm notes from VALARM (only future alarms, within 60 days)', async () => {
@@ -510,6 +633,74 @@ describe('icsImportService.importIcsIntoNotes', () => {
         expect(noteBody.body).toContain('recurrence_id: America/Toronto:20250115T090000');
     });
 
+    test('moved recurrence exception excludes original master occurrence via exdate and keeps exception note', async () => {
+        const ics = [
+            'BEGIN:VCALENDAR',
+            'BEGIN:VEVENT',
+            'UID:u-move',
+            'SUMMARY:Series',
+            'DTSTART;TZID=America/Toronto:20250115T090000',
+            'RRULE:FREQ=WEEKLY',
+            'END:VEVENT',
+            'BEGIN:VEVENT',
+            'UID:u-move',
+            'SUMMARY:Moved occurrence',
+            'RECURRENCE-ID;TZID=America/Toronto:20250122T090000',
+            'DTSTART;TZID=America/Toronto:20250122T120000',
+            'END:VEVENT',
+            'END:VCALENDAR',
+        ].join('\n');
+
+        const joplin = mkJoplin({
+            get: jest.fn().mockResolvedValue({items: [], has_more: false}),
+            post: jest.fn().mockResolvedValue({id: 'created'}),
+        });
+
+        const res = await importIcsIntoNotes(joplin as any, ics);
+
+        expect(res.added).toBe(2);
+        const masterBody = joplin.data.post.mock.calls[0][2].body as string;
+        const movedBody = joplin.data.post.mock.calls[1][2].body as string;
+
+        expect(masterBody).toContain('repeat: weekly');
+        expect(masterBody).toContain('exdate: 2025-01-22 09:00:00');
+        expect(movedBody).toContain('recurrence_id: America/Toronto:20250122T090000');
+        expect(movedBody).toContain('start: 2025-01-22 12:00:00');
+    });
+
+    test('cancelled recurrence exception is not imported as a note and still excludes master occurrence', async () => {
+        const ics = [
+            'BEGIN:VCALENDAR',
+            'BEGIN:VEVENT',
+            'UID:u-cancel',
+            'SUMMARY:Series',
+            'DTSTART;TZID=America/Toronto:20250115T090000',
+            'RRULE:FREQ=WEEKLY',
+            'END:VEVENT',
+            'BEGIN:VEVENT',
+            'UID:u-cancel',
+            'RECURRENCE-ID;TZID=America/Toronto:20250122T090000',
+            'STATUS:CANCELLED',
+            'END:VEVENT',
+            'END:VCALENDAR',
+        ].join('\n');
+
+        const joplin = mkJoplin({
+            get: jest.fn().mockResolvedValue({items: [], has_more: false}),
+            post: jest.fn().mockResolvedValue({id: 'created'}),
+        });
+
+        const res = await importIcsIntoNotes(joplin as any, ics);
+
+        expect(res.added).toBe(1);
+        expect(joplin.data.post).toHaveBeenCalledTimes(1);
+
+        const masterBody = joplin.data.post.mock.calls[0][2].body as string;
+        expect(masterBody).toContain('repeat: weekly');
+        expect(masterBody).toContain('exdate: 2025-01-22 09:00:00');
+        expect(masterBody).not.toContain('status: cancelled');
+    });
+
     test('parses non-ICS input as key:value format and supports "---" separator + inline comments', async () => {
         const text = [
             'uid: u1',
@@ -562,7 +753,8 @@ describe('icsImportService.importIcsIntoNotes', () => {
             errors: 0,
             alarmsCreated: 0,
             alarmsDeleted: 0,
-            alarmsUpdated: 0
+            alarmsUpdated: 0,
+            issues: 0,
         });
         expect(joplin.data.post).not.toHaveBeenCalled();
         expect(joplin.data.put).not.toHaveBeenCalled();
@@ -616,7 +808,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
         expect(patch.body).toContain('start: 2025-01-15 10:00:00+00:00');
     });
 
-    test('preserveLocalColor=false: does not copy local color; importDefaultColor is applied', async () => {
+    test('preserveLocalColor=false: does not copy local color; defaultColor is applied', async () => {
         const ics = [
             'BEGIN:VCALENDAR',
             'BEGIN:VEVENT',
@@ -720,7 +912,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
         expect(finalBody).toContain('start: 2025-01-15 15:00:00+00:00');
     });
 
-    test('importDefaultColor is applied only when event has no color after preserveLocalColor step', async () => {
+    test('defaultColor is applied only when event has no color after preserveLocalColor step', async () => {
         const ics = [
             'BEGIN:VCALENDAR',
             'BEGIN:VEVENT',
@@ -793,7 +985,8 @@ describe('icsImportService.importIcsIntoNotes', () => {
             errors: 0,
             alarmsCreated: 0,
             alarmsDeleted: 0,
-            alarmsUpdated: 0
+            alarmsUpdated: 0,
+            issues: 0,
         });
         expect(joplin.data.put).not.toHaveBeenCalled();
     });
@@ -953,7 +1146,8 @@ describe('icsImportService.importIcsIntoNotes', () => {
             errors: 0,
             alarmsCreated: 0,
             alarmsDeleted: 0,
-            alarmsUpdated: 0
+            alarmsUpdated: 0,
+            issues: 0,
         });
         expect(joplin.data.put).not.toHaveBeenCalled();
         expect(joplin.data.post).not.toHaveBeenCalled();
@@ -1368,8 +1562,9 @@ describe('icsImportService.importIcsIntoNotes', () => {
 
         const res = await importIcsIntoNotes(joplin as any, ics, onStatus, 'nb1');
         expect(joplin.data.delete).toHaveBeenCalledWith(['notes', 'a1']);
-        expect(onStatus).toHaveBeenCalledWith(expect.stringContaining('[alarmService] ERROR deleting invalid alarm: u1| - delete fail'));
+        expect(onStatus).not.toHaveBeenCalledWith(expect.stringContaining('[alarmService] ERROR deleting invalid alarm: u1| - delete fail'));
         expect(res.alarmsCreated).toBe(1);
+        expect(res.issues).toBe(1);
 
         jest.useRealTimers();
     });
@@ -1448,8 +1643,9 @@ describe('icsImportService.importIcsIntoNotes', () => {
     });
 
 
-    test('if getIcsImportAlarmsEnabled throws, defaults to enabled for backward compatibility', async () => {
+    test('if getIcsImportAlarmsEnabled throws, defaults to disabled', async () => {
         (settings.getIcsImportAlarmsEnabled as jest.Mock).mockRejectedValue(new Error('boom'));
+        const onStatus = jest.fn();
 
         const joplin = mkJoplin({
             get: jest.fn().mockResolvedValue({items: [], has_more: false}),
@@ -1473,13 +1669,17 @@ describe('icsImportService.importIcsIntoNotes', () => {
         jest.useFakeTimers();
         jest.setSystemTime(new Date('2025-01-01T00:00:00Z'));
 
-        const res = await importIcsIntoNotes(joplin as any, ics, undefined, 'nb1');
+        const res = await importIcsIntoNotes(joplin as any, ics, onStatus, 'nb1');
 
-        // There should be at least one todo note created for the alarm
         const createdPayloads = joplin.data.post.mock.calls.map(c => c[2]);
         const todoCreates = createdPayloads.filter((p: any) => p && p.is_todo === 1);
-        expect(todoCreates.length).toBeGreaterThanOrEqual(1);
-        expect(res.alarmsCreated).toBeGreaterThanOrEqual(1);
+        expect(todoCreates).toHaveLength(0);
+        expect(res.alarmsCreated).toBe(0);
+        expect(res.alarmsDeleted).toBe(0);
+        expect(res.issues).toBe(1);
+        expect(onStatus).not.toHaveBeenCalledWith(
+            '[icsImportService] WARNING: Failed to read alarms setting; defaulting to disabled. boom',
+        );
 
         jest.useRealTimers();
     });

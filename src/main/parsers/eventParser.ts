@@ -4,6 +4,7 @@
 // Hand-written calendar notes are treated as untrusted input.
 // Any invalid syntax, date, or timezone MUST NOT break calendar rendering.
 // Invalid events are silently skipped.
+import {normalizeColorIfHex} from '../utils/colorUtils';
 
 type RepeatFreq = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
 
@@ -13,6 +14,7 @@ type EventInput = {
     description?: string;
     location?: string;
     color?: string;
+    exdates?: string[];
 
     startUtc: number;
     endUtc?: number;
@@ -39,6 +41,26 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 // Map: MO..SU -> 0..6 (Mon..Sun)
 const WD_MAP: Record<string, number> = {MO: 0, TU: 1, WE: 2, TH: 3, FR: 4, SA: 5, SU: 6};
 
+type ParsedBlockFields = {
+    title?: string;
+    description?: string;
+    location?: string;
+    color?: string;
+    start?: string;
+    end?: string;
+    tz?: string;
+    repeat?: string;
+    repeat_interval?: string;
+    repeat_until?: string;
+    byweekday?: string;
+    bymonthday?: string;
+    all_day?: string;
+    valarm?: string;
+    exdate?: string[];
+};
+
+type ParsedBlockScalarKey = Exclude<keyof ParsedBlockFields, 'exdate'>;
+
 function parseKeyVal(line: string): [string, string] | null {
     const m = line.match(/^\s*([a-zA-Z_]+)\s*:\s*(.+)\s*$/);
     if (!m) return null;
@@ -48,9 +70,11 @@ function parseKeyVal(line: string): [string, string] | null {
 
 function parseByWeekdays(v: string): number[] | undefined {
     const arr = v.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
-    const out: number[] = [];
-    for (const t of arr) if (t in WD_MAP) out.push(WD_MAP[t]);
-    return out.length ? out : undefined;
+    const out = new Set<number>();
+    for (const t of arr) {
+        if (t in WD_MAP) out.add(WD_MAP[t]);
+    }
+    return out.size ? Array.from(out).sort((a, b) => a - b) : undefined;
 }
 
 function parseIntSafe(v?: string): number | undefined {
@@ -70,7 +94,7 @@ function parseAllDayBool(v: string): boolean | undefined {
     return undefined;
 }
 
-function normalizeTz(z?: string): string | undefined {
+export function normalizeTz(z?: string): string | undefined {
     if (!z) return undefined;
     const tz = z.trim();
     if (!tz) return undefined;
@@ -85,7 +109,7 @@ function normalizeTz(z?: string): string | undefined {
 }
 
 // "2025-08-12 10:00:00-04:00" | "2025-08-12T10:00:00-04:00" | Without offset (з tz)
-function parseDateTimeToUTC(text: string, tz?: string): number | null {
+export function parseDateTimeToUTC(text: string, tz?: string): number | null {
     const trimmed = text.trim();
     if (!trimmed) return null;
 
@@ -178,10 +202,33 @@ function parseDateTimeToUTC(text: string, tz?: string): number | null {
     return utc;
 }
 
+function isDateOnlyText(text: string): boolean {
+    return /^\d{4}-\d{2}-\d{2}$/.test(text.trim());
+}
+
+export function parseRepeatUntilToUTC(text: string, tz?: string): number | null {
+    const trimmed = text.trim();
+    if (!trimmed) return null;
+
+    if (isDateOnlyText(trimmed)) {
+        return parseDateTimeToUTC(`${trimmed} 23:59:59`, tz);
+    }
+
+    return parseDateTimeToUTC(trimmed, tz);
+}
+
 function parseRepeatFreq(v: string): RepeatFreq | undefined {
     const vv = v.trim().toLowerCase();
     if (vv === 'daily' || vv === 'weekly' || vv === 'monthly' || vv === 'yearly' || vv === 'none') return vv;
     return undefined;
+}
+
+function assignParsedField(fields: ParsedBlockFields, key: ParsedBlockScalarKey, value: string): void {
+    fields[key] = value;
+}
+
+function appendParsedExdate(fields: ParsedBlockFields, value: string): void {
+    (fields.exdate ??= []).push(value);
 }
 
 export function parseEventsFromBody(noteId: string, titleFallback: string, body: string): EventInput[] {
@@ -197,45 +244,32 @@ export function parseEventsFromBody(noteId: string, titleFallback: string, body:
         const block = m[1];
         const lines = block.split('\n').map(l => l.replace(/\r$/, ''));
 
-        type ParsedBlockFields = {
-            title?: string;
-            description?: string;
-            location?: string;
-            color?: string;
-            start?: string;
-            end?: string;
-            tz?: string;
-            repeat?: string;
-            repeat_interval?: string;
-            repeat_until?: string;
-            byweekday?: string;
-            bymonthday?: string;
-            all_day?: string;
-            valarm?: string;
-        };
-
         const fields: ParsedBlockFields = {};
-        let currentKey: string | null = null;
-        const multilineKeys = new Set(['description']);
+        let currentKey: ParsedBlockScalarKey | null = null;
+        const multilineKeys = new Set<ParsedBlockScalarKey>(['description']);
 
         for (const rawLine of lines) {
             const kv = parseKeyVal(rawLine);
             if (kv) {
                 const [k, v] = kv;
-                (fields as any)[k] = v;
-                currentKey = multilineKeys.has(k) ? k : null;
+                if (k === 'exdate') {
+                    appendParsedExdate(fields, v);
+                } else {
+                    assignParsedField(fields, k as ParsedBlockScalarKey, v);
+                }
+                currentKey = multilineKeys.has(k as ParsedBlockScalarKey) ? (k as ParsedBlockScalarKey) : null;
                 continue;
             }
             if (currentKey && multilineKeys.has(currentKey)) {
-                const existing = (fields as any)[currentKey] ?? '';
-                (fields as any)[currentKey] = existing ? `${existing}\n${rawLine}` : rawLine;
+                const existing = fields[currentKey] ?? '';
+                fields[currentKey] = existing ? `${existing}\n${rawLine}` : rawLine;
             }
         }
 
         const title = (fields.title?.trim() ? fields.title.trim() : titleFallback);
         const description = fields.description;
         const location = fields.location;
-        const color = fields.color;
+        const color = normalizeColorIfHex(fields.color, {allowShort: true}) || undefined;
         const startText = fields.start;
         const endText = fields.end;
         const tz = fields.tz?.trim();
@@ -245,6 +279,7 @@ export function parseEventsFromBody(noteId: string, titleFallback: string, body:
         const byWeekdays = fields.byweekday ? parseByWeekdays(fields.byweekday) : undefined;
         const byMonthDay = fields.bymonthday ? parseByMonthDay(fields.bymonthday) : undefined;
         const allDay = fields.all_day ? parseAllDayBool(fields.all_day) : undefined;
+        const exdates = Array.isArray(fields.exdate) ? fields.exdate.filter(Boolean) : undefined;
 
         if (!startText) continue;
 
@@ -260,7 +295,7 @@ export function parseEventsFromBody(noteId: string, titleFallback: string, body:
         // repeat_until parsed AFTER tz is known (order-independent)
         let repeatUntilUtc: number | undefined;
         if (fields.repeat_until) {
-            const u = parseDateTimeToUTC(fields.repeat_until, tz);
+            const u = parseRepeatUntilToUTC(fields.repeat_until, tz);
             if (u != null) repeatUntilUtc = u;
         }
 
@@ -294,6 +329,7 @@ export function parseEventsFromBody(noteId: string, titleFallback: string, body:
             repeatUntilUtc,
             byWeekdays,
             byMonthDay,
+            exdates,
 
             allDay,
             hasAlarms: !!fields.valarm,

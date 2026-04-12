@@ -1,5 +1,5 @@
 import {IcsEvent} from '../types/icsTypes';
-import {EventInput} from '../parsers/eventParser';
+import {EventInput, parseDateTimeToUTC, parseRepeatUntilToUTC} from '../parsers/eventParser';
 import {
     parseYmdHmsLocal,
     zonedTimeToUtcMs,
@@ -28,9 +28,11 @@ function formatLocalYmdHms(msUtc: number, tz: string): string {
 function parseByWeekdaysStrToMon0(v?: string): number[] | undefined {
     if (!v) return undefined;
     const arr = v.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
-    const out: number[] = [];
-    for (const t of arr) if (t in WD_MAP_MON0) out.push(WD_MAP_MON0[t]);
-    return out.length ? out : undefined;
+    const out = new Set<number>();
+    for (const t of arr) {
+        if (t in WD_MAP_MON0) out.add(WD_MAP_MON0[t]);
+    }
+    return out.size ? Array.from(out).sort((a, b) => a - b) : undefined;
 }
 
 function parseByMonthDaySafe(v?: string): number | undefined {
@@ -50,41 +52,49 @@ function parseTzSafe(tz?: string): string {
     }
 }
 
+function hasExplicitOffsetOrZulu(text?: string): boolean {
+    if (!text) return false;
+    const trimmed = text.trim();
+    return /(?:[+-]\d{2}:?\d{2}|Z)$/i.test(trimmed);
+}
+
+function resolveOccurrenceTimeZone(ev: IcsEvent): string {
+    if (ev.tz) return parseTzSafe(ev.tz);
+    if (
+        hasExplicitOffsetOrZulu(ev.start) ||
+        hasExplicitOffsetOrZulu(ev.end) ||
+        hasExplicitOffsetOrZulu(ev.repeat_until)
+    ) {
+        return 'UTC';
+    }
+    return parseTzSafe();
+}
+
+function toUtcOrNull(text: string | undefined, tz: string): number | null {
+    if (!text) return null;
+    return parseDateTimeToUTC(text, tz);
+}
+
+function buildExcludedStartSet(exdates: string[] | undefined, tz: string): Set<number> {
+    const out = new Set<number>();
+    for (const exdate of exdates ?? []) {
+        const utc = toUtcOrNull(exdate, tz);
+        if (utc != null) out.add(utc);
+    }
+    return out;
+}
+
 export function expandOccurrences(ev: IcsEvent, windowStart: Date, windowEnd: Date): Occurrence[] {
     if (!ev.start) return [];
+    if (String(ev.status || '').trim().toLowerCase() === 'cancelled') return [];
 
-    const tz = parseTzSafe(ev.tz);
-    const baseLocal = parseYmdHmsLocal(ev.start);
-    const startUtc = zonedTimeToUtcMs(baseLocal.Y, baseLocal.M, baseLocal.D, baseLocal.h, baseLocal.m, baseLocal.sec, tz);
+    const tz = resolveOccurrenceTimeZone(ev);
+    const startUtc = toUtcOrNull(ev.start, tz);
+    if (startUtc == null) return [];
 
-    let endUtc: number;
-    if (ev.end) {
-        try {
-            const endLocal = parseYmdHmsLocal(ev.end);
-            endUtc = zonedTimeToUtcMs(endLocal.Y, endLocal.M, endLocal.D, endLocal.h, endLocal.m, endLocal.sec, tz);
-        } catch {
-            endUtc = startUtc;
-        }
-    } else {
-        endUtc = startUtc;
-    }
+    const endUtc = toUtcOrNull(ev.end, tz) ?? startUtc;
 
-    let repeatUntilUtc: number | undefined;
-    if (ev.repeat_until) {
-        try {
-            const untilLocal = parseYmdHmsLocal(ev.repeat_until);
-            repeatUntilUtc = zonedTimeToUtcMs(
-                untilLocal.Y,
-                untilLocal.M,
-                untilLocal.D,
-                untilLocal.h,
-                untilLocal.m,
-                untilLocal.sec,
-                tz
-            );
-        } catch { /* ignore */
-        }
-    }
+    const repeatUntilUtc = ev.repeat_until ? (parseRepeatUntilToUTC(ev.repeat_until, tz) ?? undefined) : undefined;
 
     const eventInput: EventInput = {
         id: ev.uid || 'ics',
@@ -92,13 +102,14 @@ export function expandOccurrences(ev: IcsEvent, windowStart: Date, windowEnd: Da
         startUtc,
         endUtc,
         tz,
-        startText: formatLocalYmdHms(startUtc, tz),
+        startText: ev.start,
         endText: ev.end,
         repeat: ev.repeat || 'none',
         repeatInterval: ev.repeat_interval && ev.repeat_interval >= 1 ? ev.repeat_interval : 1,
         repeatUntilUtc,
         byWeekdays: parseByWeekdaysStrToMon0(ev.byweekday),
         byMonthDay: parseByMonthDaySafe(ev.bymonthday),
+        exdates: ev.exdates,
     };
 
     const occs = expandOccurrencesInRange(eventInput, windowStart.getTime(), windowEnd.getTime());
@@ -118,10 +129,12 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
     }
 
     const dur = (ev.endUtc ?? ev.startUtc) - ev.startUtc;
+    const excludedStarts = buildExcludedStartSet(ev.exdates, tz);
     const push = (start: number, out: UiOccurrence[]) => {
         if (start > toUtc) return false;
         const end = dur ? start + dur : start;
         if (end < fromUtc) return true;
+        if (excludedStarts.has(start)) return true;
         out.push({...ev, occurrenceId: `${ev.id}#${start}`, startUtc: start, endUtc: dur ? end : undefined});
         return true;
     };
@@ -133,19 +146,26 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
     }
 
     const out: UiOccurrence[] = [];
-    const base = new Date(ev.startUtc);
-    const baseY = base.getUTCFullYear(), baseM = base.getUTCMonth(), baseD = base.getUTCDate();
-    const baseH = base.getUTCHours(), baseMin = base.getUTCMinutes(), baseS = base.getUTCSeconds();
+    const baseStartText = ev.startText || formatLocalYmdHms(ev.startUtc, tz);
+    const baseLocal = parseYmdHmsLocal(baseStartText);
+    const baseY = baseLocal.Y, baseM = baseLocal.M, baseD = baseLocal.D;
+    const baseH = baseLocal.h, baseMin = baseLocal.m, baseS = baseLocal.sec;
     const until = ev.repeatUntilUtc ?? toUtc;
     const step = Math.max(1, ev.repeatInterval || 1);
 
     if (ev.repeat === 'daily') {
         const from2 = fromUtc - Math.max(0, dur);
-        let k = Math.floor((from2 - ev.startUtc) / (DAY_MS * step));
-        if (ev.startUtc + k * step * DAY_MS < from2) k++;
+        const fromLocal = getPartsInTz(from2, tz);
+        const baseDateUtc = Date.UTC(baseY, baseM - 1, baseD);
+        const fromDateUtc = Date.UTC(fromLocal.Y, fromLocal.M - 1, fromLocal.D);
+
+        let k = Math.floor((fromDateUtc - baseDateUtc) / (DAY_MS * step));
         if (k < 0) k = 0;
+
         for (; ; k++) {
-            const start = ev.startUtc + k * step * DAY_MS;
+            const occ = addDaysYMD(baseY, baseM, baseD, k * step);
+            const start = zonedTimeToUtcMs(occ.Y, occ.M, occ.D, baseH, baseMin, baseS, tz);
+            if (start < from2) continue;
             if (start > until) break;
             if (!push(start, out)) break;
         }
@@ -153,7 +173,6 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
     }
 
     if (ev.repeat === 'weekly') {
-        const baseLocal = parseYmdHmsLocal(ev.startText);
         const baseWd = weekdayMon0(baseLocal.Y, baseLocal.M, baseLocal.D);
 
         const list = ev.byWeekdays && ev.byWeekdays.length ? ev.byWeekdays : [baseWd];
@@ -164,7 +183,7 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
         const mondayBase = addDaysYMD(baseLocal.Y, baseLocal.M, baseLocal.D, -baseWd);
 
         // Start from the week containing "fromUtc" in local TZ
-        const fromLocal = getPartsInTz(fromUtc, tz);
+        const fromLocal = getPartsInTz(from2, tz);
         const fromWd = weekdayMon0(fromLocal.Y, fromLocal.M, fromLocal.D);
         const mondayFrom = addDaysYMD(fromLocal.Y, fromLocal.M, fromLocal.D, -fromWd);
 
@@ -203,50 +222,80 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
 
     if (ev.repeat === 'monthly') {
         const dom = ev.byMonthDay ?? baseD;
-        const y = baseY;
-        let m = baseM;
-        let cursor = Date.UTC(y, m, dom, baseH, baseMin, baseS);
-        while (cursor < ev.startUtc) {
-            m += 1;
-            cursor = Date.UTC(y + Math.floor(m / 12), (m % 12 + 12) % 12, dom, baseH, baseMin, baseS);
+        let monthIndex = (baseY * 12) + (baseM - 1);
+        const fromLocal = getPartsInTz(fromUtc - Math.max(0, dur), tz);
+        const fromMonthIndex = (fromLocal.Y * 12) + (fromLocal.M - 1);
+        if (fromMonthIndex > monthIndex) {
+            const monthDiff = fromMonthIndex - monthIndex;
+            monthIndex += Math.floor(monthDiff / step) * step;
         }
+
         for (; ;) {
-            if (cursor > until) break;
-            const cd = new Date(cursor);
-            // Ensure month is what we expect (no overflow like Jan 31 -> Feb 3)
-            const expectedM = (m % 12 + 12) % 12;
-            if (cd.getUTCMonth() === expectedM) {
-                if (!push(cursor, out)) break;
+            const year = Math.floor(monthIndex / 12);
+            const month = (monthIndex % 12 + 12) % 12 + 1;
+            let start: number | null = null;
+            try {
+                start = zonedTimeToUtcMs(year, month, dom, baseH, baseMin, baseS, tz);
+            } catch {
+                // Skip impossible dates such as February 31.
             }
 
-            m += step;
-            cursor = Date.UTC(y + Math.floor(m / 12), (m % 12 + 12) % 12, dom, baseH, baseMin, baseS);
-            if (cursor > toUtc && cursor > until) break;
+            if (start !== null) {
+                const localParts = getPartsInTzHms(start, tz);
+                const sameDay =
+                    localParts.Y === year &&
+                    localParts.M === month &&
+                    localParts.D === dom &&
+                    localParts.h === baseH &&
+                    localParts.m === baseMin &&
+                    localParts.sec === baseS;
+
+                if (start > until) break;
+                if (sameDay && !push(start, out)) break;
+            }
+
+            monthIndex += step;
+            const nextYear = Math.floor(monthIndex / 12);
+            const nextMonth = (monthIndex % 12 + 12) % 12 + 1;
+            const nextStart = zonedTimeToUtcMs(nextYear, nextMonth, 1, 0, 0, 0, tz);
+            if (nextStart > toUtc && nextStart > until) break;
         }
         return out;
     }
 
     if (ev.repeat === 'yearly') {
-        let y = baseY;
-        let cursor = Date.UTC(y, baseM, baseD, baseH, baseMin, baseS);
-        while (cursor < ev.startUtc) {
-            y += 1;
-            cursor = Date.UTC(y, baseM, baseD, baseH, baseMin, baseS);
+        let year = baseY;
+        const fromLocal = getPartsInTz(fromUtc - Math.max(0, dur), tz);
+        if (fromLocal.Y > year) {
+            const yearDiff = fromLocal.Y - year;
+            year += Math.floor(yearDiff / step) * step;
         }
-        while (cursor < fromUtc) {
-            y += (step || 1);
-            cursor = Date.UTC(y, baseM, baseD, baseH, baseMin, baseS);
-        }
+
         for (; ;) {
-            if (cursor > until) break;
-            const dt = new Date(cursor);
-            // Ensure month is still February (or whatever baseM was) - handles Leap Year Feb 29
-            if (dt.getUTCMonth() === baseM) {
-                if (!push(cursor, out)) break;
+            let start: number | null = null;
+            try {
+                start = zonedTimeToUtcMs(year, baseM, baseD, baseH, baseMin, baseS, tz);
+            } catch {
+                // Skip impossible dates such as February 29 in non-leap years.
             }
-            y += (step || 1);
-            cursor = Date.UTC(y, baseM, baseD, baseH, baseMin, baseS);
-            if (cursor > toUtc && cursor > until) break;
+
+            if (start !== null) {
+                const localParts = getPartsInTzHms(start, tz);
+                const sameDay =
+                    localParts.Y === year &&
+                    localParts.M === baseM &&
+                    localParts.D === baseD &&
+                    localParts.h === baseH &&
+                    localParts.m === baseMin &&
+                    localParts.sec === baseS;
+
+                if (start > until) break;
+                if (sameDay && !push(start, out)) break;
+            }
+
+            year += step;
+            const nextStart = zonedTimeToUtcMs(year, 1, 1, 0, 0, 0, tz);
+            if (nextStart > toUtc && nextStart > until) break;
         }
         return out;
     }

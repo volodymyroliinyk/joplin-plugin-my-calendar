@@ -28,6 +28,7 @@ describe('alarmService', () => {
     const mockUpdateNote = joplinNoteService.updateNote as jest.Mock;
     const mockGetAlarmRange = settings.getIcsImportAlarmRangeDays as jest.Mock;
     const mockGetEmptyTrash = settings.getIcsImportEmptyTrashAfter as jest.Mock;
+    const mockGetAlarmEmoji = settings.getIcsImportAlarmEmoji as jest.Mock;
 
     beforeEach(() => {
         jest.clearAllMocks();
@@ -45,6 +46,7 @@ describe('alarmService', () => {
 
         mockGetAlarmRange.mockResolvedValue(30);
         mockGetEmptyTrash.mockResolvedValue(false);
+        mockGetAlarmEmoji.mockResolvedValue('🔔');
         // Default mocks for deterministic tests
         (occurrenceService.expandOccurrences as jest.Mock).mockImplementation((_ev, _now, _end) => {
             return [{start: new Date('2026-01-30T12:00:00.000Z')}];
@@ -252,7 +254,7 @@ describe('alarmService', () => {
                 body: 'BODY_V1',
                 is_todo: 1,
                 todo_completed: 0,
-                title: '🔔  Test Event - 12:00 (15 minutes before)'
+                title: '🔔 Test Event - 12:00 (15 minutes before)'
             }]
         };
 
@@ -330,6 +332,31 @@ describe('alarmService', () => {
             todo_completed: 0,
             is_todo: 1,
         });
+    });
+
+    it('should use custom reminder emoji from settings in alarm titles', async () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2026-01-30T10:00:00.000Z'));
+
+        mockGetAlarmEmoji.mockResolvedValue('⏰');
+        mockCreateNote.mockResolvedValue({id: 'newAlarm1'});
+
+        const events: IcsEvent[] = [{
+            uid: 'uid1',
+            recurrence_id: '',
+            title: 'Test Event',
+            start: '2026-01-30 12:00',
+            valarms: [{action: 'DISPLAY', trigger: '-PT15M', related: 'START'}]
+        }];
+        const key = 'uid1|';
+        const importedEventNotes = {[key]: {id: 'note1', title: 'Test Event', parent_id: 'folder1'}};
+        const existingAlarms = {[key]: []};
+
+        await syncAlarmsForEvents(mockJoplin, events, importedEventNotes, existingAlarms, 'folder1', undefined, undefined, true);
+
+        expect(mockCreateNote).toHaveBeenCalledWith(mockJoplin, expect.objectContaining({
+            title: '⏰ Test Event - 12:00 (15 minutes before)',
+        }));
     });
 
     it('should empty trash when alarms were deleted and setting is enabled', async () => {

@@ -74,8 +74,18 @@ describe('calendar.js time format', () => {
 
         const timeEl = document.querySelector('.mc-time');
         expect(timeEl).not.toBeNull();
-        // 13:05–14:05
-        expect(timeEl!.textContent).toMatch(/13:05.*14:05/);
+        const expected = new Intl.DateTimeFormat(undefined, {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+        }).format(new Date(start));
+        const expectedEnd = new Intl.DateTimeFormat(undefined, {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+        }).format(new Date(start + 3600000));
+        expect(timeEl!.textContent).toContain(expected);
+        expect(timeEl!.textContent).toContain(expectedEnd);
         expect(timeEl!.textContent).not.toMatch(/PM/);
     });
 
@@ -97,11 +107,17 @@ describe('calendar.js time format', () => {
         const timeEl = document.querySelector('.mc-time');
         expect(timeEl).not.toBeNull();
 
-        // In UTC: 1:05 PM
-        // Note: exact format depends on locale (en-US usually).
-        // JSDOM might use en-US by default.
-
-        // We check for "1:05" or "01:05" and "PM" (or "pm")
-        expect(timeEl!.textContent).toMatch(/1:05.*PM/i);
+        const expected = new Intl.DateTimeFormat(undefined, {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true,
+        }).format(new Date(start));
+        const expectedEnd = new Intl.DateTimeFormat(undefined, {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true,
+        }).format(new Date(start + 3600000));
+        expect(timeEl!.textContent).toContain(expected);
+        expect(timeEl!.textContent).toContain(expectedEnd);
     });
 });

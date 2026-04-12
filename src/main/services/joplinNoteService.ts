@@ -20,8 +20,9 @@ interface PagedResponse<T> {
 const DEFAULT_PAGE_LIMIT = 100;
 const DEFAULT_MAX_PAGES = 1000;
 
-export async function getAllNotesPaged(
+async function getPagedNotes(
     joplin: Joplin,
+    path: string[],
     fields: string[] = ['id', 'title', 'body', 'parent_id'],
     options: { limit?: number; maxPages?: number } = {}
 ): Promise<NoteItem[]> {
@@ -32,14 +33,31 @@ export async function getAllNotesPaged(
 
     while (true) {
         if (page > maxPages) {
-            throw new Error(`getAllNotesPaged exceeded maxPages=${maxPages}`);
+            throw new Error(`getPagedNotes exceeded maxPages=${maxPages}`);
         }
-        const res = (await joplin.data.get(['notes'], {fields, limit, page})) as PagedResponse<NoteItem>;
+        const res = (await joplin.data.get(path, {fields, limit, page})) as PagedResponse<NoteItem>;
         allNotes.push(...(res.items ?? []));
         if (!res.has_more) break;
         page++;
     }
     return allNotes;
+}
+
+export async function getAllNotesPaged(
+    joplin: Joplin,
+    fields: string[] = ['id', 'title', 'body', 'parent_id'],
+    options: { limit?: number; maxPages?: number } = {}
+): Promise<NoteItem[]> {
+    return getPagedNotes(joplin, ['notes'], fields, options);
+}
+
+export async function getFolderNotesPaged(
+    joplin: Joplin,
+    folderId: string,
+    fields: string[] = ['id', 'title', 'body', 'parent_id'],
+    options: { limit?: number; maxPages?: number } = {}
+): Promise<NoteItem[]> {
+    return getPagedNotes(joplin, ['folders', folderId, 'notes'], fields, options);
 }
 
 export async function createNote(joplin: Joplin, note: Partial<NoteItem>): Promise<NoteItem> {

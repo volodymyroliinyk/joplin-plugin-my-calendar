@@ -50,6 +50,7 @@ While we strive for parity, some features are specific to the Desktop version du
 | Smart Day View                     |    ✅    |   ✅    |
 | Native Joplin Settings             |    ✅    |   ✅    |
 | ICS File Import                    |    ✅    |   ❌    |
+| Scheduled ICS Import from URLs     |    ✅    |   ❌    |
 | Quick ICS Export Links             |    ✅    |   ❌    |
 | Markdown Sanitization              |    ✅    |   ✅    |
 | Automatic Alarms (Todo generation) |    ✅    |   ✅*   |
@@ -103,6 +104,10 @@ The plugin features a robust import system designed for performance and reliabil
 
 - **Deduplication**: The plugin uses `UID`s from the ICS file. If you import the same file again, it will only update
   changed events or skip unchanged ones.
+- **Scheduled URL Import (Desktop)**: You can configure one or more HTTPS ICS + notebook pairs and let the plugin
+  re-import them automatically on a fixed interval. The recommended format is
+  `https://...ics | Notebook Title ;; https://...ics | Another Notebook`: `;;` separates pairs, and `|` separates the
+  URL from the notebook title.
 - **Local Color Preservation**: By default, if you manually change the color of an imported event in Joplin, subsequent
   imports will preserve your custom color.
 - **Optimized Automatic Alarms**: If an ICS event has a reminder, the plugin creates a linked "Todo" note in Joplin.
@@ -180,6 +185,11 @@ Customize your experience in the Joplin Settings (`Tools` > `Options` > `My Cale
   min).
 - **Show event timeline**: Show a visual timeline bar under each event in the day list. Disabling this also stops
   related UI update timers. (Default: Enabled).
+- **Current timeline line color (hex)**: Optional custom color for the current-time line in the day event timeline.
+  Use `#RGB` or `#RRGGBB`, or leave empty to keep the default color.
+- **Default event color (hex)**: Optional default hex color for imported events without `X-COLOR` and for "Day events"
+  section events without a color.
+  Use `#RGB` or `#RRGGBB`, or leave empty to keep the built-in default event color.
 
 ### ICS Import (Desktop only)
 
@@ -187,10 +197,17 @@ Customize your experience in the Joplin Settings (`Tools` > `Options` > `My Cale
   alarms will be deleted on re-import. (Default: Disabled).
 - **ICS import alarm range**: Define how many days into the future (up to 365) the plugin should scan and generate
   native Joplin reminders from your ICS files. (Default: 30 days).
+- **ICS reminder emoji**: Choose the emoji or short prefix shown at the start of imported reminder note titles.
+  (Default: `🔔`).
 - **Empty trash after alarm cleanup**: If enabled, the plugin will empty the trash after deleting old alarms. **WARNING
   **:
   This deletes ALL items in the trash. (Default: Disabled).
-- **ICS export links**: Add up to 4 quick-access links to your favorite calendar exporters (e.g., Google
+- **Scheduled ICS import pairs**: Add pairs in the form
+  `https://...ics | Notebook Title ;; https://...ics | Another Notebook`. Each valid HTTPS ICS link is imported into
+  its own existing notebook. If the notebook title is missing, invalid, not found, or ambiguous, that pair is skipped.
+- **Scheduled ICS import interval**: Choose how often scheduled URL imports run in the background. Allowed range:
+  **5-1440 minutes**. (Default: 60 minutes).
+- **ICS export links**: Add as many quick-access links as you need to your favorite calendar exporters (e.g., Google
   Calendar Export URL). These will appear as convenient buttons in the import panel.
 
 ### Developer
@@ -211,11 +228,13 @@ Customize your experience in the Joplin Settings (`Tools` > `Options` > `My Cale
 
 - `npm run build`: Compile the project.
 - `npm pack`: Create the `.jpl` distribution file.
-- `npm run pre-pack`: Run the pre-pack validation flow.
-- `npm test`: Run the extensive test suite (350+ cases).
+- `npm run pre-pack`: Run the pre-pack validation flow using the stable single-process Jest command before packaging.
+- `npm test`: Run the extensive test suite (350+ cases). This now performs Jest process cleanup first and retries once
+  in `--runInBand` if a worker crashes with `SIGSEGV`.
+- `npm run test:stable`: Run Jest in a single process from the start, with cleanup first. Use this for the most stable
+  pre-release check.
 - `npm run lint`: Check code style and common patterns.
-- `pkill -f jest || true;pkill -f node || true;rm -rf node_modules/.cache;rm -rf ~/.cache/jest;npx jest --clearCache`:
-  Cache cleaning.
+- `bash ./scripts/cleanup-jest.sh`: Kill stale Jest worker processes for this repository before rerunning tests.
 
 ### Automation Scripts
 
@@ -224,7 +243,8 @@ The project includes helper scripts in the `scripts/` directory to streamline de
 #### `scripts/pre-pack.sh`
 
 Ensures code quality before packaging. By default it runs the linter (failing on warnings), the full test suite, and
-then creates the package. Security fixes via `npm audit fix --force` are optional and must be enabled explicitly.
+then creates the package. The test step uses `npm run test:stable` so packaging does not depend on parallel Jest
+workers. Security fixes via `npm audit fix --force` are optional and must be enabled explicitly.
 
 ```bash
 npm run pre-pack
@@ -234,6 +254,26 @@ To include forced audit fixes before validation:
 
 ```bash
 npm run pre-pack -- --audit-fix
+```
+
+#### `scripts/cleanup-jest.sh`
+
+Finds and terminates stale `jest`, `jest-worker`, and `processChild.js` processes whose working directory belongs to
+this repository. This is useful when a previous Jest run leaves worker processes behind after a crash.
+
+```bash
+bash ./scripts/cleanup-jest.sh
+```
+
+#### `scripts/run-tests.sh`
+
+Wrapper used by `npm test`. It runs `scripts/cleanup-jest.sh`, starts the normal parallel Jest run, and if Jest reports
+that a worker died with `signal=SIGSEGV`, it performs cleanup again and retries once with `--runInBand`.
+
+For a fully serial run without the initial parallel attempt, use:
+
+```bash
+npm run test:stable
 ```
 
 #### `scripts/release.sh`

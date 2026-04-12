@@ -11,15 +11,22 @@ import {
 } from '../utils/dateTimeUtils';
 import {buildAlarmBody} from './noteBuilder';
 import {makeEventKey} from '../utils/joplinUtils';
-import {getIcsImportAlarmRangeDays, getIcsImportEmptyTrashAfter} from '../settings/settings';
+import {
+    getIcsImportAlarmEmoji,
+    getIcsImportAlarmRangeDays,
+    getIcsImportEmptyTrashAfter
+} from '../settings/settings';
 import {Joplin} from '../types/joplin.interface';
-import {createNote, deleteNote, updateNote} from './joplinNoteService';
-import {log} from '../utils/logger';
+import {createNote, deleteNote, NoteItem, updateNote} from './joplinNoteService';
+import {err, log, warn} from '../utils/logger';
+import {getErrorText} from '../utils/errorUtils';
+import {createSafeTextReporter} from '../utils/statusNotifier';
 
 export type AlarmSyncResult = {
     alarmsCreated: number;
     alarmsDeleted: number;
     alarmsUpdated: number;
+    issues: number;
 };
 
 export type ExistingAlarm = {
@@ -36,6 +43,8 @@ type DesiredAlarm = {
     eventTime: Date;
     trigger: string;
 };
+
+type AlarmUpdatePatch = Partial<Pick<NoteItem, 'body' | 'title' | 'is_todo' | 'todo_completed' | 'todo_due'>>;
 
 export type AlarmSyncOptions = {
     /**
@@ -55,7 +64,13 @@ export type AlarmSyncOptions = {
      * Defaults to true.
      */
     alarmsEnabled?: boolean;
+    /**
+     * Overrides settings.getIcsImportAlarmEmoji().
+     */
+    alarmEmoji?: string;
 };
+
+const ALARM_OPS_CONCURRENCY = 6;
 
 function isNonNegativeFiniteNumber(v: unknown): v is number {
     return typeof v === 'number' && Number.isFinite(v) && v >= 0;
@@ -108,6 +123,33 @@ function buildAlarmNoteBody(args: {
     );
 }
 
+function buildAlarmTodoTitle(alarmEmoji: string, eventTitle: string, eventTime: Date, trigger: string): string {
+    const prefix = alarmEmoji.trim();
+    const triggerDesc = formatTriggerDescription(trigger);
+    return prefix
+        ? `${prefix} ${eventTitle} - ${formatAlarmTitleTime(eventTime)} (${triggerDesc})`
+        : `${eventTitle} - ${formatAlarmTitleTime(eventTime)} (${triggerDesc})`;
+}
+
+async function runWithConcurrency(
+    tasks: Array<() => Promise<void>>,
+    concurrency: number,
+): Promise<void> {
+    const limit = Math.max(1, Math.trunc(concurrency) || 1);
+    let nextIndex = 0;
+
+    const consume = async (): Promise<void> => {
+        while (true) {
+            const currentIndex = nextIndex++;
+            if (currentIndex >= tasks.length) return;
+            await tasks[currentIndex]();
+        }
+    };
+
+    const workers = Array.from({length: Math.min(limit, tasks.length)}, () => consume());
+    await Promise.all(workers);
+}
+
 export async function syncAlarmsForEvents(
     joplin: Joplin,
     events: IcsEvent[],
@@ -119,12 +161,7 @@ export async function syncAlarmsForEvents(
     // Legacy argument support (if needed, though we prefer options object)
     legacyAlarmsEnabled?: boolean
 ): Promise<AlarmSyncResult> {
-    const say = async (t: string) => {
-        try {
-            if (onStatus) await onStatus(t);
-        } catch { /* ignore */
-        }
-    };
+    const say = createSafeTextReporter(onStatus);
 
     const resolvedOptions: AlarmSyncOptions = typeof options === 'number' ? {alarmRangeDays: options} : (options ?? {});
 
@@ -139,6 +176,7 @@ export async function syncAlarmsForEvents(
 
 
     const emptyTrashAfter = typeof resolvedOptions.emptyTrashAfter === 'boolean' ? resolvedOptions.emptyTrashAfter : await getIcsImportEmptyTrashAfter(joplin);
+    const alarmEmoji = typeof resolvedOptions.alarmEmoji === 'string' ? resolvedOptions.alarmEmoji.trim() : await getIcsImportAlarmEmoji(joplin);
 
     const alarmsEnabled = resolvedOptions.alarmsEnabled !== false; // Default true
 
@@ -147,6 +185,8 @@ export async function syncAlarmsForEvents(
     let alarmsDeleted = 0;
     let alarmsCreated = 0;
     let alarmsUpdated = 0;
+    let issues = 0;
+    const pendingOps: Array<() => Promise<void>> = [];
 
     for (const ev of events) {
         const uid = (ev.uid || '').trim();
@@ -169,12 +209,15 @@ export async function syncAlarmsForEvents(
         for (const alarm of oldAlarms) {
             // 1. Delete if too old (e.g. > 24h past)
             if (alarm.todo_due < nowMs - 24 * 60 * 60 * 1000) {
-                try {
-                    await deleteNote(joplin, alarm.id);
-                    alarmsDeleted++;
-                } catch (e) {
-                    await say(`[alarmService] ERROR deleting outdated alarm: ${key} - ${String((e as any)?.message || e)}`);
-                }
+                pendingOps.push(async () => {
+                    try {
+                        await deleteNote(joplin, alarm.id);
+                        alarmsDeleted++;
+                    } catch (e) {
+                        issues++;
+                        err('alarmService', `ERROR deleting outdated alarm: ${key} - ${getErrorText(e)}`);
+                    }
+                });
                 continue;
             }
 
@@ -197,8 +240,7 @@ export async function syncAlarmsForEvents(
                 matchedDesiredIndices.add(matchIndex);
                 const {alarmTime, eventTime, trigger} = desiredAlarms[matchIndex];
                 const eventTitle = ev.title || 'Event';
-                const triggerDesc = formatTriggerDescription(trigger);
-                const todoTitle = `🔔  ${eventTitle} - ${formatAlarmTitleTime(eventTime)} (${triggerDesc})`;
+                const todoTitle = buildAlarmTodoTitle(alarmEmoji, eventTitle, eventTime, trigger);
                 const newBody = buildAlarmNoteBody({
                     eventTitle,
                     eventTime,
@@ -215,29 +257,35 @@ export async function syncAlarmsForEvents(
                 const bodyChanged = alarm.body !== newBody;
 
                 if (bodyChanged || titleChanged || !isTodo) {
-                    try {
-                        const patch: any = {};
-                        if (bodyChanged) patch.body = newBody;
-                        if (titleChanged) patch.title = todoTitle;
-                        if (!isTodo) {
-                            patch.is_todo = 1;
-                            patch.todo_completed = 0;
-                        }
+                    pendingOps.push(async () => {
+                        try {
+                            const patch: AlarmUpdatePatch = {};
+                            if (bodyChanged) patch.body = newBody;
+                            if (titleChanged) patch.title = todoTitle;
+                            if (!isTodo) {
+                                patch.is_todo = 1;
+                                patch.todo_completed = 0;
+                            }
 
-                        await updateNote(joplin, alarm.id, patch);
-                        alarmsUpdated++;
-                        log('alarmService', `Updated alarm: ${todoTitle}`);
-                    } catch (e) {
-                        await say(`[alarmService] ERROR updating alarm: ${key} - ${String((e as any)?.message || e)}`);
-                    }
+                            await updateNote(joplin, alarm.id, patch);
+                            alarmsUpdated++;
+                            log('alarmService', `Updated alarm: ${todoTitle}`);
+                        } catch (e) {
+                            issues++;
+                            err('alarmService', `ERROR updating alarm: ${key} - ${getErrorText(e)}`);
+                        }
+                    });
                 }
             } else {
-                try {
-                    await deleteNote(joplin, alarm.id);
-                    alarmsDeleted++;
-                } catch (e) {
-                    await say(`[alarmService] ERROR deleting invalid alarm: ${key} - ${String((e as any)?.message || e)}`);
-                }
+                pendingOps.push(async () => {
+                    try {
+                        await deleteNote(joplin, alarm.id);
+                        alarmsDeleted++;
+                    } catch (e) {
+                        issues++;
+                        err('alarmService', `ERROR deleting invalid alarm: ${key} - ${getErrorText(e)}`);
+                    }
+                });
             }
         }
 
@@ -246,8 +294,7 @@ export async function syncAlarmsForEvents(
 
             const {alarmTime, eventTime, trigger} = desiredAlarms[i];
             const eventTitle = ev.title || 'Event';
-            const triggerDesc = formatTriggerDescription(trigger);
-            const todoTitle = `🔔 ${eventTitle} - ${formatAlarmTitleTime(eventTime)} (${triggerDesc})`;
+            const todoTitle = buildAlarmTodoTitle(alarmEmoji, eventTitle, eventTime, trigger);
             const body = buildAlarmNoteBody({
                 eventTitle,
                 eventTime,
@@ -259,39 +306,46 @@ export async function syncAlarmsForEvents(
                 trigger
             });
 
-            try {
-                const noteBody = {
-                    title: todoTitle,
-                    body,
-                    parent_id: notebookId,
-                    is_todo: 1,
-                    todo_due: alarmTime,
-                    todo_completed: 0,
-                };
-
-                const created = await createNote(joplin, noteBody);
-                if (created?.id) {
-                    // NOTE: Keeping this as a safety measure in case Joplin doesn't persist todo_due on create reliably.
-                    await updateNote(joplin, created.id, {
+            pendingOps.push(async () => {
+                try {
+                    const noteBody = {
+                        title: todoTitle,
+                        body,
+                        parent_id: notebookId,
+                        is_todo: 1,
                         todo_due: alarmTime,
                         todo_completed: 0,
-                        is_todo: 1,
-                    });
+                    };
+
+                    const created = await createNote(joplin, noteBody);
+                    if (created?.id) {
+                        // NOTE: Keeping this as a safety measure in case Joplin doesn't persist todo_due on create reliably.
+                        const patch: AlarmUpdatePatch = {
+                            todo_due: alarmTime,
+                            todo_completed: 0,
+                            is_todo: 1,
+                        };
+                        await updateNote(joplin, created.id, patch);
+                    }
+                    alarmsCreated++;
+                    log('alarmService', `Created alarm: ${todoTitle} due ${new Date(alarmTime).toISOString()}`);
+                } catch (e) {
+                    issues++;
+                    err('alarmService', `ERROR creating alarm: ${key} - ${getErrorText(e)}`);
                 }
-                alarmsCreated++;
-                log('alarmService', `Created alarm: ${todoTitle} due ${new Date(alarmTime).toISOString()}`);
-            } catch (e) {
-                await say(`[alarmService] ERROR creating alarm: ${key} - ${String((e as any)?.message || e)}`);
-            }
+            });
         }
     }
+
+    await runWithConcurrency(pendingOps, ALARM_OPS_CONCURRENCY);
 
     if (alarmsDeleted > 0 && emptyTrashAfter) {
         try {
             await joplin.commands.execute('emptyTrash');
             await say('Trash emptied.');
         } catch (e) {
-            await say(`[alarmService] WARNING: Failed to empty trash: ${String((e as any)?.message || e)}`);
+            issues++;
+            warn('alarmService', `Failed to empty trash: ${getErrorText(e)}`);
         }
     }
 
@@ -299,5 +353,5 @@ export async function syncAlarmsForEvents(
         await say(`Alarms sync summary: deleted ${alarmsDeleted}, created ${alarmsCreated}, updated ${alarmsUpdated} (next ${alarmRangeDays} days)`);
     }
 
-    return {alarmsCreated, alarmsDeleted, alarmsUpdated};
+    return {alarmsCreated, alarmsDeleted, alarmsUpdated, issues};
 }

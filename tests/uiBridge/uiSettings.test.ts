@@ -10,6 +10,8 @@ type SettingsMock = {
     getDebugEnabled: jest.Mock<any, any>;
     getDayEventsRefreshMinutes: jest.Mock<any, any>;
     getShowEventTimeline: jest.Mock<any, any>;
+    getDefaultEventColor?: jest.Mock<any, any>;
+    getTimelineNowLineColor?: jest.Mock<any, any>;
     getShowWeekNumbers: jest.Mock<any, any>;
     getTimeFormat: jest.Mock<any, any>;
     getDayEventsViewMode?: jest.Mock<any, any>;
@@ -34,6 +36,8 @@ const loadModuleWithMocks = async (
         getDebugEnabled: settingsMock.getDebugEnabled,
         getDayEventsRefreshMinutes: settingsMock.getDayEventsRefreshMinutes,
         getShowEventTimeline: settingsMock.getShowEventTimeline,
+        getDefaultEventColor: settingsMock.getDefaultEventColor || jest.fn().mockResolvedValue(''),
+        getTimelineNowLineColor: settingsMock.getTimelineNowLineColor || jest.fn().mockResolvedValue(''),
         getShowWeekNumbers: settingsMock.getShowWeekNumbers,
         getTimeFormat: settingsMock.getTimeFormat,
         getDayEventsViewMode: settingsMock.getDayEventsViewMode || jest.fn().mockResolvedValue('single'),
@@ -65,6 +69,7 @@ describe('uiSettings.buildUiSettingsMessage', () => {
             getDebugEnabled: jest.fn().mockResolvedValue(true),
             getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(getDayEventsRefreshMinutes_DEFAULT),
             getShowEventTimeline: jest.fn().mockResolvedValue(true),
+            getTimelineNowLineColor: jest.fn().mockResolvedValue(''),
             getShowWeekNumbers: jest.fn().mockResolvedValue(false),
             getTimeFormat: jest.fn().mockResolvedValue('24h'),
             getDayEventsViewMode: jest.fn().mockResolvedValue('single'),
@@ -87,6 +92,8 @@ describe('uiSettings.buildUiSettingsMessage', () => {
             icsExportLinks: [],
             dayEventsRefreshMinutes: getDayEventsRefreshMinutes_DEFAULT,
             showEventTimeline: true,
+            defaultEventColor: '',
+            timelineNowLineColor: '',
             showWeekNumbers: false,
             timeFormat: '24h',
             dayEventsViewMode: 'single',
@@ -99,6 +106,8 @@ describe('uiSettings.buildUiSettingsMessage', () => {
             getDebugEnabled: jest.fn().mockResolvedValue(true),
             getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(getDayEventsRefreshMinutes_DEFAULT),
             getShowEventTimeline: jest.fn().mockResolvedValue(true),
+            getDefaultEventColor: jest.fn().mockResolvedValue('#1470d9'),
+            getTimelineNowLineColor: jest.fn().mockResolvedValue('#ffa334'),
             getShowWeekNumbers: jest.fn().mockResolvedValue(false),
             getTimeFormat: jest.fn().mockResolvedValue('24h'),
             getDayEventsViewMode: jest.fn().mockResolvedValue('grouped'),
@@ -125,6 +134,7 @@ describe('uiSettings.pushUiSettings', () => {
             getDebugEnabled: jest.fn().mockResolvedValue(true),
             getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(getDayEventsRefreshMinutes_DEFAULT),
             getShowEventTimeline: jest.fn().mockResolvedValue(true),
+            getTimelineNowLineColor: jest.fn().mockResolvedValue(''),
             getShowWeekNumbers: jest.fn().mockResolvedValue(false),
             getTimeFormat: jest.fn().mockResolvedValue('24h'),
             getDayEventsViewMode: jest.fn().mockResolvedValue('grouped'),
@@ -148,6 +158,8 @@ describe('uiSettings.pushUiSettings', () => {
         expect(settingsMock.getDayEventsRefreshMinutes).toHaveBeenCalledWith(joplin);
         expect(settingsMock.getShowEventTimeline).toHaveBeenCalledTimes(1);
         expect(settingsMock.getShowEventTimeline).toHaveBeenCalledWith(joplin);
+        expect(settingsMock.getTimelineNowLineColor).toHaveBeenCalledTimes(1);
+        expect(settingsMock.getTimelineNowLineColor).toHaveBeenCalledWith(joplin);
         expect(settingsMock.getTimeFormat).toHaveBeenCalledTimes(1);
         expect(settingsMock.getTimeFormat).toHaveBeenCalledWith(joplin);
         expect(settingsMock.getDayEventsViewMode).toHaveBeenCalledTimes(1);
@@ -164,6 +176,8 @@ describe('uiSettings.pushUiSettings', () => {
             icsExportLinks: [],
             dayEventsRefreshMinutes: getDayEventsRefreshMinutes_DEFAULT,
             showEventTimeline: true,
+            defaultEventColor: '',
+            timelineNowLineColor: '',
             showWeekNumbers: false,
             timeFormat: '24h',
             dayEventsViewMode: 'grouped',
@@ -176,9 +190,11 @@ describe('uiSettings.pushUiSettings', () => {
             getDebugEnabled: jest.fn().mockResolvedValue(false),
             getIcsExportLinks: jest
                 .fn()
-                .mockResolvedValue([{title: 'Work', url: 'https://example.test/work.ics'}]),
+                .mockResolvedValue([{title: 'Work', url: 'https://example.test/work.ics/'}]),
             getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(getDayEventsRefreshMinutes_DEFAULT),
             getShowEventTimeline: jest.fn().mockResolvedValue(true),
+            getDefaultEventColor: jest.fn().mockResolvedValue('#1470d9'),
+            getTimelineNowLineColor: jest.fn().mockResolvedValue('#00ff99'),
             getShowWeekNumbers: jest.fn().mockResolvedValue(false),
             getTimeFormat: jest.fn().mockResolvedValue('24h'),
         };
@@ -199,9 +215,11 @@ describe('uiSettings.pushUiSettings', () => {
             name: 'uiSettings',
             weekStart: 'sunday',
             debug: false,
-            icsExportLinks: [{title: 'Work', url: 'https://example.test/work.ics'}],
+            icsExportLinks: [{title: 'Work', url: 'https://example.test/work.ics/'}],
             dayEventsRefreshMinutes: getDayEventsRefreshMinutes_DEFAULT,
             showEventTimeline: true,
+            defaultEventColor: '#1470d9',
+            timelineNowLineColor: '#00ff99',
             showWeekNumbers: false,
             timeFormat: '24h',
             dayEventsViewMode: 'single',
@@ -219,6 +237,7 @@ describe('uiSettings.pushUiSettings', () => {
             getIcsExportLinks: 123, // non-function
             getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(getDayEventsRefreshMinutes_DEFAULT),
             getShowEventTimeline: jest.fn().mockResolvedValue(true),
+            getTimelineNowLineColor: jest.fn().mockResolvedValue(''),
             getShowWeekNumbers: jest.fn().mockResolvedValue(false),
             getTimeFormat: jest.fn().mockResolvedValue('24h'),
         };
@@ -242,6 +261,7 @@ describe('uiSettings.pushUiSettings', () => {
             getDebugEnabled: jest.fn().mockResolvedValue(0), // falsy
             getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(getDayEventsRefreshMinutes_DEFAULT),
             getShowEventTimeline: jest.fn().mockResolvedValue(true),
+            getTimelineNowLineColor: jest.fn().mockResolvedValue(''),
             getShowWeekNumbers: jest.fn().mockResolvedValue(false),
             getTimeFormat: jest.fn().mockResolvedValue('24h'),
         };
@@ -270,6 +290,7 @@ describe('uiSettings.pushUiSettings', () => {
             getDebugEnabled: jest.fn().mockResolvedValue(true),
             getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(getDayEventsRefreshMinutes_DEFAULT),
             getShowEventTimeline: jest.fn().mockResolvedValue(true),
+            getTimelineNowLineColor: jest.fn().mockResolvedValue(''),
             getShowWeekNumbers: jest.fn().mockResolvedValue(false),
             getTimeFormat: jest.fn().mockResolvedValue('24h'),
         };
@@ -293,6 +314,7 @@ describe('uiSettings.pushUiSettings', () => {
             getDebugEnabled: jest.fn().mockResolvedValue(true),
             getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(getDayEventsRefreshMinutes_DEFAULT),
             getShowEventTimeline: jest.fn().mockResolvedValue(true),
+            getTimelineNowLineColor: jest.fn().mockResolvedValue(''),
             getShowWeekNumbers: jest.fn().mockResolvedValue(false),
             getTimeFormat: jest.fn().mockResolvedValue('24h'),
         };
@@ -314,6 +336,7 @@ describe('uiSettings.pushUiSettings', () => {
             getDebugEnabled: jest.fn().mockResolvedValue(true),
             getDayEventsRefreshMinutes: jest.fn().mockResolvedValue(getDayEventsRefreshMinutes_DEFAULT),
             getShowEventTimeline: jest.fn().mockResolvedValue(true),
+            getTimelineNowLineColor: jest.fn().mockResolvedValue(''),
             getShowWeekNumbers: jest.fn().mockResolvedValue(false),
             getTimeFormat: jest.fn().mockResolvedValue('24h'),
         };

@@ -4,7 +4,13 @@
 //
 // TZ=UTC npx jest tests/services/folderService.test.ts --runInBand --no-cache;
 //
-import {flattenFolderTree, getAllFolders, FolderRow} from '../../src/main/services/folderService';
+import {
+    buildFolderPathOptions,
+    flattenFolderTree,
+    getAllFolders,
+    FolderRow,
+    resolveFolderIdByTitle,
+} from '../../src/main/services/folderService';
 
 describe('folderService', () => {
     describe('getAllFolders', () => {
@@ -140,6 +146,41 @@ describe('folderService', () => {
 
         test('returns empty array for empty input', () => {
             expect(flattenFolderTree([])).toEqual([]);
+        });
+    });
+
+    describe('folder title resolution', () => {
+        test('buildFolderPathOptions adds human-readable nested paths', () => {
+            const rows: FolderRow[] = [
+                {id: 'root', title: 'Root'},
+                {id: 'child', title: 'Child', parent_id: 'root'},
+            ];
+
+            expect(buildFolderPathOptions(rows)).toEqual([
+                expect.objectContaining({id: 'root', pathTitle: 'Root'}),
+                expect.objectContaining({id: 'child', pathTitle: 'Root / Child'}),
+            ]);
+        });
+
+        test('resolveFolderIdByTitle matches unique plain title', () => {
+            const rows: FolderRow[] = [{id: '1', title: 'Work'}];
+            expect(resolveFolderIdByTitle(rows, 'work')).toEqual({folderId: '1'});
+        });
+
+        test('resolveFolderIdByTitle matches unique nested path title', () => {
+            const rows: FolderRow[] = [
+                {id: 'root', title: 'Calendars'},
+                {id: 'child', title: 'Work', parent_id: 'root'},
+            ];
+            expect(resolveFolderIdByTitle(rows, 'Calendars / Work')).toEqual({folderId: 'child'});
+        });
+
+        test('resolveFolderIdByTitle rejects ambiguous titles', () => {
+            const rows: FolderRow[] = [
+                {id: '1', title: 'Work'},
+                {id: '2', title: 'Work'},
+            ];
+            expect(resolveFolderIdByTitle(rows, 'Work')).toEqual({reason: 'Notebook title "Work" is ambiguous'});
         });
     });
 });

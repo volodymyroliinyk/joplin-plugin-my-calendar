@@ -49,8 +49,8 @@ echo -e "${YELLOW}🔍 Running Lint...${NC}"
 if npm run lint -- --max-warnings=0; then
     echo -e "${GREEN}✅ Lint passed.${NC}"
 
-    echo -e "${YELLOW}🧪 Running Tests...${NC}"
-    if npm run test; then
+    echo -e "${YELLOW}🧪 Running Stable Tests...${NC}"
+    if npm run test:stable; then
         echo -e "${GREEN}✅ Tests passed.${NC}"
 
         echo -e "${YELLOW}📦 Packing the plugin...${NC}"

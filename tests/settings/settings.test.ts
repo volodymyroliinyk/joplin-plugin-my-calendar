@@ -40,6 +40,77 @@ describe('settings.ts logic', () => {
         });
     });
 
+    describe('sanitizeSecureExternalUrl', () => {
+        test('keeps valid https URLs only', () => {
+            expect(settings.sanitizeSecureExternalUrl('https://example.com/a.ics')).toBe('https://example.com/a.ics');
+            expect(settings.sanitizeSecureExternalUrl('http://example.com/a.ics')).toBe('');
+        });
+    });
+
+    describe('sanitizeAlarmEmoji', () => {
+        test('trims and keeps short prefixes', () => {
+            expect(settings.sanitizeAlarmEmoji('  🔕  ')).toBe('🔕');
+        });
+
+        test('removes control characters and truncates long values', () => {
+            expect(settings.sanitizeAlarmEmoji(' \n🔔\tcustom-prefix'.repeat(3))).toHaveLength(16);
+        });
+
+        test('returns empty string for blank values', () => {
+            expect(settings.sanitizeAlarmEmoji('   ')).toBe('');
+        });
+    });
+
+    describe('sanitizeHexColor', () => {
+        test('keeps valid short and full hex colors and normalizes to lowercase', () => {
+            expect(settings.sanitizeHexColor('#abc')).toBe('#abc');
+            expect(settings.sanitizeHexColor('#A1B2C3')).toBe('#a1b2c3');
+        });
+
+        test('returns empty string for invalid values', () => {
+            expect(settings.sanitizeHexColor('ffa334')).toBe('');
+            expect(settings.sanitizeHexColor('#12')).toBe('');
+            expect(settings.sanitizeHexColor('#12345g')).toBe('');
+        });
+    });
+
+    describe('parseScheduledIcsImportEntries', () => {
+        test('keeps only unique valid https URL + notebook title pairs', () => {
+            const raw = [
+                'https://example.com/a.ics | Work',
+                'http://example.com/b.ics | Bad',
+                'https://example.com/c.ics',
+                'https://example.com/a.ics | Work',
+                'https://example.com/c.ics | Personal',
+            ].join(' ;; ');
+
+            expect(settings.parseScheduledIcsImportEntries(raw)).toEqual([
+                {url: 'https://example.com/a.ics', notebookTitle: 'Work'},
+                {url: 'https://example.com/c.ics', notebookTitle: 'Personal'},
+            ]);
+        });
+
+        test('keeps all valid pairs without a legacy 4-item cap', () => {
+            const raw = [
+                'https://example.com/1.ics | Work',
+                'https://example.com/2.ics | Personal',
+                'https://example.com/3.ics | Family',
+                'https://example.com/4.ics | Travel',
+                'https://example.com/5.ics | Birthdays',
+                'https://example.com/6.ics | Projects',
+            ].join(' ;; ');
+
+            expect(settings.parseScheduledIcsImportEntries(raw)).toEqual([
+                {url: 'https://example.com/1.ics', notebookTitle: 'Work'},
+                {url: 'https://example.com/2.ics', notebookTitle: 'Personal'},
+                {url: 'https://example.com/3.ics', notebookTitle: 'Family'},
+                {url: 'https://example.com/4.ics', notebookTitle: 'Travel'},
+                {url: 'https://example.com/5.ics', notebookTitle: 'Birthdays'},
+                {url: 'https://example.com/6.ics', notebookTitle: 'Projects'},
+            ]);
+        });
+    });
+
     describe('sanitizeTitle', () => {
         test('passes through short strings', () => {
             expect(settings.sanitizeTitle('My Link')).toBe('My Link');
@@ -124,17 +195,42 @@ describe('settings.ts logic', () => {
         });
     });
 
+    describe('getTimelineNowLineColor logic', () => {
+        const mkJoplin = (val: any) => ({
+            settings: {value: jest.fn().mockResolvedValue(val)}
+        });
+
+        test('returns sanitized hex color or empty string', async () => {
+            await expect(settings.getTimelineNowLineColor(mkJoplin('#ffa334'))).resolves.toBe('#ffa334');
+            await expect(settings.getTimelineNowLineColor(mkJoplin('#FFA334'))).resolves.toBe('#ffa334');
+            await expect(settings.getTimelineNowLineColor(mkJoplin('bad-color'))).resolves.toBe('');
+            await expect(settings.getTimelineNowLineColor(mkJoplin(''))).resolves.toBe('');
+        });
+    });
+
+    describe('getDefaultEventColor logic', () => {
+        const mkJoplin = (val: any) => ({
+            settings: {value: jest.fn().mockResolvedValue(val)}
+        });
+
+        test('returns sanitized hex color or empty string', async () => {
+            await expect(settings.getDefaultEventColor(mkJoplin('#1470d9'))).resolves.toBe('#1470d9');
+            await expect(settings.getDefaultEventColor(mkJoplin('#AABBCC'))).resolves.toBe('#aabbcc');
+            await expect(settings.getDefaultEventColor(mkJoplin('blue'))).resolves.toBe('');
+            await expect(settings.getDefaultEventColor(mkJoplin(''))).resolves.toBe('');
+        });
+    });
+
     describe('getIcsExportLinks filtering and sanitization', () => {
-        test('filters out invalid URLs and sanitizes titles', async () => {
+        test('parses new export link pairs format, filters invalid URLs, and sanitizes titles', async () => {
             const mockJoplin = {
                 settings: {
                     value: jest.fn().mockImplementation((key) => {
-                        if (key.includes('Link1Title')) return ' Good Link ';
-                        if (key.includes('Link1Url')) return 'https://ok.com';
-                        if (key.includes('Link2Title')) return 'Bad';
-                        if (key.includes('Link2Url')) return 'javascript:alert(1)';
-                        if (key.includes('Link3Title')) return 'x'.repeat(100);
-                        if (key.includes('Link3Url')) return 'http://ok2.com';
+                        if (key === settings.SETTING_ICS_EXPORT_LINK_PAIRS) {
+                            return ` Good Link | https://ok.com ;;
+                                Bad | javascript:alert(1) ;;
+                                ${'x'.repeat(100)} | http://ok2.com `;
+                        }
                         return '';
                     }),
                 },
@@ -145,6 +241,99 @@ describe('settings.ts logic', () => {
             expect(links[0]).toEqual({title: 'Good Link', url: 'https://ok.com/'});
             expect(links[1].title).toHaveLength(60);
             expect(links[1].url).toBe('http://ok2.com/');
+        });
+
+        test('returns all valid export pairs without a legacy 4-item cap', async () => {
+            const mockJoplin = {
+                settings: {
+                    value: jest.fn().mockImplementation((key) => {
+                        if (key === settings.SETTING_ICS_EXPORT_LINK_PAIRS) {
+                            return [
+                                'One | https://example.test/1.ics',
+                                'Two | https://example.test/2.ics',
+                                'Three | https://example.test/3.ics',
+                                'Four | https://example.test/4.ics',
+                                'Five | https://example.test/5.ics',
+                                'Six | https://example.test/6.ics',
+                            ].join(' ;; ');
+                        }
+                        return '';
+                    }),
+                },
+            };
+
+            await expect(settings.getIcsExportLinks(mockJoplin)).resolves.toEqual([
+                {title: 'One', url: 'https://example.test/1.ics'},
+                {title: 'Two', url: 'https://example.test/2.ics'},
+                {title: 'Three', url: 'https://example.test/3.ics'},
+                {title: 'Four', url: 'https://example.test/4.ics'},
+                {title: 'Five', url: 'https://example.test/5.ics'},
+                {title: 'Six', url: 'https://example.test/6.ics'},
+            ]);
+        });
+
+        test('falls back to legacy export link fields when new pairs field is empty', async () => {
+            const mockJoplin = {
+                settings: {
+                    value: jest.fn().mockImplementation((key) => {
+                        if (key === settings.SETTING_ICS_EXPORT_LINK_PAIRS) return '';
+                        if (key.includes('Link1Title')) return ' Work ';
+                        if (key.includes('Link1Url')) return 'https://example.test/work.ics';
+                        return '';
+                    }),
+                },
+            };
+
+            await expect(settings.getIcsExportLinks(mockJoplin)).resolves.toEqual([
+                {title: 'Work', url: 'https://example.test/work.ics'},
+            ]);
+        });
+    });
+
+    describe('scheduled ICS import settings helpers', () => {
+        const mkJoplin = (map: Record<string, any>) => ({
+            settings: {
+                value: jest.fn(async (key: string) => map[key]),
+            },
+        });
+
+        test('getScheduledIcsImportEntries returns sanitized HTTPS URL + notebook title pairs only', async () => {
+            const joplin = mkJoplin({
+                [settings.SETTING_ICS_SCHEDULED_IMPORT_PAIRS]: 'https://example.com/a.ics | Work ;; http://bad.test/x.ics | Bad ;; https://example.com/b.ics | Personal',
+            });
+
+            await expect(settings.getScheduledIcsImportEntries(joplin)).resolves.toEqual([
+                {url: 'https://example.com/a.ics', notebookTitle: 'Work'},
+                {url: 'https://example.com/b.ics', notebookTitle: 'Personal'},
+            ]);
+        });
+
+        test('getScheduledIcsImportIntervalMinutes clamps to 5-1440 with default 60', async () => {
+            await expect(settings.getScheduledIcsImportIntervalMinutes(mkJoplin({
+                [settings.SETTING_ICS_SCHEDULED_IMPORT_INTERVAL_MINUTES]: null,
+            }))).resolves.toBe(60);
+
+            await expect(settings.getScheduledIcsImportIntervalMinutes(mkJoplin({
+                [settings.SETTING_ICS_SCHEDULED_IMPORT_INTERVAL_MINUTES]: 1,
+            }))).resolves.toBe(5);
+
+            await expect(settings.getScheduledIcsImportIntervalMinutes(mkJoplin({
+                [settings.SETTING_ICS_SCHEDULED_IMPORT_INTERVAL_MINUTES]: 5000,
+            }))).resolves.toBe(1440);
+        });
+
+        test('getIcsImportAlarmEmoji returns sanitized custom value with default fallback', async () => {
+            await expect(settings.getIcsImportAlarmEmoji(mkJoplin({
+                [settings.SETTING_ICS_IMPORT_ALARM_EMOJI]: '  ⏰  ',
+            }))).resolves.toBe('⏰');
+
+            await expect(settings.getIcsImportAlarmEmoji(mkJoplin({
+                [settings.SETTING_ICS_IMPORT_ALARM_EMOJI]: '   ',
+            }))).resolves.toBe('🔔');
+        });
+
+        test('sanitizeNotebookTitle trims unsafe whitespace', () => {
+            expect(settings.sanitizeNotebookTitle('  Work\t')).toBe('Work');
         });
     });
 
@@ -202,12 +391,14 @@ describe('settings.ts logic', () => {
     });
 
     describe('registerSettings onChange sanitization + debug toggle', () => {
-        test('sanitizes touched URL/title and updates logger when debug changes', async () => {
+        test('sanitizes touched export pairs, alarm emoji, hex colors, and updates logger when debug changes', async () => {
             const onChangeHandlers: Array<(e: any) => Promise<void>> = [];
 
             const values = new Map<string, any>([
-                [settings.SETTING_ICS_EXPORT_LINK1_URL, 'javascript:alert(1)'],
-                [settings.SETTING_ICS_EXPORT_LINK1_TITLE, '  ' + 'x'.repeat(100) + '  '],
+                [settings.SETTING_ICS_EXPORT_LINK_PAIRS, `  ${'x'.repeat(100)} | https://ok.test/a.ics ;; Bad | javascript:alert(1) `],
+                [settings.SETTING_ICS_IMPORT_ALARM_EMOJI, ' \n⏰\t '],
+                [settings.SETTING_DEFAULT_EVENT_COLOR, '  dodgerblue  '],
+                [settings.SETTING_TIMELINE_NOW_LINE_COLOR, '  orange  '],
                 [settings.SETTING_DEBUG, true],
             ]);
 
@@ -228,25 +419,68 @@ describe('settings.ts logic', () => {
 
             await settings.registerSettings(joplin);
 
-            // trigger onChange with URL + Title + Debug touched
+            // trigger onChange with export pairs + Debug touched
             await onChangeHandlers[0]({
                 keys: [
-                    settings.SETTING_ICS_EXPORT_LINK1_URL,
-                    settings.SETTING_ICS_EXPORT_LINK1_TITLE,
+                    settings.SETTING_ICS_EXPORT_LINK_PAIRS,
+                    settings.SETTING_ICS_IMPORT_ALARM_EMOJI,
+                    settings.SETTING_DEFAULT_EVENT_COLOR,
+                    settings.SETTING_TIMELINE_NOW_LINE_COLOR,
                     settings.SETTING_DEBUG,
                 ],
             });
 
-            // URL should be wiped
-            expect(joplin.settings.setValue).toHaveBeenCalledWith(settings.SETTING_ICS_EXPORT_LINK1_URL, '');
-            // Title should be trimmed+truncated to 60
-            const titleSetCalls = (joplin.settings.setValue as any).mock.calls
-                .filter((c: any[]) => c[0] === settings.SETTING_ICS_EXPORT_LINK1_TITLE);
-            expect(titleSetCalls).toHaveLength(1);
-            expect(String(titleSetCalls[0][1]).length).toBe(60);
+            expect(joplin.settings.setValue).toHaveBeenCalledWith(
+                settings.SETTING_ICS_EXPORT_LINK_PAIRS,
+                `${'x'.repeat(60)} | https://ok.test/a.ics`,
+            );
+            expect(joplin.settings.setValue).toHaveBeenCalledWith(
+                settings.SETTING_ICS_IMPORT_ALARM_EMOJI,
+                '⏰',
+            );
+            expect(joplin.settings.setValue).toHaveBeenCalledWith(
+                settings.SETTING_DEFAULT_EVENT_COLOR,
+                '',
+            );
+            expect(joplin.settings.setValue).toHaveBeenCalledWith(
+                settings.SETTING_TIMELINE_NOW_LINE_COLOR,
+                '',
+            );
 
             // Debug should update logger
             expect(setDebugEnabled).toHaveBeenCalledWith(true);
+        });
+
+        test('sanitizes scheduled import pairs to HTTPS-only ;;-separated url|title values', async () => {
+            const onChangeHandlers: Array<(e: any) => Promise<void>> = [];
+
+            const values = new Map<string, any>([
+                [settings.SETTING_ICS_SCHEDULED_IMPORT_PAIRS, ' https://example.com/a.ics | Work ;; http://bad.test/b.ics | Bad ;; https://example.com/a.ics | Work '],
+                [settings.SETTING_DEBUG, false],
+            ]);
+
+            const joplin = {
+                versionInfo: jest.fn().mockResolvedValue({platform: 'desktop'}),
+                settings: {
+                    registerSection: jest.fn().mockResolvedValue(undefined),
+                    registerSettings: jest.fn().mockResolvedValue(undefined),
+                    onChange: jest.fn(async (cb: any) => {
+                        onChangeHandlers.push(cb);
+                    }),
+                    setValue: jest.fn(async (k: string, v: any) => {
+                        values.set(k, v);
+                    }),
+                    value: jest.fn(async (k: string) => values.get(k)),
+                },
+            };
+
+            await settings.registerSettings(joplin as any);
+            await onChangeHandlers[0]({keys: [settings.SETTING_ICS_SCHEDULED_IMPORT_PAIRS]});
+
+            expect(joplin.settings.setValue).toHaveBeenCalledWith(
+                settings.SETTING_ICS_SCHEDULED_IMPORT_PAIRS,
+                'https://example.com/a.ics | Work',
+            );
         });
     });
 
@@ -273,9 +507,18 @@ describe('settings.ts logic', () => {
             expect(arg[settings.SETTING_ICS_IMPORT_ALARMS_ENABLED]).toBeDefined();
             expect(arg[settings.SETTING_ICS_IMPORT_ALARMS_ENABLED].value).toBe(false);
             expect(arg[settings.SETTING_ICS_IMPORT_ALARMS_ENABLED].type).toBe(3); // bool
+            expect(arg[settings.SETTING_ICS_IMPORT_ALARM_EMOJI]).toBeDefined();
+            expect(arg[settings.SETTING_ICS_IMPORT_ALARM_EMOJI].value).toBe('🔔');
+            expect(arg[settings.SETTING_ICS_SCHEDULED_IMPORT_PAIRS]).toBeDefined();
+            expect(arg[settings.SETTING_ICS_EXPORT_LINK_PAIRS]).toBeDefined();
+            expect(arg[settings.SETTING_ICS_SCHEDULED_IMPORT_INTERVAL_MINUTES].value).toBe(60);
             expect(arg[settings.SETTING_DAY_EVENTS_VIEW_MODE]).toBeDefined();
             expect(arg[settings.SETTING_DAY_EVENTS_VIEW_MODE].value).toBe('single');
             expect(arg[settings.SETTING_DAY_EVENTS_VIEW_MODE].isEnum).toBe(true);
+            expect(arg[settings.SETTING_DEFAULT_EVENT_COLOR]).toBeDefined();
+            expect(arg[settings.SETTING_DEFAULT_EVENT_COLOR].value).toBe('');
+            expect(arg[settings.SETTING_TIMELINE_NOW_LINE_COLOR]).toBeDefined();
+            expect(arg[settings.SETTING_TIMELINE_NOW_LINE_COLOR].value).toBe('');
         });
     });
 });

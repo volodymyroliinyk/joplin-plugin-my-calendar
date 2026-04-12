@@ -14,6 +14,8 @@ export type UiSettingsMessage = {
     icsExportLinks: IcsExportLink[];
     dayEventsRefreshMinutes: unknown;
     showEventTimeline: boolean;
+    defaultEventColor: string;
+    timelineNowLineColor: string;
     showWeekNumbers: boolean;
     timeFormat: settings.TimeFormat;
     dayEventsViewMode: settings.DayEventsViewMode;
@@ -41,12 +43,14 @@ async function getIcsExportLinksCompat(joplin: unknown): Promise<IcsExportLink[]
  * Separated for easier unit testing and future reuse.
  */
 export async function buildUiSettingsMessage(joplin: unknown): Promise<UiSettingsMessage> {
-    const [weekStart, debugRaw, icsExportLinks, dayEventsRefreshMinutes, showEventTimeline, showWeekNumbers, timeFormat, dayEventsViewMode] = await Promise.all([
+    const [weekStart, debugRaw, icsExportLinks, dayEventsRefreshMinutes, showEventTimeline, defaultEventColor, timelineNowLineColor, showWeekNumbers, timeFormat, dayEventsViewMode] = await Promise.all([
         settings.getWeekStart(joplin as any),
         settings.getDebugEnabled(joplin as any),
         getIcsExportLinksCompat(joplin),
         settings.getDayEventsRefreshMinutes(joplin as any),
         settings.getShowEventTimeline(joplin as any),
+        settings.getDefaultEventColor(joplin as any),
+        settings.getTimelineNowLineColor(joplin as any),
         settings.getShowWeekNumbers(joplin as any),
         settings.getTimeFormat(joplin as any),
         settings.getDayEventsViewMode(joplin as any),
@@ -64,6 +68,8 @@ export async function buildUiSettingsMessage(joplin: unknown): Promise<UiSetting
         icsExportLinks,
         dayEventsRefreshMinutes,
         showEventTimeline,
+        defaultEventColor,
+        timelineNowLineColor,
         showWeekNumbers,
         timeFormat,
         dayEventsViewMode,

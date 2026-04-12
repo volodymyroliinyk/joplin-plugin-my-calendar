@@ -1,6 +1,7 @@
 // src/main/settings/settings.ts
 
 import {setDebugEnabled} from '../utils/logger';
+import {normalizeHexColor} from '../utils/colorUtils';
 
 // Common
 export const SETTING_DEBUG = 'mycalendar.debug';
@@ -14,15 +15,21 @@ export const SETTING_DAY_EVENTS_VIEW_MODE = 'mycalendar.dayEventsViewMode';
 export const SETTING_TIME_FORMAT = 'mycalendar.timeFormat';
 export const SETTING_DAY_EVENTS_REFRESH_MINUTES = 'mycalendar.dayEventsRefreshMinutes';
 export const SETTING_SHOW_EVENT_TIMELINE = 'mycalendar.showEventTimeline';
+export const SETTING_TIMELINE_NOW_LINE_COLOR = 'mycalendar.timelineNowLineColor';
+export const SETTING_DEFAULT_EVENT_COLOR = 'mycalendar.defaultEventColor';
 
 // ICS Import
 export const SETTING_ICS_IMPORT_ALARMS_ENABLED = 'mycalendar.icsImportAlarmsEnabled';
 export const SETTING_ICS_IMPORT_ALARM_RANGE_DAYS = 'mycalendar.icsImportAlarmRangeDays';
 export const SETTING_ICS_IMPORT_EMPTY_TRASH_AFTER = 'mycalendar.icsImportEmptyTrashAfter';
+export const SETTING_ICS_IMPORT_ALARM_EMOJI = 'mycalendar.icsImportAlarmEmoji';
+export const SETTING_ICS_SCHEDULED_IMPORT_PAIRS = 'mycalendar.icsScheduledImportPairs';
+export const SETTING_ICS_SCHEDULED_IMPORT_INTERVAL_MINUTES = 'mycalendar.icsScheduledImportIntervalMinutes';
 
 // Export links
+export const SETTING_ICS_EXPORT_LINK_PAIRS = 'mycalendar.icsExportLinkPairs';
 
-// New multi-link settings (up to 4). Titles are optional.
+// Legacy multi-link settings. Kept as hidden fallback for existing installs.
 export const SETTING_ICS_EXPORT_LINK1_TITLE = 'mycalendar.icsExportLink1Title';
 export const SETTING_ICS_EXPORT_LINK1_URL = 'mycalendar.icsExportLink1Url';
 export const SETTING_ICS_EXPORT_LINK2_TITLE = 'mycalendar.icsExportLink2Title';
@@ -42,7 +49,14 @@ export type IcsExportLink = {
     url: string;
 };
 
+export type ScheduledIcsImportEntry = {
+    url: string;
+    notebookTitle: string;
+};
+
 const TITLE_MAX_LEN = 60;
+const ALARM_EMOJI_DEFAULT = '🔔';
+const ALARM_EMOJI_MAX_LEN = 16;
 
 // Avoid magic numbers for setting item types (Joplin: int=1, string=2, bool=3)
 const SETTING_TYPE_INT = 1;
@@ -58,6 +72,18 @@ const ICS_EXPORT_LINK_PAIRS: Array<{ titleKey: string; urlKey: string }> = [
 
 const ICS_EXPORT_URL_KEYS = ICS_EXPORT_LINK_PAIRS.map(p => p.urlKey);
 const ICS_EXPORT_TITLE_KEYS = ICS_EXPORT_LINK_PAIRS.map(p => p.titleKey);
+const SCHEDULED_ICS_IMPORT_MINUTES_DEFAULT = 60;
+const SCHEDULED_ICS_IMPORT_MINUTES_MIN = 5;
+const SCHEDULED_ICS_IMPORT_MINUTES_MAX = 24 * 60;
+
+export const SCHEDULED_ICS_IMPORT_SETTING_KEYS = [
+    SETTING_ICS_SCHEDULED_IMPORT_PAIRS,
+    SETTING_ICS_SCHEDULED_IMPORT_INTERVAL_MINUTES,
+    SETTING_ICS_IMPORT_ALARMS_ENABLED,
+    SETTING_ICS_IMPORT_ALARM_RANGE_DAYS,
+    SETTING_ICS_IMPORT_EMPTY_TRASH_AFTER,
+    SETTING_ICS_IMPORT_ALARM_EMOJI,
+] as const;
 
 export function sanitizeExternalUrl(input: unknown): string {
     const s = String(input ?? '').trim();
@@ -73,11 +99,119 @@ export function sanitizeExternalUrl(input: unknown): string {
     }
 }
 
+export function sanitizeSecureExternalUrl(input: unknown): string {
+    const safe = sanitizeExternalUrl(input);
+    if (!safe) return '';
+
+    try {
+        const u = new URL(safe);
+        return u.protocol === 'https:' ? u.toString() : '';
+    } catch {
+        return '';
+    }
+}
+
+export function sanitizeNotebookTitle(input: unknown): string {
+    const text = String(input ?? '');
+    let out = '';
+
+    for (const ch of text) {
+        const code = ch.charCodeAt(0);
+        out += (code <= 0x1f || code === 0x7f) ? ' ' : ch;
+    }
+
+    return out.trim();
+}
+
+export function sanitizeAlarmEmoji(input: unknown): string {
+    const text = String(input ?? '');
+    let out = '';
+
+    for (const ch of text) {
+        const code = ch.charCodeAt(0);
+        out += (code <= 0x1f || code === 0x7f) ? ' ' : ch;
+    }
+
+    const compact = out.replace(/\s+/g, ' ').trim();
+    if (!compact) return '';
+    return compact.length > ALARM_EMOJI_MAX_LEN ? compact.slice(0, ALARM_EMOJI_MAX_LEN) : compact;
+}
+
+export function parseScheduledIcsImportEntries(input: unknown): ScheduledIcsImportEntry[] {
+    const raw = String(input ?? '');
+    const seen = new Set<string>();
+    const out: ScheduledIcsImportEntry[] = [];
+
+    const normalized = raw.replace(/\r?\n/g, ' ;; ');
+
+    for (const line of normalized.split(';;')) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+
+        const separatorIndex = trimmed.indexOf('|');
+        if (separatorIndex < 0) continue;
+
+        const url = sanitizeSecureExternalUrl(trimmed.slice(0, separatorIndex));
+        const notebookTitle = sanitizeNotebookTitle(trimmed.slice(separatorIndex + 1));
+        if (!url || !notebookTitle) continue;
+
+        const dedupeKey = `${url}\n${notebookTitle}`;
+        if (seen.has(dedupeKey)) continue;
+        seen.add(dedupeKey);
+        out.push({url, notebookTitle});
+    }
+
+    return out;
+}
+
+export function sanitizeScheduledIcsImportEntries(input: unknown): string {
+    return parseScheduledIcsImportEntries(input)
+        .map(({url, notebookTitle}) => `${url} | ${notebookTitle}`)
+        .join(' ;; ');
+}
+
+export function parseIcsExportLinks(input: unknown): IcsExportLink[] {
+    const raw = String(input ?? '');
+    const seen = new Set<string>();
+    const out: IcsExportLink[] = [];
+
+    const normalized = raw.replace(/\r?\n/g, ' ;; ');
+
+    for (const line of normalized.split(';;')) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+
+        const separatorIndex = trimmed.indexOf('|');
+        if (separatorIndex < 0) continue;
+
+        const title = sanitizeTitle(trimmed.slice(0, separatorIndex));
+        const url = sanitizeExternalUrl(trimmed.slice(separatorIndex + 1));
+        if (!url) continue;
+
+        const dedupeKey = `${title}\n${url}`;
+        if (seen.has(dedupeKey)) continue;
+        seen.add(dedupeKey);
+        out.push({title, url});
+    }
+
+    return out;
+}
+
+export function sanitizeIcsExportLinks(input: unknown): string {
+    return parseIcsExportLinks(input)
+        .map(({title, url}) => `${title} | ${url}`)
+        .join(' ;; ');
+}
+
 export function sanitizeTitle(input: unknown): string {
     const s = String(input ?? '').trim();
     // Keep it short to avoid breaking the layout.
     if (!s) return '';
     return s.length > TITLE_MAX_LEN ? s.slice(0, TITLE_MAX_LEN) : s;
+}
+
+export function sanitizeHexColor(input: unknown): string {
+    return normalizeHexColor(input, {allowShort: true});
 }
 
 async function isMobile(joplin: any): Promise<boolean> {
@@ -170,6 +304,22 @@ export async function registerSettings(joplin: any) {
             label: 'Show event timeline',
             description: 'Day events section: Show a visual timeline bar under each event in the day list. Disabling this also stops related UI update timers (now dot / past status refresh).',
         },
+        [SETTING_DEFAULT_EVENT_COLOR]: {
+            value: '',
+            type: SETTING_TYPE_STRING,
+            section: 'mycalendar',
+            public: true,
+            label: 'Default event color (hex)',
+            description: 'ICS import section: Optional default event hex color for imported events without X-COLOR, for example #1470d9. Leave empty to use the built-in default color.',
+        },
+        [SETTING_TIMELINE_NOW_LINE_COLOR]: {
+            value: '',
+            type: SETTING_TYPE_STRING,
+            section: 'mycalendar',
+            public: true,
+            label: 'Current timeline line color (hex)',
+            description: 'Day events section: Optional custom hex color for the current-time timeline line, for example #ffa334. Leave empty to use the default theme color.',
+        },
 
         // 7) ICS Import
         [SETTING_ICS_IMPORT_ALARMS_ENABLED]: {
@@ -196,12 +346,45 @@ export async function registerSettings(joplin: any) {
             label: 'Empty trash after alarm cleanup',
             description: 'ICS import section: If enabled, the plugin will empty the trash after deleting old alarms. WARNING: This deletes ALL items in the trash bin.',
         },
-        // 8) ICS export links (up to 4)
+        [SETTING_ICS_IMPORT_ALARM_EMOJI]: {
+            value: ALARM_EMOJI_DEFAULT,
+            type: SETTING_TYPE_STRING,
+            section: 'mycalendar',
+            public: !mobile,
+            label: 'ICS reminder emoji',
+            description: 'ICS import section: Emoji or short prefix added to imported reminder note titles. Default: 🔔.',
+        },
+        [SETTING_ICS_SCHEDULED_IMPORT_PAIRS]: {
+            value: '',
+            type: SETTING_TYPE_STRING,
+            section: 'mycalendar',
+            public: !mobile,
+            label: 'Scheduled ICS import pairs (Link & Notebook Title)',
+            description: 'ICS import section: Use "https://...ics | Notebook Title ;; https://...ics | Another Notebook". Add as many valid pairs as needed. ";;" separates pairs, "|" separates URL and notebook title.',
+        },
+        [SETTING_ICS_SCHEDULED_IMPORT_INTERVAL_MINUTES]: {
+            value: SCHEDULED_ICS_IMPORT_MINUTES_DEFAULT,
+            type: SETTING_TYPE_INT,
+            section: 'mycalendar',
+            public: !mobile,
+            label: 'Scheduled ICS import interval (minutes)',
+            description: 'ICS import section: How often the plugin re-imports ICS URLs in the background. Allowed range: 5-1440 minutes.',
+        },
+        [SETTING_ICS_EXPORT_LINK_PAIRS]: {
+            value: '',
+            type: SETTING_TYPE_STRING,
+            section: 'mycalendar',
+            public: !mobile,
+            label: 'ICS export link pairs (Button Title & Link)',
+            description: 'ICS import section: Use "Button Title | https://... ;; Another Button | https://...". Add as many valid pairs as needed. ";;" separates buttons, "|" separates button title and URL.',
+        },
+
+        // Legacy hidden fallback settings for older installs
         [SETTING_ICS_EXPORT_LINK1_TITLE]: {
             value: '',
             type: SETTING_TYPE_STRING, // string
             section: 'mycalendar',
-            public: !mobile,
+            public: false,
             label: 'ICS export link 1 title',
             description: 'ICS import section: Optional title for export link #1 (shown on button).',
         },
@@ -209,7 +392,7 @@ export async function registerSettings(joplin: any) {
             value: '',
             type: SETTING_TYPE_STRING, // string
             section: 'mycalendar',
-            public: !mobile,
+            public: false,
             label: 'ICS export link 1 URL',
             description: 'ICS import section: Optional URL for export link #1 (http/https only).',
         },
@@ -218,7 +401,7 @@ export async function registerSettings(joplin: any) {
             value: '',
             type: SETTING_TYPE_STRING,
             section: 'mycalendar',
-            public: !mobile,
+            public: false,
             label: 'ICS export link 2 title',
             description: 'ICS import section: Optional title for export link #2 (shown on button).',
         },
@@ -226,7 +409,7 @@ export async function registerSettings(joplin: any) {
             value: '',
             type: SETTING_TYPE_STRING,
             section: 'mycalendar',
-            public: !mobile,
+            public: false,
             label: 'ICS export link 2 URL',
             description: 'ICS import section: Optional URL for export link #2 (http/https only).',
         },
@@ -235,7 +418,7 @@ export async function registerSettings(joplin: any) {
             value: '',
             type: SETTING_TYPE_STRING,
             section: 'mycalendar',
-            public: !mobile,
+            public: false,
             label: 'ICS export link 3 title',
             description: 'ICS import section: Optional title for export link #3 (shown on button).',
         },
@@ -243,7 +426,7 @@ export async function registerSettings(joplin: any) {
             value: '',
             type: SETTING_TYPE_STRING,
             section: 'mycalendar',
-            public: !mobile,
+            public: false,
             label: 'ICS export link 3 URL',
             description: 'ICS import section: Optional URL for export link #3 (http/https only).',
         },
@@ -252,7 +435,7 @@ export async function registerSettings(joplin: any) {
             value: '',
             type: SETTING_TYPE_STRING,
             section: 'mycalendar',
-            public: !mobile,
+            public: false,
             label: 'ICS export link 4 title',
             description: 'ICS import section: Optional title for export link #4 (shown on button).',
         },
@@ -260,7 +443,7 @@ export async function registerSettings(joplin: any) {
             value: '',
             type: SETTING_TYPE_STRING,
             section: 'mycalendar',
-            public: !mobile,
+            public: false,
             label: 'ICS export link 4 URL',
             description: 'ICS import section: Optional URL for export link #4 (http/https only).',
         },
@@ -296,16 +479,59 @@ export async function registerSettings(joplin: any) {
                     if (raw !== safe) await joplin.settings.setValue(key, safe);
                 };
 
+                const maybeFixScheduledPairs = async (key: string) => {
+                    const raw = await joplin.settings.value(key);
+                    const safe = sanitizeScheduledIcsImportEntries(raw);
+                    if (raw !== safe) await joplin.settings.setValue(key, safe);
+                };
+
+                const maybeFixHexColor = async (key: string) => {
+                    const raw = await joplin.settings.value(key);
+                    const safe = sanitizeHexColor(raw);
+                    if (raw !== safe) await joplin.settings.setValue(key, safe);
+                };
+
+                const maybeFixAlarmEmoji = async (key: string) => {
+                    const raw = await joplin.settings.value(key);
+                    const safe = sanitizeAlarmEmoji(raw) || ALARM_EMOJI_DEFAULT;
+                    if (raw !== safe) await joplin.settings.setValue(key, safe);
+                };
+
+                const maybeFixExportPairs = async (key: string) => {
+                    const raw = await joplin.settings.value(key);
+                    const safe = sanitizeIcsExportLinks(raw);
+                    if (raw !== safe) await joplin.settings.setValue(key, safe);
+                };
 
                 const touchedUrl = ICS_EXPORT_URL_KEYS.some((k) => keys.includes(k));
                 const touchedTitle = ICS_EXPORT_TITLE_KEYS.some((k) => keys.includes(k));
+                const touchedExportPairs = keys.includes(SETTING_ICS_EXPORT_LINK_PAIRS);
+                const touchedScheduledImportPairs = keys.includes(SETTING_ICS_SCHEDULED_IMPORT_PAIRS);
+                const touchedDefaultEventColor = keys.includes(SETTING_DEFAULT_EVENT_COLOR);
+                const touchedTimelineNowLineColor = keys.includes(SETTING_TIMELINE_NOW_LINE_COLOR);
+                const touchedAlarmEmoji = keys.includes(SETTING_ICS_IMPORT_ALARM_EMOJI);
                 const touchedDebug = keys.includes(SETTING_DEBUG);
-                if (!touchedUrl && !touchedTitle && !touchedDebug) return;
+                if (!touchedUrl && !touchedTitle && !touchedExportPairs && !touchedScheduledImportPairs && !touchedDefaultEventColor && !touchedTimelineNowLineColor && !touchedAlarmEmoji && !touchedDebug) return;
                 for (const k of ICS_EXPORT_URL_KEYS) {
                     if (keys.includes(k)) await maybeFixUrl(k);
                 }
                 for (const k of ICS_EXPORT_TITLE_KEYS) {
                     if (keys.includes(k)) await maybeFixTitle(k);
+                }
+                if (touchedExportPairs) {
+                    await maybeFixExportPairs(SETTING_ICS_EXPORT_LINK_PAIRS);
+                }
+                if (touchedScheduledImportPairs) {
+                    await maybeFixScheduledPairs(SETTING_ICS_SCHEDULED_IMPORT_PAIRS);
+                }
+                if (touchedDefaultEventColor) {
+                    await maybeFixHexColor(SETTING_DEFAULT_EVENT_COLOR);
+                }
+                if (touchedTimelineNowLineColor) {
+                    await maybeFixHexColor(SETTING_TIMELINE_NOW_LINE_COLOR);
+                }
+                if (touchedAlarmEmoji) {
+                    await maybeFixAlarmEmoji(SETTING_ICS_IMPORT_ALARM_EMOJI);
                 }
                 if (touchedDebug) {
                     const v = await joplin.settings.value(SETTING_DEBUG);
@@ -343,6 +569,16 @@ export async function getShowEventTimeline(joplin: any): Promise<boolean> {
     // Default should be true even if the setting is missing/undefined (older installs / migrations)
     if (raw === null || raw === undefined) return true;
     return Boolean(raw);
+}
+
+export async function getTimelineNowLineColor(joplin: any): Promise<string> {
+    const raw = await joplin.settings.value(SETTING_TIMELINE_NOW_LINE_COLOR);
+    return sanitizeHexColor(raw);
+}
+
+export async function getDefaultEventColor(joplin: any): Promise<string> {
+    const raw = await joplin.settings.value(SETTING_DEFAULT_EVENT_COLOR);
+    return sanitizeHexColor(raw);
 }
 
 export async function getDayEventsRefreshMinutes(joplin: any): Promise<number> {
@@ -385,7 +621,30 @@ export async function getIcsImportEmptyTrashAfter(joplin: any): Promise<boolean>
     return !!(await joplin.settings.value(SETTING_ICS_IMPORT_EMPTY_TRASH_AFTER));
 }
 
+export async function getIcsImportAlarmEmoji(joplin: any): Promise<string> {
+    const raw = await joplin.settings.value(SETTING_ICS_IMPORT_ALARM_EMOJI);
+    return sanitizeAlarmEmoji(raw) || ALARM_EMOJI_DEFAULT;
+}
+
+export async function getScheduledIcsImportIntervalMinutes(joplin: any): Promise<number> {
+    const raw = await joplin.settings.value(SETTING_ICS_SCHEDULED_IMPORT_INTERVAL_MINUTES);
+    if (raw === null || raw === undefined) return SCHEDULED_ICS_IMPORT_MINUTES_DEFAULT;
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return SCHEDULED_ICS_IMPORT_MINUTES_DEFAULT;
+    return Math.min(SCHEDULED_ICS_IMPORT_MINUTES_MAX, Math.max(SCHEDULED_ICS_IMPORT_MINUTES_MIN, Math.round(n)));
+}
+
+export async function getScheduledIcsImportEntries(joplin: any): Promise<ScheduledIcsImportEntry[]> {
+    const raw = await joplin.settings.value(SETTING_ICS_SCHEDULED_IMPORT_PAIRS);
+    return parseScheduledIcsImportEntries(raw);
+}
+
 export async function getIcsExportLinks(joplin: any): Promise<IcsExportLink[]> {
+    const pairsRaw = await joplin.settings.value(SETTING_ICS_EXPORT_LINK_PAIRS);
+    const parsedPairs = parseIcsExportLinks(pairsRaw);
+    if (parsedPairs.length > 0) {
+        return parsedPairs;
+    }
 
     const out: IcsExportLink[] = [];
 

@@ -2,6 +2,11 @@
 
 import {IcsEvent, IcsValarm} from '../types/icsTypes';
 import {icsDateToMyCalText} from '../utils/dateTimeUtils';
+import {normalizeColorIfHex, normalizeHexColor} from '../utils/colorUtils';
+
+function isValarmCandidate(value: unknown): value is Pick<IcsValarm, 'trigger'> & Partial<IcsValarm> {
+    return typeof value === 'object' && value !== null && typeof (value as { trigger?: unknown }).trigger === 'string';
+}
 
 export function unfoldIcsLines(ics: string): string[] {
     const raw = ics.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
@@ -58,13 +63,15 @@ export function normalizeRepeatFreq(freq?: string): 'none' | 'daily' | 'weekly' 
     if (!freq) return undefined;
     const f = freq.toLowerCase();
     if (f === 'none') return 'none';
-    if (f === 'daily' || f === 'weekly' || f === 'monthly' || f === 'yearly') return f as any;
+    if (f === 'daily' || f === 'weekly' || f === 'monthly' || f === 'yearly') return f;
     return undefined;
 }
 
 function hasMeaningfulEvent(ev: IcsEvent): boolean {
     return !!(
         ev.uid ||
+        ev.recurrence_id ||
+        ev.status ||
         ev.title ||
         ev.start ||
         ev.end ||
@@ -75,8 +82,28 @@ function hasMeaningfulEvent(ev: IcsEvent): boolean {
         ev.byweekday ||
         ev.bymonthday ||
         ev.repeat_until ||
+        (ev.exdates && ev.exdates.length) ||
         (ev.valarms && ev.valarms.length)
     );
+}
+
+function normalizeExceptionDate(value: string): string | undefined {
+    return icsDateToMyCalText(value) || value.trim() || undefined;
+}
+
+function appendUniqueExdate(ev: IcsEvent, exdate: string | undefined): void {
+    if (!exdate) return;
+    const normalized = exdate.trim();
+    if (!normalized) return;
+
+    if (!ev.exdates) {
+        ev.exdates = [normalized];
+        return;
+    }
+
+    if (!ev.exdates.includes(normalized)) {
+        ev.exdates.push(normalized);
+    }
 }
 
 export function parseRRule(rrule?: string): Partial<IcsEvent> {
@@ -106,11 +133,16 @@ export function parseRRule(rrule?: string): Partial<IcsEvent> {
 }
 
 function stripInlineComment(line: string): string {
+    const isColorPrefix = (textBeforeHash: string): boolean => /^\s*color\s*:\s*$/i.test(textBeforeHash);
+
     for (let i = 0; i < line.length; i++) {
         if (line[i] !== '#') continue;
         const prev = i > 0 ? line[i - 1] : '';
         if (prev === '\\') continue;
         if (i > 0 && /\s/.test(prev)) {
+            const hashTail = line.slice(i).trim();
+            const head = line.slice(0, i);
+            if (isColorPrefix(head) && normalizeHexColor(hashTail, {allowShort: true})) continue;
             return line.slice(0, i).trimEnd();
         }
     }
@@ -126,7 +158,8 @@ export function parseMyCalKeyValueText(text: string): IcsEvent[] {
     const flush = () => {
         const hasAny =
             !!cur.uid || !!cur.title || !!cur.start || !!cur.end || !!cur.description || !!cur.location || !!cur.color ||
-            !!cur.repeat || !!cur.byweekday || !!cur.bymonthday || !!cur.repeat_until || !!(cur.valarms && cur.valarms.length);
+            !!cur.repeat || !!cur.byweekday || !!cur.bymonthday || !!cur.repeat_until || !!cur.recurrence_id ||
+            !!cur.status || !!(cur.exdates && cur.exdates.length) || !!(cur.valarms && cur.valarms.length);
         if (hasAny) {
             events.push(cur);
             cur = {};
@@ -155,7 +188,7 @@ export function parseMyCalKeyValueText(text: string): IcsEvent[] {
         else if (k === 'title' || k === 'summary') cur.title = v;
         else if (k === 'description') cur.description = v;
         else if (k === 'location') cur.location = v;
-        else if (k === 'color') cur.color = v;
+        else if (k === 'color') cur.color = normalizeColorIfHex(v, {allowShort: true});
 
         else if (k === 'start') cur.start = v;
         else if (k === 'end') cur.end = v;
@@ -164,8 +197,8 @@ export function parseMyCalKeyValueText(text: string): IcsEvent[] {
         else if (k === 'valarm') {
             try {
                 const obj = JSON.parse(v);
-                if (obj && typeof obj === 'object' && typeof (obj as any).trigger === 'string') {
-                    (cur.valarms ??= []).push(obj as IcsValarm);
+                if (isValarmCandidate(obj)) {
+                    (cur.valarms ??= []).push(obj);
                 }
             } catch {
                 // ignore
@@ -177,6 +210,8 @@ export function parseMyCalKeyValueText(text: string): IcsEvent[] {
         } else if (k === 'repeat_until') cur.repeat_until = v;
         else if (k === 'byweekday') cur.byweekday = v;
         else if (k === 'bymonthday') cur.bymonthday = v;
+        else if (k === 'status') cur.status = v.toLowerCase();
+        else if (k === 'exdate') appendUniqueExdate(cur, v);
     }
 
     flush();
@@ -226,7 +261,7 @@ export function parseIcs(ics: string): IcsEvent[] {
             if (key === 'TRIGGER') {
                 curAlarm.trigger = value.trim();
                 const rel = (params['RELATED'] || '').toUpperCase();
-                if (rel === 'START' || rel === 'END') curAlarm.related = rel as any;
+                if (rel === 'START' || rel === 'END') curAlarm.related = rel;
             } else if (key === 'ACTION') {
                 curAlarm.action = value.trim();
             } else if (key === 'DESCRIPTION') {
@@ -246,10 +281,17 @@ export function parseIcs(ics: string): IcsEvent[] {
             (params['VALUE'] || '').toUpperCase() === 'DATE' || /^\d{8}$/.test(value.trim());
 
         if (key === 'UID') cur.uid = value.trim();
+        else if (key === 'STATUS') cur.status = value.trim().toLowerCase();
         else if (key === 'SUMMARY') cur.title = unescapeIcsText(value);
         else if (key === 'DESCRIPTION') cur.description = unescapeIcsText(value);
         else if (key === 'LOCATION') cur.location = unescapeIcsText(value);
-        else if (key === 'X-COLOR') cur.color = value.trim();
+        else if (key === 'X-COLOR') cur.color = normalizeColorIfHex(value, {allowShort: true});
+        else if (key === 'EXDATE') {
+            const values = value.split(',').map((part) => part.trim()).filter(Boolean);
+            for (const part of values) {
+                appendUniqueExdate(cur, normalizeExceptionDate(part));
+            }
+        }
 
         else if (key === 'DTSTART') {
             cur.start = icsDateToMyCalText(value) || value.trim();

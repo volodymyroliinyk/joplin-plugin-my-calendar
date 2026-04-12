@@ -231,6 +231,17 @@ describe('joplinUtils', () => {
             expect(extractEventColorFromBody(body, 'A', undefined)).toBe('red');
         });
 
+        test('normalizes hex color to lowercase for matching block', () => {
+            const body = [
+                '```mycalendar-event',
+                'uid: A',
+                'color: #AABBCC',
+                '```',
+            ].join('\n');
+
+            expect(extractEventColorFromBody(body, 'A', undefined)).toBe('#aabbcc');
+        });
+
         test('returns undefined when no matching block or no color line', () => {
             const body = [
                 '```mycalendar-event',

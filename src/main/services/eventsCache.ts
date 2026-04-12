@@ -45,6 +45,10 @@ export async function refreshNoteCache(joplin: JoplinLike, noteId: string): Prom
 
     try {
         const res = await joplin.data.get(['notes', noteId], {fields: [...NOTE_FIELDS]});
+        // Cache might be invalidated while awaiting the note fetch. In that case,
+        // abort incremental update and let the next ensureAllEventsCache() rebuild.
+        if (!allEventsCache) return;
+
         const extracted = extractEventsFromNote(res);
 
         // Update per-note cache
@@ -60,7 +64,9 @@ export async function refreshNoteCache(joplin: JoplinLike, noteId: string): Prom
     } catch (error) {
         // Note could be deleted or not accessible; remove its cache entries.
         eventCacheByNote.delete(noteId);
-        allEventsCache = allEventsCache.filter(e => e.id !== noteId);
+        if (allEventsCache) {
+            allEventsCache = allEventsCache.filter(e => e.id !== noteId);
+        }
         err('eventsCache', 'Error refreshing note cache:', error);
     }
 }

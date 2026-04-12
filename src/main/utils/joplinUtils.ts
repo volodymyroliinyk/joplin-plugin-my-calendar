@@ -1,5 +1,7 @@
 // src/main/utils/joplinUtils.ts
 
+import {normalizeColorIfHex} from './colorUtils';
+
 export function normalizeRecurrenceIdForKey(recurrenceId?: string): string {
     const v = (recurrenceId || '').trim();
     if (!v) return '';
@@ -105,7 +107,8 @@ export function replaceEventBlockByKey(
 
 function parseColor(inner: string): string | undefined {
     const m = inner.match(/^\s*color\s*:\s*(.+?)\s*$/im);
-    return m?.[1]?.trim();
+    if (!m?.[1]) return undefined;
+    return normalizeColorIfHex(m[1], {allowShort: true}) || undefined;
 }
 
 export function extractEventColorFromBody(body: string, uid: string, recurrenceId?: string): string | undefined {

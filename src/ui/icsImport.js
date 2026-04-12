@@ -7,6 +7,7 @@
     window.__mcUiSettings = window.__mcUiSettings || {
         weekStart: 'monday',
         debug: undefined,
+        defaultEventColor: '',
         // new multi-link format
         icsExportLinks: [],
     };
@@ -23,9 +24,27 @@
     const LS = {
         targetFolderId: 'mycalendar.targetFolderId',
         preserveLocalColor: 'mycalendar_preserve_local_color',
-        importColorEnabled: 'mycalendar_import_color_enabled',
-        importColorValue: 'mycalendar_import_color_value',
+        manualImportColorEnabled: 'mycalendar_manual_import_color_enabled',
+        manualImportColorValue: 'mycalendar_manual_import_color_value',
+        manualImportColorCustomized: 'mycalendar_manual_import_color_customized',
     };
+
+    const LEGACY_DEFAULT_IMPORT_COLOR = '#1470d9';
+
+    const MSG = Object.freeze({
+        UI_READY: 'uiReady',
+        REQUEST_FOLDERS: 'requestFolders',
+        UI_SETTINGS: 'uiSettings',
+        IMPORT_STATUS: 'importStatus',
+        IMPORT_DONE: 'importDone',
+        IMPORT_ERROR: 'importError',
+        FOLDERS: 'folders',
+        ICS_IMPORT: 'icsImport',
+    });
+
+    function postToPlugin(message) {
+        window.webviewApi?.postMessage?.(message);
+    }
 
     function safeGetLS(key, fallback = '') {
         try {
@@ -54,6 +73,37 @@
         } catch {
             return '';
         }
+    }
+
+    function normalizeHexColor(value) {
+        const raw = String(value || '').trim();
+        return /^#[0-9a-fA-F]{6}$/.test(raw) ? raw.toLowerCase() : '';
+    }
+
+    function getPluginImportDefaultColor() {
+        return normalizeHexColor(uiSettings.defaultEventColor);
+    }
+
+    function getBuiltInImportDefaultColor() {
+        return LEGACY_DEFAULT_IMPORT_COLOR;
+    }
+
+    function hasCustomizedImportColor() {
+        return safeGetLS(LS.manualImportColorCustomized, '0') === '1';
+    }
+
+    function shouldUseStoredImportColor(storedColor) {
+        const normalizedStored = normalizeHexColor(storedColor);
+        if (!normalizedStored) return false;
+        if (normalizedStored === LEGACY_DEFAULT_IMPORT_COLOR) return hasCustomizedImportColor();
+        return true;
+    }
+
+    function resolveInitialImportColor(storedColor) {
+        const pluginImportColor = getPluginImportDefaultColor();
+        if (shouldUseStoredImportColor(storedColor)) return normalizeHexColor(storedColor);
+        if (pluginImportColor) return pluginImportColor;
+        return getBuiltInImportDefaultColor();
     }
 
     function el(tag, attrs = {}, children = []) {
@@ -228,17 +278,7 @@
 
         function renderExportLinks() {
             exportLinkBox.textContent = '';
-
-            const rawLinks = Array.isArray(uiSettings.icsExportLinks) ? uiSettings.icsExportLinks : [];
-            const links = [];
-
-            for (const it of rawLinks) {
-                if (!it) continue;
-                const url = sanitizeExternalUrl(it.url);
-                if (!url) continue;
-                const title = String(it.title ?? '').trim();
-                links.push({title, url});
-            }
+            const links = getSafeExportLinks();
 
             if (!links.length) return;
 
@@ -303,7 +343,7 @@
             {
                 type: 'button',
                 class: 'mc-setting-btn',
-                onclick: () => window.webviewApi?.postMessage?.({name: 'requestFolders'}),
+                onclick: requestFolders,
             },
             ['Reload'],
         );
@@ -343,17 +383,40 @@
         });
 
         let preserveLocalColor = safeGetLS(LS.preserveLocalColor, '1') !== '0';
-        let importColorEnabled = safeGetLS(LS.importColorEnabled, '0') === '1';
-        let importColorValue = safeGetLS(LS.importColorValue, '#1470d9');
-        if (!/^#[0-9a-fA-F]{6}$/.test(importColorValue)) importColorValue = '#1470d9';
+        let manualImportColorEnabled = safeGetLS(LS.manualImportColorEnabled, '0') === '1';
+        const storedImportColor = safeGetLS(LS.manualImportColorValue, '');
+        let manualImportColorValue = resolveInitialImportColor(storedImportColor);
+
+        function getSafeExportLinks() {
+            const rawLinks = Array.isArray(uiSettings.icsExportLinks) ? uiSettings.icsExportLinks : [];
+            const links = [];
+
+            for (const it of rawLinks) {
+                if (!it) continue;
+                const url = sanitizeExternalUrl(it.url);
+                if (!url) continue;
+                links.push({
+                    title: String(it.title ?? '').trim(),
+                    url,
+                });
+            }
+
+            return links;
+        }
+
+        function requestFolders() {
+            postToPlugin({name: MSG.REQUEST_FOLDERS});
+        }
 
         const importColorPicker = el('input', {
             type: 'color',
-            value: importColorValue,
-            disabled: !importColorEnabled,
+            value: manualImportColorValue,
+            disabled: !manualImportColorEnabled,
             onchange: () => {
-                importColorValue = String(importColorPicker.value || '').trim();
-                safeSetLS(LS.importColorValue, importColorValue);
+                manualImportColorValue = normalizeHexColor(importColorPicker.value);
+                importColorPicker.value = manualImportColorValue || getBuiltInImportDefaultColor();
+                safeSetLS(LS.manualImportColorValue, manualImportColorValue);
+                safeSetLS(LS.manualImportColorCustomized, '1');
             },
         });
 
@@ -394,14 +457,14 @@
                 reader.onload = () => {
                     const text = String(reader.result || '');
                     try {
-                        window.webviewApi?.postMessage?.({
-                            name: 'icsImport',
+                        postToPlugin({
+                            name: MSG.ICS_IMPORT,
                             mode: 'text',
                             ics: text,
                             source: `filepicker:${f.name}`,
                             targetFolderId,
                             preserveLocalColor,
-                            importDefaultColor: importColorEnabled ? importColorValue : undefined,
+                            defaultColor: manualImportColorEnabled ? manualImportColorValue : undefined,
                         });
                         // IMPORTANT: keep import state until importDone/importError
                     } catch (e) {
@@ -444,11 +507,11 @@
 
         const importColorEnabledInput = el('input', {
             type: 'checkbox',
-            checked: importColorEnabled,
+            checked: manualImportColorEnabled,
             onchange: () => {
-                importColorEnabled = !!importColorEnabledInput.checked;
-                importColorPicker.disabled = !importColorEnabled;
-                safeSetLS(LS.importColorEnabled, importColorEnabled ? '1' : '0');
+                manualImportColorEnabled = !!importColorEnabledInput.checked;
+                importColorPicker.disabled = !manualImportColorEnabled;
+                safeSetLS(LS.manualImportColorEnabled, manualImportColorEnabled ? '1' : '0');
             },
         });
 
@@ -460,11 +523,11 @@
             ]),
             el('label', {class: 'mc-import-option-label'}, [
                 importColorEnabledInput,
-                el('span', {}, ['Set default color for imported events without color']),
+                el('span', {}, ['Apply fallback color during this manual import']),
             ]),
             el('div', {class: 'mc-import-color-picker-row'}, [
                 importColorPicker,
-                el('span', {class: 'mc-import-color-picker-label'}, ['Default import color']),
+                el('span', {class: 'mc-import-color-picker-label'}, ['Manual import fallback color']),
             ]),
         ]);
 
@@ -478,37 +541,42 @@
         mcRegisterOnMessage((msg) => {
             if (!msg || !msg.name) return;
 
-            switch (msg.name) {
-                case 'uiSettings': {
+            const handlers = {
+                [MSG.UI_SETTINGS]: () => {
                     if (typeof msg.debug === 'boolean') uiSettings.debug = msg.debug;
+                    if (typeof msg.defaultEventColor === 'string') uiSettings.defaultEventColor = msg.defaultEventColor;
                     if (Array.isArray(msg.icsExportLinks)) uiSettings.icsExportLinks = msg.icsExportLinks;
+                    manualImportColorValue = resolveInitialImportColor(safeGetLS(LS.manualImportColorValue, ''));
+                    importColorPicker.value = manualImportColorValue;
                     applyDebugUI();
-                    return;
-                }
-                case 'importStatus':
+                },
+                [MSG.IMPORT_STATUS]: () => {
                     uiLogger.log('[STATUS]', msg.text);
-                    return;
-                case 'importDone':
+                },
+                [MSG.IMPORT_DONE]: () => {
+                    const summary = `added=${msg.added} updated=${msg.updated} skipped=${msg.skipped} errors=${msg.errors}`
+                        + ((Number(msg.issues) || 0) > 0 ? ` issues=${msg.issues}` : '');
                     uiLogger.log(
                         '[DONE]',
-                        `added=${msg.added} updated=${msg.updated} skipped=${msg.skipped} errors=${msg.errors}`,
+                        summary,
                     );
                     setImportState(false);
-                    return;
-                case 'importError':
+                },
+                [MSG.IMPORT_ERROR]: () => {
                     uiLogger.log('[ERROR]', msg.error || 'unknown');
                     setImportState(false);
-                    return;
-                case 'folders':
+                },
+                [MSG.FOLDERS]: () => {
                     populateFolders(msg.folders);
-                    return;
-                default:
-                    return;
-            }
+                },
+            };
+
+            const handler = handlers[msg.name];
+            if (handler) handler();
         });
 
-        window.webviewApi?.postMessage?.({name: 'uiReady'});
-        window.webviewApi?.postMessage?.({name: 'requestFolders'});
+        postToPlugin({name: MSG.UI_READY});
+        requestFolders();
 
         uiLogger.debug('initialized');
     }

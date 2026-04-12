@@ -4,7 +4,7 @@
 //
 // TZ=UTC npx jest tests/main/pluginMain.test.ts --runInBand --no-cache;
 //
-import runPlugin from '../../src/main/pluginMain';
+import runPlugin, {__resetPluginMainForTests} from '../../src/main/pluginMain';
 import * as logger from '../../src/main/utils/logger';
 
 jest.mock('../../src/main/views/calendarView', () => ({
@@ -22,11 +22,22 @@ jest.mock('../../src/main/uiBridge/panelController', () => ({
 }));
 
 jest.mock('../../src/main/settings/settings', () => ({
+    SCHEDULED_ICS_IMPORT_SETTING_KEYS: [
+        'mycalendar.icsScheduledImportPairs',
+        'mycalendar.icsScheduledImportIntervalMinutes',
+        'mycalendar.icsImportAlarmsEnabled',
+        'mycalendar.icsImportAlarmRangeDays',
+        'mycalendar.icsImportEmptyTrashAfter',
+    ],
     registerSettings: jest.fn(),
 }));
 
 jest.mock('../../src/main/uiBridge/uiSettings', () => ({
     pushUiSettings: jest.fn(),
+}));
+
+jest.mock('../../src/main/services/scheduledIcsImportService', () => ({
+    startScheduledIcsImport: jest.fn(),
 }));
 
 import {createCalendarPanel} from '../../src/main/views/calendarView';
@@ -37,7 +48,7 @@ import {
 } from '../../src/main/services/eventsCache';
 import {registerCalendarPanelController} from '../../src/main/uiBridge/panelController';
 import {pushUiSettings} from '../../src/main/uiBridge/uiSettings';
-// import {registerSettings} from '../../src/main/settings/settings';
+import {startScheduledIcsImport} from '../../src/main/services/scheduledIcsImportService';
 
 type AnyFn = (...a: any[]) => any;
 
@@ -102,7 +113,7 @@ function makeJoplinMock(opts?: {
         settings: {
             registerSection: jest.fn().mockResolvedValue(undefined),
             registerSettings: jest.fn().mockResolvedValue(undefined),
-            value: jest.fn().mockResolvedValue('monday'), // default for weekStart (or false for debug)
+            value: jest.fn().mockResolvedValue('monday'),
             onChange: jest.fn().mockResolvedValue(undefined),
             settingItemType: {
                 Bool: 3,
@@ -131,6 +142,11 @@ function findCommand(commandsRegister: jest.Mock, name: string) {
 
 beforeEach(() => {
     jest.clearAllMocks();
+    __resetPluginMainForTests();
+    (startScheduledIcsImport as jest.Mock).mockResolvedValue({
+        refresh: jest.fn().mockResolvedValue(undefined),
+        stop: jest.fn(),
+    });
 });
 
 describe('pluginMain.runPlugin', () => {
@@ -167,6 +183,7 @@ describe('pluginMain.runPlugin', () => {
 
         expect(panels.show).toHaveBeenCalledWith('panel-1');
         expect(panels.focus).toHaveBeenCalledWith('panel-1');
+        expect(startScheduledIcsImport).toHaveBeenCalledTimes(1);
     });
 
     test('open command execute: does not crash when focus missing/throws, logs message', async () => {
@@ -204,6 +221,20 @@ describe('pluginMain.runPlugin', () => {
         errSpy.mockRestore();
     });
 
+    test('repeated runPlugin call does not reinitialize scheduled import or panel', async () => {
+        (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
+        (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);
+
+        const {joplin} = makeJoplinMock();
+
+        await runPlugin(joplin as any);
+        await runPlugin(joplin as any);
+
+        expect(createCalendarPanel).toHaveBeenCalledTimes(1);
+        expect(registerCalendarPanelController).toHaveBeenCalledTimes(1);
+        expect(startScheduledIcsImport).toHaveBeenCalledTimes(1);
+    });
+
     // test('workspace.onNoteChange invalidates note (if id) and always invalidates all events', async () => {
     test('workspace.onNoteChange refreshes note cache (if id)', async () => {
         (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
@@ -239,10 +270,12 @@ describe('pluginMain.runPlugin', () => {
         expect(invalidateAllEventsCache).toHaveBeenCalledTimes(1);
     });
 
-    test('settings.onChange callback pushes updated UI settings', async () => {
+    test('settings.onChange without keys still pushes UI settings but does not refresh scheduled ICS import', async () => {
         (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
         (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);
         (pushUiSettings as jest.Mock).mockResolvedValue(undefined);
+        const refresh = jest.fn().mockResolvedValue(undefined);
+        (startScheduledIcsImport as jest.Mock).mockResolvedValue({refresh, stop: jest.fn()});
 
         let onChangeCb: AnyFn | null = null;
         const {joplin} = makeJoplinMock();
@@ -257,6 +290,47 @@ describe('pluginMain.runPlugin', () => {
         await onChangeCb!({});
 
         expect(pushUiSettings).toHaveBeenCalledWith(joplin, 'panel-1');
+        expect(refresh).not.toHaveBeenCalled();
+    });
+
+    test('settings.onChange with scheduled-import key refreshes scheduled ICS import', async () => {
+        (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
+        (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);
+        const refresh = jest.fn().mockResolvedValue(undefined);
+        (startScheduledIcsImport as jest.Mock).mockResolvedValue({refresh, stop: jest.fn()});
+
+        let onChangeCb: AnyFn | null = null;
+        const {joplin} = makeJoplinMock();
+        (joplin.settings.onChange as jest.Mock).mockImplementation(async (cb: AnyFn) => {
+            onChangeCb = cb;
+        });
+
+        await runPlugin(joplin as any);
+
+        expect(onChangeCb).toBeTruthy();
+        await onChangeCb!({keys: ['mycalendar.icsScheduledImportPairs']});
+
+        expect(refresh).toHaveBeenCalledTimes(1);
+    });
+
+    test('settings.onChange for unrelated updates keeps scheduled ICS import idle', async () => {
+        (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
+        (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);
+        const refresh = jest.fn().mockResolvedValue(undefined);
+        (startScheduledIcsImport as jest.Mock).mockResolvedValue({refresh, stop: jest.fn()});
+
+        let onChangeCb: AnyFn | null = null;
+        const {joplin} = makeJoplinMock();
+        (joplin.settings.onChange as jest.Mock).mockImplementation(async (cb: AnyFn) => {
+            onChangeCb = cb;
+        });
+
+        await runPlugin(joplin as any);
+
+        expect(onChangeCb).toBeTruthy();
+        await onChangeCb!({keys: ['mycalendar.weekStart']});
+
+        expect(refresh).not.toHaveBeenCalled();
     });
 
     test('settings.onChange registration failure is non-fatal and toggle UI is still registered', async () => {
