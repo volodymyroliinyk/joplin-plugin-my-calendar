@@ -14,6 +14,14 @@
 
 set -e
 
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+STATUS_FILE="$REPO_ROOT/.test-status"
+
+record_test_status() {
+    local status="$1"
+    echo "$(date +%s)|$status" > "$STATUS_FILE"
+}
+
 # Colors for output
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -51,6 +59,7 @@ if npm run lint -- --max-warnings=0; then
 
     echo -e "${YELLOW}🧪 Running Stable Tests...${NC}"
     if npm run test:stable; then
+        record_test_status PASS
         echo -e "${GREEN}✅ Tests passed.${NC}"
 
         echo -e "${YELLOW}📦 Packing the plugin...${NC}"
@@ -59,6 +68,7 @@ if npm run lint -- --max-warnings=0; then
 
         echo -e "${GREEN}✅ Done! Your .jpl file is ready in the 'publish' folder.${NC}"
     else
+        record_test_status FAIL
         echo -e "${RED}❌ Tests failed!${NC}"
         exit 1
     fi
