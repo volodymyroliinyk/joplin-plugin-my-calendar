@@ -2,6 +2,40 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.7.0](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.6.3...v1.7.0) (2026-04-12)
+
+
+### ✨ Features
+
+* add automated ICS import from URLs ([598156b](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/598156bf4ce7e3fb104892df1a73531b7cb739d8))
+* add configurable timeline color and reminder emoji settings ([c9309e1](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/c9309e1d0dc55f350acae7c60bc09a5c7ba3ce64))
+* make ICS reminder emoji configurable ([75a79eb](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/75a79eb19d5d5cf681587395476fbb7867f6a102))
+* SETTING_IMPORT_DEFAULT_EVENT_COLOR for auto import and manual import ([6a1aa38](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/6a1aa38ecf2681d5a16e5bcaf366c0f938fd08b7))
+
+
+### ⚡ Performance Improvements
+
+* speed up ICS import by scoping note scans and parallelizing writes ([9789159](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/9789159fb2d5feb7ddd1469c0e3cb8e98a048fe0))
+
+
+### 🐛 Bug Fixes
+
+* **cache:** guard incremental note refresh against cache invalidation race ([7c1cb68](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/7c1cb68e84ff16f8a900930ee93f04ce0a0210d9))
+* **colors:** normalize all hex colors to lowercase across import and settings paths ([1140969](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/1140969df27cf07c2e1e43b7377d7e6438bf4915))
+* handle date-only repeat_until values and disable ICS alarms fallback ([0bbf21e](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/0bbf21e636d95824a9c056bb17b8dc349ea28252))
+* handle EXDATE and cancelled recurring ICS exceptions ([66a7f72](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/66a7f722f45fb4b247bffd810666493063a9c437))
+* keep overlapping multi-day events in date click list ([6481302](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/648130280ea8920b479a09d40fe256d9a6c8ec4d))
+* make ICS event ownership deterministic during import ([0ffe209](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/0ffe2098002c693fcb279a213876df643c8ce22c))
+* normalize all imported and configured hex colors to lowercase ([dfa5e71](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/dfa5e71985a3663947fbf336cdfd7b468d8a8248))
+* normalize imported colors and dedupe recurring weekdays ([219a976](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/219a976b327a9b1cb65fd1f766442612bca3253b))
+* **parser:** preserve hex values in color field while keeping inline comment behavior for other fields ([2408a5d](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/2408a5d834a581577efe28a3d7329278c517635c))
+* preserve local day range and timezone-aware occurrence expansion ([7e17f57](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/7e17f57825f946885fe7f91d35254d8dd55f23ca))
+* remove legacy 4-pair cap for ICS settings ([f6ae1ec](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/f6ae1ec8a4b48f1f42b013caa06214ec771172fc))
+* scope default import color override to scheduled ICS import ([7eac35b](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/7eac35ba9af3262a84163b40143c6ef2b387e743))
+* scope default import color override to scheduled ICS import ([3ba1a22](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/3ba1a22254811f0040b9e8e8d9130f27c5afe571))
+* **toast:** prevent deleted ghost messages from endlessly reappearing after navigation ([70a9b54](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/70a9b549c97d679db2dd397f76b72c971fdfb6ec))
+* update .test-status in pre-pack workflow ([5ae2e8d](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/5ae2e8d95cb933132510ab3faba14704114f4cc2))
+
 ### [1.6.3](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.6.2...v1.6.3) (2026-03-21)
 
 ### [1.6.2](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.6.1...v1.6.2) (2026-03-17)
