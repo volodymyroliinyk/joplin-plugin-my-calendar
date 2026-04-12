@@ -5,6 +5,7 @@ coverage/
 dist/
 node_modules/
 reports/
+scripts/__pycache__/
 
 .test-status
 AGENTS.md
