@@ -6,6 +6,15 @@ import {normalizeHexColor} from '../utils/colorUtils';
 const MAX_TITLE_LEN = 500;
 const MAX_LOCATION_LEN = 1000;
 const MAX_DESCRIPTION_LEN = 10000;
+const WEEKDAY_ORDER: Record<string, number> = {
+    MO: 0,
+    TU: 1,
+    WE: 2,
+    TH: 3,
+    FR: 4,
+    SA: 5,
+    SU: 6,
+};
 
 /**
  * Ensures a value recorded in a ```mycalendar-event``` or ```mycalendar-alarm``` block
@@ -69,11 +78,53 @@ function valarmToJsonLine(a: IcsValarm): string {
     return JSON.stringify(o);
 }
 
+function canonicalizeByWeekday(value?: string): string | undefined {
+    if (!value) return undefined;
+
+    const tokens = value
+        .split(',')
+        .map((part) => part.trim().toUpperCase())
+        .filter(Boolean);
+
+    if (!tokens.length) return undefined;
+
+    const unique = Array.from(new Set(tokens));
+    unique.sort((a, b) => {
+        const ai = WEEKDAY_ORDER[a];
+        const bi = WEEKDAY_ORDER[b];
+        const aKnown = Number.isInteger(ai);
+        const bKnown = Number.isInteger(bi);
+
+        if (aKnown && bKnown) return ai - bi;
+        if (aKnown) return -1;
+        if (bKnown) return 1;
+        return a.localeCompare(b);
+    });
+
+    return unique.join(',');
+}
+
+function canonicalizeExdates(exdates?: string[]): string[] {
+    return Array.isArray(exdates)
+        ? [...new Set(exdates.map((value) => String(value || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b))
+        : [];
+}
+
+function canonicalizeValarms(valarms?: IcsValarm[]): string[] {
+    if (!Array.isArray(valarms) || !valarms.length) return [];
+    return valarms
+        .map((alarm) => valarmToJsonLine(alarm))
+        .sort((a, b) => a.localeCompare(b));
+}
+
 /**
  * Form the block ```mycalendar-event ... ```
  */
 export function buildMyCalBlock(ev: IcsEvent): string {
     const lines: string[] = [];
+    const canonicalByweekday = canonicalizeByWeekday(ev.byweekday);
+    const canonicalExdates = canonicalizeExdates(ev.exdates);
+    const canonicalValarms = canonicalizeValarms(ev.valarms);
     lines.push('```mycalendar-event');
 
     pushKV(lines, 'title', ev.title, {maxLen: MAX_TITLE_LEN});
@@ -94,11 +145,9 @@ export function buildMyCalBlock(ev: IcsEvent): string {
         pushKV(lines, 'description', ev.description, {singleLine: false, maxLen: MAX_DESCRIPTION_LEN});
     }
 
-    if (ev.valarms && ev.valarms.length) {
+    if (canonicalValarms.length) {
         lines.push('');
-        for (const a of ev.valarms) {
-            // valarm is JSON.
-            const json = valarmToJsonLine(a);
+        for (const json of canonicalValarms) {
             pushKV(lines, 'valarm', json);
         }
     }
@@ -110,12 +159,10 @@ export function buildMyCalBlock(ev: IcsEvent): string {
         pushKV(lines, 'repeat', repeat);
         lines.push(`repeat_interval: ${normalizePositiveInt(ev.repeat_interval, 1)}`);
         pushKV(lines, 'repeat_until', ev.repeat_until);
-        pushKV(lines, 'byweekday', ev.byweekday);
+        pushKV(lines, 'byweekday', canonicalByweekday);
         pushKV(lines, 'bymonthday', ev.bymonthday);
-        if (Array.isArray(ev.exdates)) {
-            for (const exdate of ev.exdates) {
-                pushKV(lines, 'exdate', exdate);
-            }
+        for (const exdate of canonicalExdates) {
+            pushKV(lines, 'exdate', exdate);
         }
     }
 

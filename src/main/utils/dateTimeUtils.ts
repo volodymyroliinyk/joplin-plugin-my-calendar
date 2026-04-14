@@ -159,5 +159,3 @@ export function formatTriggerDescription(trigger: string): string {
     }
     return 'at specific time';
 }
-
-
