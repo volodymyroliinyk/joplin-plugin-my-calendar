@@ -668,6 +668,190 @@ describe('icsImportService.importIcsIntoNotes', () => {
         expect(movedBody).toContain('start: 2025-01-22 12:00:00');
     });
 
+    test('reimport of Google recurring series with exceptions from basic(5).ics does not create duplicates or rewrite unchanged notes', async () => {
+        const ics = [
+            'BEGIN:VCALENDAR',
+            'BEGIN:VEVENT',
+            'DTSTART;TZID=Europe/Kiev:20200504T140000',
+            'DTEND;TZID=Europe/Kiev:20200504T143000',
+            'UID:1nr4bt0ccjb33gibphs1hrh0n1@google.com',
+            'RECURRENCE-ID;TZID=Europe/Kiev:20200504T140000',
+            'SUMMARY:Status Meeting',
+            'END:VEVENT',
+            'BEGIN:VEVENT',
+            'DTSTART;TZID=Europe/Kiev:20200427T140000',
+            'DTEND;TZID=Europe/Kiev:20200427T143000',
+            'RRULE:FREQ=WEEKLY;UNTIL=20200719T205959Z;BYDAY=MO',
+            'UID:1nr4bt0ccjb33gibphs1hrh0n1@google.com',
+            'SUMMARY:Status Meeting',
+            'END:VEVENT',
+            'BEGIN:VEVENT',
+            'DTSTART;TZID=Europe/Kiev:20200609T140000',
+            'DTEND;TZID=Europe/Kiev:20200609T143000',
+            'UID:1nr4bt0ccjb33gibphs1hrh0n1@google.com',
+            'RECURRENCE-ID;TZID=Europe/Kiev:20200608T140000',
+            'SUMMARY:Status Meeting',
+            'END:VEVENT',
+            'BEGIN:VEVENT',
+            'DTSTART;TZID=Europe/Kiev:20200427T140000',
+            'DTEND;TZID=Europe/Kiev:20200427T143000',
+            'UID:1nr4bt0ccjb33gibphs1hrh0n1@google.com',
+            'RECURRENCE-ID;TZID=Europe/Kiev:20200427T140000',
+            'SUMMARY:Status Meeting',
+            'END:VEVENT',
+            'END:VCALENDAR',
+        ].join('\n');
+
+        let nextId = 1;
+        const createdNotes: Array<{ id: string; title: string; body: string; parent_id?: string }> = [];
+        const firstImport = mkJoplin({
+            get: jest.fn().mockResolvedValue({items: [], has_more: false}),
+            post: jest.fn().mockImplementation(async (_path, _query, noteBody) => {
+                const id = `created-${nextId++}`;
+                createdNotes.push({
+                    id,
+                    title: noteBody.title,
+                    body: noteBody.body,
+                    parent_id: noteBody.parent_id,
+                });
+                return {id};
+            }),
+            put: jest.fn(),
+        });
+
+        const firstRes = await importIcsIntoNotes(firstImport as any, ics, undefined, 'nb1');
+
+        expect(firstRes.added).toBe(4);
+        expect(firstImport.data.put).not.toHaveBeenCalled();
+
+        const masterBody = createdNotes.find((n) => n.body.includes('repeat: weekly'))?.body || '';
+        expect(masterBody).toContain('exdate: 2020-04-27 14:00:00');
+        expect(masterBody).toContain('exdate: 2020-05-04 14:00:00');
+        expect(masterBody).toContain('exdate: 2020-06-08 14:00:00');
+
+        const secondImport = mkJoplin({
+            get: jest.fn().mockResolvedValue({items: createdNotes, has_more: false}),
+            post: jest.fn(),
+            put: jest.fn(),
+        });
+
+        const secondRes = await importIcsIntoNotes(secondImport as any, ics, undefined, 'nb1');
+
+        expect(secondImport.data.post).not.toHaveBeenCalled();
+        expect(secondImport.data.put).not.toHaveBeenCalled();
+        expect(secondRes).toEqual({
+            added: 0,
+            updated: 0,
+            skipped: 4,
+            errors: 0,
+            alarmsCreated: 0,
+            alarmsDeleted: 0,
+            alarmsUpdated: 0,
+            issues: 0,
+        });
+    });
+
+    test('reimport keeps recurring master unchanged when the same exceptions arrive in different order', async () => {
+        const icsFirst = [
+            'BEGIN:VCALENDAR',
+            'BEGIN:VEVENT',
+            'DTSTART;TZID=Europe/Kiev:20200427T140000',
+            'DTEND;TZID=Europe/Kiev:20200427T143000',
+            'RRULE:FREQ=WEEKLY;UNTIL=20200719T205959Z;BYDAY=MO',
+            'UID:1nr4bt0ccjb33gibphs1hrh0n1@google.com',
+            'SUMMARY:Status Meeting',
+            'END:VEVENT',
+            'BEGIN:VEVENT',
+            'DTSTART;TZID=Europe/Kiev:20200427T140000',
+            'DTEND;TZID=Europe/Kiev:20200427T143000',
+            'UID:1nr4bt0ccjb33gibphs1hrh0n1@google.com',
+            'RECURRENCE-ID;TZID=Europe/Kiev:20200427T140000',
+            'SUMMARY:Status Meeting',
+            'END:VEVENT',
+            'BEGIN:VEVENT',
+            'DTSTART;TZID=Europe/Kiev:20200504T140000',
+            'DTEND;TZID=Europe/Kiev:20200504T143000',
+            'UID:1nr4bt0ccjb33gibphs1hrh0n1@google.com',
+            'RECURRENCE-ID;TZID=Europe/Kiev:20200504T140000',
+            'SUMMARY:Status Meeting',
+            'END:VEVENT',
+            'BEGIN:VEVENT',
+            'DTSTART;TZID=Europe/Kiev:20200609T140000',
+            'DTEND;TZID=Europe/Kiev:20200609T143000',
+            'UID:1nr4bt0ccjb33gibphs1hrh0n1@google.com',
+            'RECURRENCE-ID;TZID=Europe/Kiev:20200608T140000',
+            'SUMMARY:Status Meeting',
+            'END:VEVENT',
+            'END:VCALENDAR',
+        ].join('\n');
+
+        const icsSecond = [
+            'BEGIN:VCALENDAR',
+            'BEGIN:VEVENT',
+            'DTSTART;TZID=Europe/Kiev:20200427T140000',
+            'DTEND;TZID=Europe/Kiev:20200427T143000',
+            'RRULE:FREQ=WEEKLY;UNTIL=20200719T205959Z;BYDAY=MO',
+            'UID:1nr4bt0ccjb33gibphs1hrh0n1@google.com',
+            'SUMMARY:Status Meeting',
+            'END:VEVENT',
+            'BEGIN:VEVENT',
+            'DTSTART;TZID=Europe/Kiev:20200609T140000',
+            'DTEND;TZID=Europe/Kiev:20200609T143000',
+            'UID:1nr4bt0ccjb33gibphs1hrh0n1@google.com',
+            'RECURRENCE-ID;TZID=Europe/Kiev:20200608T140000',
+            'SUMMARY:Status Meeting',
+            'END:VEVENT',
+            'BEGIN:VEVENT',
+            'DTSTART;TZID=Europe/Kiev:20200504T140000',
+            'DTEND;TZID=Europe/Kiev:20200504T143000',
+            'UID:1nr4bt0ccjb33gibphs1hrh0n1@google.com',
+            'RECURRENCE-ID;TZID=Europe/Kiev:20200504T140000',
+            'SUMMARY:Status Meeting',
+            'END:VEVENT',
+            'BEGIN:VEVENT',
+            'DTSTART;TZID=Europe/Kiev:20200427T140000',
+            'DTEND;TZID=Europe/Kiev:20200427T143000',
+            'UID:1nr4bt0ccjb33gibphs1hrh0n1@google.com',
+            'RECURRENCE-ID;TZID=Europe/Kiev:20200427T140000',
+            'SUMMARY:Status Meeting',
+            'END:VEVENT',
+            'END:VCALENDAR',
+        ].join('\n');
+
+        let nextId = 1;
+        const createdNotes: Array<{ id: string; title: string; body: string; parent_id?: string }> = [];
+
+        const firstImport = mkJoplin({
+            get: jest.fn().mockResolvedValue({items: [], has_more: false}),
+            post: jest.fn().mockImplementation(async (_path, _query, noteBody) => {
+                const id = `created-${nextId++}`;
+                createdNotes.push({
+                    id,
+                    title: noteBody.title,
+                    body: noteBody.body,
+                    parent_id: noteBody.parent_id,
+                });
+                return {id};
+            }),
+            put: jest.fn(),
+        });
+
+        await importIcsIntoNotes(firstImport as any, icsFirst, undefined, 'nb1');
+
+        const secondImport = mkJoplin({
+            get: jest.fn().mockResolvedValue({items: createdNotes, has_more: false}),
+            post: jest.fn(),
+            put: jest.fn(),
+        });
+
+        const secondRes = await importIcsIntoNotes(secondImport as any, icsSecond, undefined, 'nb1');
+
+        expect(secondImport.data.post).not.toHaveBeenCalled();
+        expect(secondImport.data.put).not.toHaveBeenCalled();
+        expect(secondRes.updated).toBe(0);
+        expect(secondRes.skipped).toBe(4);
+    });
+
     test('cancelled recurrence exception is not imported as a note and still excludes master occurrence', async () => {
         const ics = [
             'BEGIN:VCALENDAR',
