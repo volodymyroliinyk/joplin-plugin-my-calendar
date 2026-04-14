@@ -135,6 +135,74 @@ describe('noteBuilder', () => {
             });
             expect(withoutUid).not.toContain('recurrence_id:');
         });
+
+        test('canonicalizes repeat-related collections into stable order', () => {
+            const block = buildMyCalBlock({
+                title: 'Canonical',
+                start: '2025-01-15 10:00',
+                repeat: 'weekly',
+                byweekday: 'FR,MO,WE,MO',
+                exdates: [
+                    '2025-01-29 10:00:00',
+                    '2025-01-22 10:00:00',
+                    '2025-01-29 10:00:00',
+                ],
+            });
+
+            expect(block).toContain('byweekday: MO,WE,FR');
+            expect(block).toContain('exdate: 2025-01-22 10:00:00');
+            expect(block).toContain('exdate: 2025-01-29 10:00:00');
+            expect(block.match(/exdate:/g)?.length).toBe(2);
+        });
+
+        test('canonicalizes valarm lines into stable order', () => {
+            const block = buildMyCalBlock({
+                title: 'Alarm order',
+                start: '2025-01-15 10:00',
+                valarms: [
+                    {trigger: '-PT30M', action: 'DISPLAY'},
+                    {trigger: '-PT15M', action: 'DISPLAY'},
+                    {trigger: '-PT15M', action: 'DISPLAY'},
+                ],
+            });
+
+            const lines = block.split('\n').filter((line) => line.startsWith('valarm: '));
+            expect(lines).toEqual([
+                'valarm: {"trigger":"-PT15M","action":"DISPLAY"}',
+                'valarm: {"trigger":"-PT15M","action":"DISPLAY"}',
+                'valarm: {"trigger":"-PT30M","action":"DISPLAY"}',
+            ]);
+        });
+
+        test('produces identical output for semantically equivalent recurring events', () => {
+            const first = buildMyCalBlock({
+                title: 'Stable',
+                start: '2025-01-15 10:00',
+                uid: 'u1',
+                repeat: 'weekly',
+                byweekday: 'WE,MO',
+                exdates: ['2025-01-29 10:00:00', '2025-01-22 10:00:00'],
+                valarms: [
+                    {trigger: '-PT30M', action: 'DISPLAY'},
+                    {trigger: '-PT15M', action: 'DISPLAY'},
+                ],
+            });
+
+            const second = buildMyCalBlock({
+                title: 'Stable',
+                start: '2025-01-15 10:00',
+                uid: 'u1',
+                repeat: 'weekly',
+                byweekday: 'MO,WE,MO',
+                exdates: ['2025-01-22 10:00:00', '2025-01-29 10:00:00', '2025-01-22 10:00:00'],
+                valarms: [
+                    {trigger: '-PT15M', action: 'DISPLAY'},
+                    {trigger: '-PT30M', action: 'DISPLAY'},
+                ],
+            });
+
+            expect(second).toBe(first);
+        });
     });
 
     describe('buildAlarmBody', () => {

@@ -20,8 +20,6 @@ joplin-plugin-my-calendar/
 │   └── timezone-handling.md
 ├── publish/
 ├── scripts/
-│   ├── __pycache__/
-│   │   └── update-demo-ics.cpython-312.pyc
 │   ├── check-tests.sh
 │   ├── cleanup-jest.sh
 │   ├── pre-pack.sh
@@ -52,6 +50,7 @@ joplin-plugin-my-calendar/
 │   │   │   ├── panelController.ts
 │   │   │   └── uiSettings.ts
 │   │   ├── utils/
+│   │   │   ├── colorUtils.ts
 │   │   │   ├── dateTimeUtils.ts
 │   │   │   ├── dateUtils.ts
 │   │   │   ├── errorUtils.ts
@@ -104,6 +103,7 @@ joplin-plugin-my-calendar/
 │   │   ├── panelController.test.ts
 │   │   └── uiSettings.test.ts
 │   ├── utils/
+│   │   ├── colorUtils.test.ts
 │   │   ├── dateTimeUtils.test.ts
 │   │   ├── dateUtils.test.ts
 │   │   ├── errorUtils.test.ts
@@ -117,6 +117,7 @@ joplin-plugin-my-calendar/
 ├── CHANGELOG.md
 ├── LICENSE
 ├── README.md
+├── basic(5).ics
 ├── directory-tree.txt
 ├── eslint.config.js
 ├── jest.config.js
