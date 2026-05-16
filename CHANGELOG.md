@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.7.1](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.7.0...v1.7.1) (2026-05-16)
+
+
+### 🐛 Bug Fixes
+
+* canonicalize mycalendar event serialization for stable reimport ([cdc0b5b](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/cdc0b5b7451897877e08e2e1da309f77acda095e))
+* canonicalize mycalendar event serialization for stable reimport ([79d4a6f](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/79d4a6f0f642da8804c9927832b525afc68958ef))
+* center mc-count badge vertically on desktop ([090e3a2](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/090e3a2d27bdcdc2326bce134fd59a4ce9e14805))
+* toggle calendar panel reliably on first action after restart ([4584996](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/45849967078d2ac90c718bd5f7ba0ff303b77368))
+
 ## [1.7.0](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.6.3...v1.7.0) (2026-04-12)
 
 
