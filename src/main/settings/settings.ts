@@ -10,6 +10,11 @@ export const SETTING_DEBUG = 'mycalendar.debug';
 export const SETTING_WEEK_START = 'mycalendar.weekStart';
 export const SETTING_SHOW_WEEK_NUMBERS = 'mycalendar.showWeekNumbers';
 
+// UI
+// Persists calendar panel visibility between app launches so that menu/toolbar toggle
+// works correctly even when the panel was closed before quitting Joplin.
+export const SETTING_PANEL_VISIBLE = 'mycalendar.panelVisible';
+
 // Day events
 export const SETTING_DAY_EVENTS_VIEW_MODE = 'mycalendar.dayEventsViewMode';
 export const SETTING_TIME_FORMAT = 'mycalendar.timeFormat';
@@ -258,6 +263,18 @@ export async function registerSettings(joplin: any) {
             public: true,
             label: 'Show week numbers',
             description: 'Calendar section: Show week numbers in the calendar grid.',
+        },
+
+        // Hidden internal setting: remembers whether the calendar panel was visible
+        // the last time the user toggled it (menu/toolbar), so the first menu toggle
+        // after restart opens it correctly.
+        [SETTING_PANEL_VISIBLE]: {
+            value: true,
+            type: SETTING_TYPE_BOOL,
+            section: 'mycalendar',
+            public: false,
+            label: 'Persist calendar panel visibility',
+            description: 'Internal. Stores whether the My Calendar panel is visible.',
         },
 
         // 4) Day events

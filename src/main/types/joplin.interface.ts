@@ -26,8 +26,9 @@ export interface Joplin {
             addScript: (panelId: string, scriptPath: string) => Promise<void>;
             onMessage: (panelId: string, callback: (message: any) => void) => Promise<void>;
             postMessage: (panelId: string, message: any) => Promise<void>;
-            show: (panelId: string) => Promise<void>;
+            show: (panelId: string, visible?: boolean) => Promise<void>;
             hide?: (panelId: string) => Promise<void>;
+            visible?: (panelId: string) => Promise<boolean>;
             focus?: (panelId: string) => Promise<void>;
         };
         dialogs: {

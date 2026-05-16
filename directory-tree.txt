@@ -117,11 +117,9 @@ joplin-plugin-my-calendar/
 ├── CHANGELOG.md
 ├── LICENSE
 ├── README.md
-├── basic(5).ics
 ├── directory-tree.txt
 ├── eslint.config.js
 ├── jest.config.js
-├── list.todo
 ├── manifest.json
 ├── package-lock.json
 ├── package.json
