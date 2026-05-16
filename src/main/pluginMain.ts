@@ -4,7 +4,7 @@ import {createCalendarPanel} from './views/calendarView';
 
 import {ensureAllEventsCache, invalidateAllEventsCache, refreshNoteCache} from './services/eventsCache';
 import {registerCalendarPanelController} from './uiBridge/panelController';
-import {SCHEDULED_ICS_IMPORT_SETTING_KEYS, registerSettings} from './settings/settings';
+import {SCHEDULED_ICS_IMPORT_SETTING_KEYS, registerSettings, SETTING_PANEL_VISIBLE} from './settings/settings';
 import {pushUiSettings} from "./uiBridge/uiSettings";
 import {expandAllInRange} from './services/occurrenceService';
 import {Occurrence} from './utils/dateUtils';
@@ -114,6 +114,29 @@ async function focusPanelIfSupported(joplin: Joplin, panelId: string): Promise<v
     }
 }
 
+async function persistPanelVisibleSetting(joplin: Joplin, visible: boolean): Promise<void> {
+    try {
+        const setValue = joplin?.settings?.setValue;
+        if (typeof setValue === 'function') {
+            await setValue(SETTING_PANEL_VISIBLE, visible);
+        }
+    } catch (error) {
+        warn('pluginMain', 'Failed to persist panel visibility (non-fatal):', error);
+    }
+}
+
+async function getPanelVisibleIfSupported(joplin: Joplin, panelId: string): Promise<boolean | undefined> {
+    try {
+        const visible = joplin?.views?.panels?.visible;
+        if (typeof visible !== 'function') return undefined;
+        const v = await visible(panelId as any);
+        return typeof v === 'boolean' ? v : undefined;
+    } catch (error) {
+        warn('pluginMain', 'Failed to read panel visibility via API (non-fatal):', error);
+        return undefined;
+    }
+}
+
 
 async function startPlugin(joplin: Joplin): Promise<void> {
     log('pluginMain', 'Plugin start');
@@ -144,11 +167,28 @@ async function startPlugin(joplin: Joplin): Promise<void> {
         }
     })();
 
+    let initialPanelVisible: boolean | undefined;
+    try {
+        const v = await joplin?.settings?.value?.(SETTING_PANEL_VISIBLE);
+        if (typeof v === 'boolean') initialPanelVisible = v;
+    } catch (error) {
+        warn('pluginMain', 'Failed to read persisted panel visibility (non-fatal):', error);
+    }
+
     const toggleState = {
-        visible: true,
+        // Important: this must reflect the last user-visible state, otherwise the
+        // first menu toggle after restart can become a no-op (trying to hide an
+        // already-hidden panel).
+        visible: initialPanelVisible ?? true,
         // Indicates whether desktop menu/toolbar were registered successfully.
         active: false,
     };
+
+    // Best-effort sync with the real panel state (Joplin may restore layout/visibility itself).
+    const actualVisible = await getPanelVisibleIfSupported(joplin, panel);
+    if (typeof actualVisible === 'boolean') {
+        toggleState.visible = actualVisible;
+    }
 
     let toggleCommandName = '';
     let toggleCommandError: string | undefined;
@@ -177,6 +217,7 @@ async function startPlugin(joplin: Joplin): Promise<void> {
 
             // Sync toggle state
             toggleState.visible = true;
+            await persistPanelVisibleSetting(joplin, true);
             // await toggleState.update();
         },
     });
@@ -243,16 +284,23 @@ export default async function runPlugin(joplin: Joplin): Promise<void> {
 // dynamic label updates are not reliably supported by Joplin's menu API.
 async function registerToggleCommand(joplin: Joplin, panel: string, toggleState: ToggleState): Promise<string> {
     const execute = async () => {
+        // Always toggle based on the *real* panel state if supported. Otherwise, fall back
+        // to our last known state (persisted between sessions).
+        const actualVisible = await getPanelVisibleIfSupported(joplin, panel);
+        if (typeof actualVisible === 'boolean') toggleState.visible = actualVisible;
+
         const nextVisible = !toggleState.visible;
         if (nextVisible) {
             await joplin.views.panels.show(panel);
             toggleState.visible = true;
+            await persistPanelVisibleSetting(joplin, true);
             log('pluginMain', 'Toggle: Show');
         } else {
             const hide = joplin.views?.panels?.hide;
             if (typeof hide === 'function') {
                 await hide(panel);
                 toggleState.visible = false;
+                await persistPanelVisibleSetting(joplin, false);
                 log('pluginMain', 'Toggle: Hide');
                 return;
             }
@@ -263,6 +311,7 @@ async function registerToggleCommand(joplin: Joplin, panel: string, toggleState:
                 try {
                     await show(panel, false);
                     toggleState.visible = false;
+                    await persistPanelVisibleSetting(joplin, false);
                     log('pluginMain', 'Toggle: Hide');
                     return;
                 } catch {

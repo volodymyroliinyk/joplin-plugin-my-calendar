@@ -29,6 +29,7 @@ jest.mock('../../src/main/settings/settings', () => ({
         'mycalendar.icsImportAlarmRangeDays',
         'mycalendar.icsImportEmptyTrashAfter',
     ],
+    SETTING_PANEL_VISIBLE: 'mycalendar.panelVisible',
     registerSettings: jest.fn(),
 }));
 
@@ -57,19 +58,38 @@ function makeJoplinMock(opts?: {
     focusThrows?: boolean;
     withHide?: boolean;
     withMenu?: boolean;
+    initialPanelVisible?: boolean;
+    withVisibleApi?: boolean;
+    visibleThrows?: boolean;
 }) {
     const withFocus = opts?.withFocus ?? true;
     const focusThrows = opts?.focusThrows ?? false;
     const withHide = opts?.withHide ?? true;
     const withMenu = opts?.withMenu ?? true;
+    let panelVisible = opts?.initialPanelVisible ?? true;
+    const withVisibleApi = opts?.withVisibleApi ?? true;
+    const visibleThrows = opts?.visibleThrows ?? false;
 
     const panels: any = {
-        show: jest.fn().mockResolvedValue(undefined),
+        show: jest.fn(async (_panelId: string, visible?: boolean) => {
+            panelVisible = visible === false ? false : true;
+            return undefined;
+        }),
         postMessage: jest.fn().mockResolvedValue(undefined),
     };
 
+    if (withVisibleApi) {
+        panels.visible = jest.fn(async () => {
+            if (visibleThrows) throw new Error('visible failed');
+            return panelVisible;
+        });
+    }
+
     if (withHide) {
-        panels.hide = jest.fn().mockResolvedValue(undefined);
+        panels.hide = jest.fn(async () => {
+            panelVisible = false;
+            return undefined;
+        });
     }
 
     if (withFocus) {
@@ -114,6 +134,7 @@ function makeJoplinMock(opts?: {
             registerSection: jest.fn().mockResolvedValue(undefined),
             registerSettings: jest.fn().mockResolvedValue(undefined),
             value: jest.fn().mockResolvedValue('monday'),
+            setValue: jest.fn().mockResolvedValue(undefined),
             onChange: jest.fn().mockResolvedValue(undefined),
             settingItemType: {
                 Bool: 3,
@@ -413,6 +434,138 @@ describe('pluginMain.runPlugin', () => {
         logSpy.mockRestore();
     });
 
+    test('desktop toggle: first execute hides when actual panel is visible but persisted visibility is false', async () => {
+        (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
+        (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);
+
+        // Real panel is visible (Joplin restored it), but persisted says false.
+        const {joplin, panels, commandsRegister} = makeJoplinMock({
+            withHide: true,
+            withMenu: true,
+            initialPanelVisible: true
+        });
+        (joplin.settings.value as jest.Mock).mockImplementation(async (key: string) => {
+            if (key === 'mycalendar.panelVisible') return false;
+            return 'monday';
+        });
+
+        await runPlugin(joplin as any);
+
+        const toggleCmd = findCommand(commandsRegister as any, 'mycalendar.togglePanel');
+        await toggleCmd.execute();
+
+        expect(panels.hide).toHaveBeenCalledWith('panel-1');
+        expect(panels.show).not.toHaveBeenCalledWith('panel-1');
+        expect(joplin.settings.setValue).toHaveBeenCalledWith('mycalendar.panelVisible', false);
+    });
+
+    test('desktop toggle: first execute shows when persisted visibility is false (after restart)', async () => {
+        (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
+        (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);
+
+        const {joplin, panels, commandsRegister} = makeJoplinMock({
+            withHide: true,
+            withMenu: true,
+            initialPanelVisible: false
+        });
+        (joplin.settings.value as jest.Mock).mockImplementation(async (key: string) => {
+            if (key === 'mycalendar.panelVisible') return false;
+            return 'monday';
+        });
+
+        await runPlugin(joplin as any);
+
+        const toggleCmd = findCommand(commandsRegister as any, 'mycalendar.togglePanel');
+        await toggleCmd.execute();
+
+        expect(panels.show).toHaveBeenCalledWith('panel-1');
+        expect(panels.hide).not.toHaveBeenCalled();
+        expect(joplin.settings.setValue).toHaveBeenCalledWith('mycalendar.panelVisible', true);
+    });
+
+    test('desktop toggle: first execute shows when panels.visible API is missing but persisted visibility is false', async () => {
+        (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
+        (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);
+
+        const {joplin, panels, commandsRegister} = makeJoplinMock({
+            withHide: true,
+            withMenu: true,
+            initialPanelVisible: true,
+            withVisibleApi: false,
+        });
+        (joplin.settings.value as jest.Mock).mockImplementation(async (key: string) => {
+            if (key === 'mycalendar.panelVisible') return false;
+            return 'monday';
+        });
+
+        await runPlugin(joplin as any);
+
+        const toggleCmd = findCommand(commandsRegister as any, 'mycalendar.togglePanel');
+        await toggleCmd.execute();
+
+        expect(panels.show).toHaveBeenCalledWith('panel-1');
+        expect(panels.hide).not.toHaveBeenCalled();
+        expect(joplin.settings.setValue).toHaveBeenCalledWith('mycalendar.panelVisible', true);
+    });
+
+    test('desktop toggle: first execute hides when panels.visible API is missing and persisted visibility is true', async () => {
+        (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
+        (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);
+
+        const {joplin, panels, commandsRegister} = makeJoplinMock({
+            withHide: true,
+            withMenu: true,
+            initialPanelVisible: true,
+            withVisibleApi: false,
+        });
+        (joplin.settings.value as jest.Mock).mockImplementation(async (key: string) => {
+            if (key === 'mycalendar.panelVisible') return true;
+            return 'monday';
+        });
+
+        await runPlugin(joplin as any);
+
+        const toggleCmd = findCommand(commandsRegister as any, 'mycalendar.togglePanel');
+        await toggleCmd.execute();
+
+        expect(panels.hide).toHaveBeenCalledWith('panel-1');
+        expect(joplin.settings.setValue).toHaveBeenCalledWith('mycalendar.panelVisible', false);
+    });
+
+    test('desktop toggle: falls back to persisted state when panels.visible throws', async () => {
+        const warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => undefined);
+
+        (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
+        (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);
+
+        const {joplin, panels, commandsRegister} = makeJoplinMock({
+            withHide: true,
+            withMenu: true,
+            initialPanelVisible: false,
+            withVisibleApi: true,
+            visibleThrows: true,
+        });
+        (joplin.settings.value as jest.Mock).mockImplementation(async (key: string) => {
+            if (key === 'mycalendar.panelVisible') return false;
+            return 'monday';
+        });
+
+        await runPlugin(joplin as any);
+
+        const toggleCmd = findCommand(commandsRegister as any, 'mycalendar.togglePanel');
+        await toggleCmd.execute();
+
+        expect(panels.show).toHaveBeenCalledWith('panel-1');
+        expect(joplin.settings.setValue).toHaveBeenCalledWith('mycalendar.panelVisible', true);
+        expect(warnSpy).toHaveBeenCalledWith(
+            'pluginMain',
+            'Failed to read panel visibility via API (non-fatal):',
+            expect.any(Error)
+        );
+
+        warnSpy.mockRestore();
+    });
+
     test('desktop toggle still registers menu item and note toolbar button when panels.hide is missing', async () => {
         const infoSpy = jest.spyOn(logger, 'info').mockImplementation(() => undefined);
 
@@ -475,6 +628,54 @@ describe('pluginMain.runPlugin', () => {
         expect(infoSpy).not.toHaveBeenCalledWith('pluginMain', 'Toggle: hide not available - panel remains visible');
 
         infoSpy.mockRestore();
+    });
+
+    test('desktop toggle: when hide is missing and panels.visible reports hidden, first execute shows', async () => {
+        (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
+        (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);
+
+        const {joplin, panels, commandsRegister} = makeJoplinMock({
+            withHide: false,
+            withMenu: true,
+            initialPanelVisible: false,
+            withVisibleApi: true,
+        });
+        (joplin.settings.value as jest.Mock).mockImplementation(async (key: string) => {
+            if (key === 'mycalendar.panelVisible') return false;
+            return 'monday';
+        });
+
+        await runPlugin(joplin as any);
+
+        const toggleCmd = findCommand(commandsRegister as any, 'mycalendar.togglePanel');
+        await toggleCmd.execute();
+
+        expect(panels.show).toHaveBeenCalledWith('panel-1');
+        expect(joplin.settings.setValue).toHaveBeenCalledWith('mycalendar.panelVisible', true);
+    });
+
+    test('desktop toggle: when hide is missing and panels.visible reports visible, first execute hides via show(panel, false)', async () => {
+        (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
+        (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);
+
+        const {joplin, panels, commandsRegister} = makeJoplinMock({
+            withHide: false,
+            withMenu: true,
+            initialPanelVisible: true,
+            withVisibleApi: true,
+        });
+        (joplin.settings.value as jest.Mock).mockImplementation(async (key: string) => {
+            if (key === 'mycalendar.panelVisible') return true;
+            return 'monday';
+        });
+
+        await runPlugin(joplin as any);
+
+        const toggleCmd = findCommand(commandsRegister as any, 'mycalendar.togglePanel');
+        await toggleCmd.execute();
+
+        expect(panels.show).toHaveBeenCalledWith('panel-1', false);
+        expect(joplin.settings.setValue).toHaveBeenCalledWith('mycalendar.panelVisible', false);
     });
 
     test('desktop toggle tolerates menu/toolbar creation failures', async () => {
