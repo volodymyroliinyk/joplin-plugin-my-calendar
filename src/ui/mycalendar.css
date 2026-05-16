@@ -569,13 +569,24 @@ select::-webkit-scrollbar-thumb:hover {
     font-size: 14px;
     font-weight: bold;
     text-align: center;
-    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 14px;
     padding: 3px 4px;
+    box-sizing: border-box;
     border-radius: 4px;
     background: var(--mc-count-bg);
     border: 0px solid var(--joplin-divider-color);
     opacity: 0.85;
     z-index: 3;
+}
+
+/* Desktop-only nudge: font metrics can make the digit look slightly top-shifted */
+@media (pointer: fine) and (hover: hover) {
+    .mc-count {
+        padding: 3px 4px 2px;
+    }
 }
 
 .mc-calendar-nav-btn {
