@@ -66,7 +66,7 @@ describe('alarmService', () => {
         jest.useRealTimers();
     });
 
-    it('should delete outdated alarms (< now - 24h)', async () => {
+    it('should delete completed outdated alarms (< now - 24h)', async () => {
         const events: IcsEvent[] = [{
             uid: 'uid1',
             recurrence_id: '',
@@ -82,7 +82,7 @@ describe('alarmService', () => {
         // Alarm due more than 24h ago
         const pastDate = new Date().getTime() - (25 * 60 * 60 * 1000);
         const existingAlarms = {
-            [key]: [{id: 'alarm1', todo_due: pastDate, body: '', is_todo: 1, todo_completed: 0, title: 'Alarm 1'}]
+            [key]: [{id: 'alarm1', todo_due: pastDate, body: '', is_todo: 1, todo_completed: 1, title: 'Alarm 1'}]
         };
 
         await syncAlarmsForEvents(
@@ -94,6 +94,40 @@ describe('alarmService', () => {
         );
 
         expect(mockDeleteNote).toHaveBeenCalledWith(mockJoplin, 'alarm1');
+    });
+
+    it('should NOT delete incomplete outdated alarms (< now - 24h)', async () => {
+        const events: IcsEvent[] = [{
+            uid: 'uid1',
+            recurrence_id: '',
+            start: '2025-01-01 10:00',
+            valarms: []
+        }];
+        const key = 'uid1|';
+        const importedEventNotes = {
+            [key]: {id: 'note1', title: 'Event 1', parent_id: 'folder1'}
+        };
+        const existingAlarms = {
+            [key]: [{
+                id: 'alarm1',
+                todo_due: new Date().getTime() - (25 * 60 * 60 * 1000),
+                body: '',
+                is_todo: 1,
+                todo_completed: 0,
+                title: 'Alarm 1'
+            }]
+        };
+
+        const result = await syncAlarmsForEvents(
+            mockJoplin,
+            events,
+            importedEventNotes,
+            existingAlarms,
+            'folder1'
+        );
+
+        expect(mockDeleteNote).not.toHaveBeenCalled();
+        expect(result.alarmsDeleted).toBe(0);
     });
 
     it('should NOT delete recent past alarms (< now but > now - 24h)', async () => {
@@ -265,7 +299,7 @@ describe('alarmService', () => {
         expect(mockCreateNote).not.toHaveBeenCalled();
     });
 
-    it('should delete invalid alarms that do not match desired alarms', async () => {
+    it('should delete completed invalid alarms that do not match desired alarms', async () => {
         jest.useFakeTimers();
         jest.setSystemTime(new Date('2026-01-30T10:00:00.000Z'));
 
@@ -288,7 +322,7 @@ describe('alarmService', () => {
                 todo_due: new Date('2026-01-30T11:40:00.000Z').getTime(),
                 body: 'old',
                 is_todo: 1,
-                todo_completed: 0,
+                todo_completed: 1,
                 title: 'Alarm 1'
             }]
         };
@@ -297,6 +331,48 @@ describe('alarmService', () => {
 
         expect(mockDeleteNote).toHaveBeenCalledWith(mockJoplin, 'alarm1');
         expect(mockCreateNote).toHaveBeenCalledTimes(1);
+    });
+
+    it('should NOT delete incomplete invalid alarms that do not match desired alarms', async () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2026-01-30T10:00:00.000Z'));
+
+        (dateTimeUtils.computeAlarmAt as jest.Mock).mockReturnValueOnce(new Date('2026-01-30T11:45:00.000Z'));
+
+        const events: IcsEvent[] = [{
+            uid: 'uid1',
+            recurrence_id: '',
+            title: 'Test Event',
+            start: '2026-01-30 12:00',
+            valarms: [{action: 'DISPLAY', trigger: '-PT15M', related: 'START'}]
+        }];
+        const key = 'uid1|';
+        const importedEventNotes = {[key]: {id: 'note1', title: 'Test Event', parent_id: 'folder1'}};
+        const existingAlarms = {
+            [key]: [{
+                id: 'alarm1',
+                todo_due: new Date('2026-01-30T11:40:00.000Z').getTime(),
+                body: 'old',
+                is_todo: 1,
+                todo_completed: 0,
+                title: 'Alarm 1'
+            }]
+        };
+
+        const result = await syncAlarmsForEvents(
+            mockJoplin,
+            events,
+            importedEventNotes,
+            existingAlarms,
+            'folder1',
+            undefined,
+            undefined,
+            true
+        );
+
+        expect(mockDeleteNote).not.toHaveBeenCalled();
+        expect(mockCreateNote).toHaveBeenCalledTimes(1);
+        expect(result.alarmsDeleted).toBe(0);
     });
 
     it('should create missing alarms when none exist', async () => {
@@ -370,7 +446,7 @@ describe('alarmService', () => {
                 todo_due: new Date('2000-01-01T00:00:00.000Z').getTime(),
                 body: '',
                 is_todo: 1,
-                todo_completed: 0,
+                todo_completed: 1,
                 title: 'Alarm 1'
             }]
         };
@@ -421,7 +497,7 @@ describe('alarmService', () => {
                 todo_due: new Date('2026-01-30T11:45:00.000Z').getTime(),
                 body: 'some body',
                 is_todo: 1,
-                todo_completed: 0,
+                todo_completed: 1,
                 title: 'Alarm 1'
             }]
         };
@@ -465,7 +541,7 @@ describe('alarmService', () => {
                 todo_due: new Date('2026-01-30T11:45:00.000Z').getTime(),
                 body: 'old',
                 is_todo: 1,
-                todo_completed: 0,
+                todo_completed: 1,
                 title: 'Alarm 1'
             }],
         };

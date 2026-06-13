@@ -207,17 +207,21 @@ export async function syncAlarmsForEvents(
         const matchedDesiredIndices = new Set<number>();
 
         for (const alarm of oldAlarms) {
-            // 1. Delete if too old (e.g. > 24h past)
+            const isCompleted = alarm.todo_completed > 0;
+
+            // 1. Delete completed alarms if too old (e.g. > 24h past)
             if (alarm.todo_due < nowMs - 24 * 60 * 60 * 1000) {
-                pendingOps.push(async () => {
-                    try {
-                        await deleteNote(joplin, alarm.id);
-                        alarmsDeleted++;
-                    } catch (e) {
-                        issues++;
-                        err('alarmService', `ERROR deleting outdated alarm: ${key} - ${getErrorText(e)}`);
-                    }
-                });
+                if (isCompleted) {
+                    pendingOps.push(async () => {
+                        try {
+                            await deleteNote(joplin, alarm.id);
+                            alarmsDeleted++;
+                        } catch (e) {
+                            issues++;
+                            err('alarmService', `ERROR deleting outdated alarm: ${key} - ${getErrorText(e)}`);
+                        }
+                    });
+                }
                 continue;
             }
 
@@ -276,7 +280,7 @@ export async function syncAlarmsForEvents(
                         }
                     });
                 }
-            } else {
+            } else if (isCompleted) {
                 pendingOps.push(async () => {
                     try {
                         await deleteNote(joplin, alarm.id);
