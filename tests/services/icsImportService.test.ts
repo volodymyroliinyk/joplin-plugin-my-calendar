@@ -1600,7 +1600,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
                 '[Occ with alarm](:/event-note-id)',
             ].join('\n'),
             is_todo: 1,
-            todo_completed: 0
+            todo_completed: 1
         };
 
         const ics = [
@@ -1720,7 +1720,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
             body: '```mycalendar-alarm\nuid: u1\n```',
             todo_due: new Date().getTime() + 100000, // future, but will be invalid
             is_todo: 1,
-            todo_completed: 0
+            todo_completed: 1
         };
 
         const onStatus = jest.fn();
@@ -1793,7 +1793,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
             body: '```mycalendar-alarm\nuid: u1\nrecurrence_id: \n```',
             todo_due: new Date().getTime() + 100000, // future
             is_todo: 1,
-            todo_completed: 0
+            todo_completed: 1
         };
 
         const joplin = mkJoplin({

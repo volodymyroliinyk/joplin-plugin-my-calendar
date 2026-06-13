@@ -49,6 +49,7 @@ describe('Alarm Deletion Safety', () => {
             title: 'Alarm A',
             parent_id: 'folder-1',
             todo_due: new Date('2025-01-15T09:00:00.000Z').getTime(),
+            todo_completed: 0,
             body: '```mycalendar-alarm\nuid: uid-a\nalarm_at: 2025-01-15 09:00:00+00:00\n```'
         };
         const unrelatedNote = {
@@ -98,15 +99,15 @@ describe('Alarm Deletion Safety', () => {
         const res = await importIcsIntoNotes(joplin as any, ics);
 
         // 4. Verification
-        // - Older alarm for A should be deleted
-        expect(deletedIds).toContain('alarm-a-old');
+        // - Incomplete alarm for A must remain so an unread mobile notification keeps a valid target
+        expect(deletedIds).not.toContain('alarm-a-old');
         // - Unrelated note MUST NOT be deleted
         expect(deletedIds).not.toContain('unrelated');
         // - Alarm for B MUST NOT be deleted (since uid-b was not in the imported ICS)
         // Wait, if uid-b is not in the imported ICS, it should actually stay!
         expect(deletedIds).not.toContain('alarm-b');
 
-        expect(res.alarmsDeleted).toBe(1);
+        expect(res.alarmsDeleted).toBe(0);
         expect(res.alarmsCreated).toBe(1);
 
         jest.useRealTimers();
