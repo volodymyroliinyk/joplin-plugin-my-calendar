@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.7.2](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.7.1...v1.7.2) (2026-06-13)
+
+
+### 🐛 Bug Fixes
+
+* preserve incomplete alarms during synchronization ([b7a4012](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/b7a40125c4de7b7fe95930350afd2e121eebb8b5))
+
 ### [1.7.1](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.7.0...v1.7.1) (2026-05-16)
 
 
