@@ -183,6 +183,37 @@ describe('calendar.js timeline settings', () => {
         expect(document.querySelectorAll('.mc-events-timeline-now-line').length).toBe(1);
     });
 
+    test('grouped day events mode keeps completed future todo in Past', () => {
+        loadScript();
+
+        const now = new Date('2025-01-01T12:00:00Z').getTime();
+
+        sendSettings({showEventTimeline: true, dayEventsViewMode: 'grouped', dayEventsRefreshMinutes: 1});
+        sendRangeEvents([
+            {
+                id: 'e-completed',
+                title: 'Completed future todo',
+                startUtc: now + 10 * 60 * 1000,
+                endUtc: now + 15 * 60 * 1000,
+                is_todo: 1,
+                is_completed: 1,
+                todo_completed: now,
+                hasAlarms: true,
+            },
+        ]);
+
+        const past = document.querySelector('[data-group-list="past"]');
+        const feature = document.querySelector('[data-group-list="feature"]');
+        const li = document.querySelector('.mc-event') as HTMLElement | null;
+
+        expect(past?.textContent || '').toContain('Completed future todo');
+        expect(feature?.textContent || '').not.toContain('Completed future todo');
+        expect(li?.classList.contains('mc-event-past')).toBe(true);
+        expect(li?.querySelector('.mc-completed-icon svg')).toBeTruthy();
+        expect(li?.querySelector('.mc-completed-icon')?.getAttribute('aria-label')).toBe('Completed todo');
+        expect(li?.querySelector('.mc-alarm-icon')).toBeNull();
+    });
+
     test('grouped mode updates event section over time even when event timeline is hidden', () => {
         loadScript();
 
