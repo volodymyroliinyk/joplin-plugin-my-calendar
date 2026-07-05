@@ -498,18 +498,20 @@ select::-webkit-scrollbar-thumb:hover {
     font-size: 12px;
 }
 
-.mc-alarm-icon {
+.mc-day-event-icon {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     opacity: 0.6;
     margin: 0 4px;
     color: var(--joplin-color);
     flex-shrink: 0;
 }
 
-.mc-alarm-icon svg {
+.mc-day-event-icon svg {
     width: 12px;
     height: 12px;
+    display: block;
 }
 
 .mc-empty {

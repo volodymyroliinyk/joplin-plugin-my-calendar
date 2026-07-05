@@ -210,6 +210,8 @@ Customize your experience in the Joplin Settings (`Tools` > `Options` > `My Cale
 - **Time format**: Choose between **24h** (default) or **12h** (AM/PM) format for event times.
 - **Day events auto-refresh**: Set the interval (in minutes) for how often the day's event list updates. (Default: 1
   min).
+- **Completed Joplin todos**: If a note-backed event is a completed Joplin todo, it is dimmed like a past event and
+  shows a gray checked checkbox icon.
 - **Show event timeline**: Show a visual timeline bar under each event in the day list. Disabling this also stops
   related UI update timers. (Default: Enabled).
 - **Current timeline line color (hex)**: Optional custom color for the current-time line in the day event timeline.

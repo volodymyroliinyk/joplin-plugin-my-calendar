@@ -12,7 +12,7 @@ type JoplinLike = {
     };
 };
 
-const NOTE_FIELDS = ['id', 'title', 'body'] as const;
+const NOTE_FIELDS = ['id', 'title', 'body', 'is_todo', 'todo_completed'] as const;
 const PAGE_LIMIT = 100;
 
 const eventCacheByNote = new Map<string, EventInput[]>();
@@ -100,8 +100,17 @@ function extractEventsFromNote(n: any): { noteId: string; events: EventInput[] }
     const evs = parseEventsFromBody(noteId, title, body) || [];
     if (!evs.length) return null;
 
-    // Ensure noteId is present for UI
-    const withNoteId = evs.map((e) => ({...(e as any), noteId})) as EventInput[];
+    // Ensure note metadata is present for UI.
+    const isTodo = Number(n?.is_todo || 0);
+    const todoCompleted = Number(n?.todo_completed || 0);
+    const isCompleted = isTodo === 1 && todoCompleted > 0 ? 1 : 0;
+    const withNoteId = evs.map((e) => ({
+        ...(e as any),
+        noteId,
+        is_todo: isTodo,
+        todo_completed: todoCompleted,
+        is_completed: isCompleted,
+    })) as EventInput[];
 
     return {noteId, events: withNoteId};
 }

@@ -59,7 +59,7 @@ describe('eventsCache.ts', () => {
 
         expect(joplin.data.get).toHaveBeenCalledTimes(1);
         expect(joplin.data.get).toHaveBeenCalledWith(['notes'], {
-            fields: ['id', 'title', 'body'],
+            fields: ['id', 'title', 'body', 'is_todo', 'todo_completed'],
             limit: 100,
             page: 1,
         });
@@ -92,6 +92,30 @@ describe('eventsCache.ts', () => {
         expect(all2).toHaveLength(1);
     });
 
+    test('adds Joplin todo completion metadata to parsed note events', async () => {
+        const parseEventsFromBody = jest.fn().mockReturnValue([
+            {id: 'note-1', title: 'Completed event', startText: '2025-01-01T00:00:00Z', startUtc: 1},
+        ]);
+
+        const mod = await loadModuleWithMockedParser({parseEventsFromBody});
+
+        const joplin = mkJoplin(
+            jest.fn().mockResolvedValue({
+                items: [{id: 'note-1', title: 'T', body: 'body', is_todo: 1, todo_completed: 1735689600000}],
+                has_more: false,
+            }),
+        );
+
+        const all = await mod.ensureAllEventsCache(joplin);
+
+        expect(all[0]).toMatchObject({
+            noteId: 'note-1',
+            is_todo: 1,
+            todo_completed: 1735689600000,
+            is_completed: 1,
+        });
+    });
+
     test('rebuildAllEventsCache paginates while has_more=true', async () => {
         const parseEventsFromBody = jest.fn().mockReturnValue([]);
 
@@ -114,12 +138,12 @@ describe('eventsCache.ts', () => {
 
         expect(get).toHaveBeenCalledTimes(2);
         expect(get).toHaveBeenNthCalledWith(1, ['notes'], {
-            fields: ['id', 'title', 'body'],
+            fields: ['id', 'title', 'body', 'is_todo', 'todo_completed'],
             limit: 100,
             page: 1,
         });
         expect(get).toHaveBeenNthCalledWith(2, ['notes'], {
-            fields: ['id', 'title', 'body'],
+            fields: ['id', 'title', 'body', 'is_todo', 'todo_completed'],
             limit: 100,
             page: 2,
         });
@@ -250,7 +274,7 @@ describe('eventsCache.ts', () => {
 
         // One full scan + one direct note fetch
         expect(get).toHaveBeenCalledTimes(2);
-        expect(get).toHaveBeenNthCalledWith(2, ['notes', 'note-1'], {fields: ['id', 'title', 'body']});
+        expect(get).toHaveBeenNthCalledWith(2, ['notes', 'note-1'], {fields: ['id', 'title', 'body', 'is_todo', 'todo_completed']});
     });
 
     test('refreshNoteCache removes events when note is deleted or inaccessible', async () => {

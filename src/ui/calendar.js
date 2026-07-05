@@ -353,7 +353,7 @@
                     const fallback = Number.isFinite(start) ? start : Number(li.dataset.endUtc || '');
                     const end = Number(li.dataset.endUtc || fallback || '');
                     const isPast = Number.isFinite(end) && end <= now;
-                    li.classList.toggle('mc-event-past', isPast);
+                    li.classList.toggle('mc-event-past', isPast || li.dataset.completed === '1');
                 });
 
                 regroupDayEventsByStatus(ul, now);
@@ -441,6 +441,21 @@
                 return 'past';
             }
 
+            function isCompletedTodoEvent(ev) {
+                if (!ev || Number(ev.is_todo || 0) !== 1) return false;
+                return Number(ev.is_completed || 0) === 1 || Number(ev.todo_completed || 0) > 0;
+            }
+
+            function createDayEventIcon(kind) {
+                const icon = document.createElement('span');
+                icon.className = kind === 'completed' ? 'mc-day-event-icon mc-completed-icon' : 'mc-day-event-icon mc-alarm-icon';
+                icon.setAttribute('aria-label', kind === 'completed' ? 'Completed todo' : 'Alarm');
+                icon.innerHTML = kind === 'completed'
+                    ? `<svg viewBox="0 0 448 512"><path fill="currentColor" d="M400 32H48C21.5 32 0 53.5 0 80v352c0 26.5 21.5 48 48 48h352c26.5 0 48-21.5 48-48V80c0-26.5-21.5-48-48-48zM367 192L208 351c-9.4 9.4-24.6 9.4-33.9 0l-83-83c-9.4-9.4-9.4-24.6 0-33.9l17-17c9.4-9.4 24.6-9.4 33.9 0l49.1 49.1L316.1 141c9.4-9.4 24.6-9.4 33.9 0l17 17c9.3 9.4 9.3 24.6 0 34z"/></svg>`
+                    : `<svg viewBox="0 0 448 512"><path fill="currentColor" d="M224 512c35.3 0 64-28.7 64-64H160c0 35.3 28.7 64 64 64zm176-128v-152c0-82.8-51.7-152.6-123.5-177.1V40c0-22.1-17.9-40-40-40s-40 17.9-40 40v14.9C101.7 79.4 50 149.2 50 232v152l-37.6 56.4c-8.7 13.1 0.7 31.6 16.5 31.6h390.2c15.8 0 25.2-18.5 16.5-31.6L400 384z"/></svg>`;
+                return icon;
+            }
+
             function createGroupSection(label, status) {
                 const section = document.createElement('li');
                 section.className = 'mc-day-events-group';
@@ -492,6 +507,10 @@
                     const start = Number(li.dataset.startUtc || '');
                     const fallback = Number.isFinite(start) ? start : Number(li.dataset.endUtc || '');
                     const end = Number(li.dataset.endUtc || fallback || '');
+                    if (li.dataset.completed === '1') {
+                        appendEventToGroup(ul, li, 'past');
+                        continue;
+                    }
                     const status = getEventStatus(start, end, now);
                     appendEventToGroup(ul, li, status);
                 }
@@ -1262,6 +1281,7 @@
                 for (const item of daySlices) {
                     const ev = item.ev;
                     const slice = item.slice;
+                    const isCompleted = isCompletedTodoEvent(ev);
                     const li = document.createElement('li');
                     li.className = 'mc-event';
                     const color = document.createElement('span');
@@ -1281,11 +1301,10 @@
                     li.appendChild(color);
                     li.appendChild(title);
 
-                    if (ev.hasAlarms) {
-                        const alarm = document.createElement('span');
-                        alarm.className = 'mc-alarm-icon';
-                        alarm.innerHTML = `<svg viewBox="0 0 448 512"><path fill="currentColor" d="M224 512c35.3 0 64-28.7 64-64H160c0 35.3 28.7 64 64 64zm176-128v-152c0-82.8-51.7-152.6-123.5-177.1V40c0-22.1-17.9-40-40-40s-40 17.9-40 40v14.9C101.7 79.4 50 149.2 50 232v152l-37.6 56.4c-8.7 13.1 0.7 31.6 16.5 31.6h390.2c15.8 0 25.2-18.5 16.5-31.6L400 384z"/></svg>`;
-                        li.appendChild(alarm);
+                    if (isCompleted) {
+                        li.appendChild(createDayEventIcon('completed'));
+                    } else if (ev.hasAlarms) {
+                        li.appendChild(createDayEventIcon('alarm'));
                     }
 
                     li.appendChild(t);
@@ -1317,9 +1336,10 @@
 
                     li.dataset.startUtc = String(slice.startUtc);
                     li.dataset.endUtc = String(slice.endUtc ?? slice.startUtc);
+                    if (isCompleted) li.dataset.completed = '1';
 
                     if (isGrouped) {
-                        const status = getEventStatus(slice.startUtc, slice.endUtc ?? slice.startUtc, Date.now());
+                        const status = isCompleted ? 'past' : getEventStatus(slice.startUtc, slice.endUtc ?? slice.startUtc, Date.now());
                         appendEventToGroup(ul, li, status);
                     } else {
                         ul.appendChild(li);

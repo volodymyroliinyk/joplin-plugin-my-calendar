@@ -532,6 +532,36 @@ describe('src/ui/calendar.js', () => {
         expect(li.classList.contains('mc-event-past')).toBe(true);
     });
 
+    test('day list: completed todo event is dimmed and shows checked icon instead of alarm bell', () => {
+        const {getOnMessageCb} = installWebviewApi();
+        loadCalendarJsFresh();
+        sendPluginMessage(getOnMessageCb, {name: 'uiSettings', weekStart: 'sunday', dayEventsRefreshMinutes: 10});
+
+        const dayTs = Number(findSelectedCell()!.dataset.utc);
+        sendPluginMessage(getOnMessageCb, {
+            name: 'rangeEvents',
+            events: [{
+                id: 'n1',
+                title: 'Completed future todo',
+                startUtc: dayTs + 13 * 60 * 60 * 1000,
+                endUtc: dayTs + 14 * 60 * 60 * 1000,
+                tz: 'UTC',
+                is_todo: 1,
+                is_completed: 1,
+                todo_completed: Date.now(),
+                hasAlarms: true,
+            }],
+        });
+
+        const li = document.querySelector('#mc-events-list .mc-event') as HTMLElement;
+        expect(li).toBeTruthy();
+        expect(li.classList.contains('mc-event-past')).toBe(true);
+        expect(li.dataset.completed).toBe('1');
+        expect(li.querySelector('.mc-completed-icon svg')).toBeTruthy();
+        expect(li.querySelector('.mc-completed-icon')?.getAttribute('aria-label')).toBe('Completed todo');
+        expect(li.querySelector('.mc-alarm-icon')).toBeNull();
+    });
+
     test('visibilitychange: when document becomes hidden -> clears day refresh + timeline timers; when visible -> posts uiReady again (debounced)', () => {
         const {getOnMessageCb, postMessage} = installWebviewApi();
         loadCalendarJsFresh();

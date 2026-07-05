@@ -31,6 +31,9 @@ type EventInput = {
 
     allDay?: boolean;
     hasAlarms?: boolean;
+    is_todo?: number;
+    todo_completed?: number;
+    is_completed?: number;
 };
 
 const EVENT_BLOCK_RE =
