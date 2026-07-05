@@ -12,6 +12,11 @@ export interface NoteItem {
     todo_completed?: number;
 }
 
+export interface TagItem {
+    id: string;
+    title: string;
+}
+
 interface PagedResponse<T> {
     items?: T[];
     has_more?: boolean;
@@ -20,27 +25,37 @@ interface PagedResponse<T> {
 const DEFAULT_PAGE_LIMIT = 100;
 const DEFAULT_MAX_PAGES = 1000;
 
-async function getPagedNotes(
+async function getPagedItems<T>(
     joplin: Joplin,
     path: string[],
-    fields: string[] = ['id', 'title', 'body', 'parent_id'],
-    options: { limit?: number; maxPages?: number } = {}
-): Promise<NoteItem[]> {
-    const allNotes: NoteItem[] = [];
+    fields: string[],
+    options: { limit?: number; maxPages?: number } = {},
+    errorLabel = 'getPagedItems',
+): Promise<T[]> {
+    const allItems: T[] = [];
     let page = 1;
     const limit = options.limit ?? DEFAULT_PAGE_LIMIT;
     const maxPages = options.maxPages ?? DEFAULT_MAX_PAGES;
 
     while (true) {
         if (page > maxPages) {
-            throw new Error(`getPagedNotes exceeded maxPages=${maxPages}`);
+            throw new Error(`${errorLabel} exceeded maxPages=${maxPages}`);
         }
-        const res = (await joplin.data.get(path, {fields, limit, page})) as PagedResponse<NoteItem>;
-        allNotes.push(...(res.items ?? []));
+        const res = (await joplin.data.get(path, {fields, limit, page})) as PagedResponse<T>;
+        allItems.push(...(res.items ?? []));
         if (!res.has_more) break;
         page++;
     }
-    return allNotes;
+    return allItems;
+}
+
+async function getPagedNotes(
+    joplin: Joplin,
+    path: string[],
+    fields: string[] = ['id', 'title', 'body', 'parent_id'],
+    options: { limit?: number; maxPages?: number } = {}
+): Promise<NoteItem[]> {
+    return getPagedItems<NoteItem>(joplin, path, fields, options, 'getPagedNotes');
 }
 
 export async function getAllNotesPaged(
@@ -62,6 +77,18 @@ export async function getFolderNotesPaged(
 
 export async function createNote(joplin: Joplin, note: Partial<NoteItem>): Promise<NoteItem> {
     return joplin.data.post(['notes'], null, note);
+}
+
+export async function getAllTagsPaged(
+    joplin: Joplin,
+    fields: string[] = ['id', 'title'],
+    options: { limit?: number; maxPages?: number } = {}
+): Promise<TagItem[]> {
+    return getPagedItems<TagItem>(joplin, ['tags'], fields, options);
+}
+
+export async function attachTagToNote(joplin: Joplin, tagId: string, noteId: string): Promise<void> {
+    await joplin.data.post(['tags', tagId, 'notes'], null, {id: noteId});
 }
 
 export async function updateNote(joplin: Joplin, id: string, patch: Partial<NoteItem>): Promise<void> {

@@ -8,10 +8,12 @@ import {dbg, err, info, log, warn} from '../utils/logger';
 import {getIcsImportAlarmRangeDays} from '../settings/settings';
 import {Joplin} from '../types/joplin.interface';
 import {getAllFolders, flattenFolderTree} from '../services/folderService';
+import {getAllTagsPaged, TagItem} from '../services/joplinNoteService';
 import {EventInput} from '../parsers/eventParser';
 import {Occurrence} from '../utils/dateUtils';
 import {getErrorText} from '../utils/errorUtils';
 import {normalizeHexColor} from '../utils/colorUtils';
+import {CalendarEventFormPayload, createCalendarEventNote} from '../services/eventNoteService';
 
 function isoDate(utc: number): string {
     return new Date(utc).toISOString().slice(0, 10);
@@ -37,8 +39,10 @@ const KNOWN_MSG_NAMES = [
     'openNote',
     'exportRangeIcs',
     'icsImport',
+    'calendarEventCreate',
     'clearEventsCache',
     'requestFolders',
+    'requestTags',
 ] as const;
 
 type KnownMsgName = typeof KNOWN_MSG_NAMES[number];
@@ -66,8 +70,13 @@ type PanelMsg =
     preserveLocalColor?: boolean;
     defaultColor?: unknown;
 }
+    | {
+    name: 'calendarEventCreate';
+    payload?: CalendarEventFormPayload;
+}
     | { name: 'clearEventsCache' }
-    | { name: 'requestFolders' };
+    | { name: 'requestFolders' }
+    | { name: 'requestTags' };
 
 type UiErrorPayload = { __error: true; message?: string; stack?: string };
 type ImportResultLike = {
@@ -131,6 +140,12 @@ function parseImportDefaultColor(value: unknown): string | undefined {
     return normalizeHexColor(value, {allowShort: true}) || undefined;
 }
 
+function sortTagsForSelect(tags: TagItem[]): TagItem[] {
+    return [...tags]
+        .filter((tag) => isString(tag.id) && isString(tag.title) && tag.title.trim())
+        .sort((a, b) => a.title.localeCompare(b.title, undefined, {sensitivity: 'base'}));
+}
+
 async function postImportFailure(
     post: (message: unknown) => Promise<void>,
     errorText: string,
@@ -178,6 +193,39 @@ async function handleIcsImportMessage(
         await showToast(res.errors > 0 ? 'warning' : 'success', doneText, 5000);
     } catch (error) {
         await postImportFailure(post, getErrorText(error));
+    }
+}
+
+async function handleCalendarEventCreateMessage(
+    joplin: Joplin,
+    post: (message: unknown) => Promise<void>,
+    msg: Extract<PanelMsg, { name: 'calendarEventCreate' }>,
+): Promise<void> {
+    try {
+        if (!isRecord(msg.payload)) {
+            await post({name: 'calendarEventCreateError', error: 'Missing event form payload'});
+            await showToast('error', 'Event creation failed: Missing event form payload', 5000);
+            return;
+        }
+
+        const result = await createCalendarEventNote(joplin, msg.payload);
+
+        invalidateAllEventsCache();
+        if (result.note.id) {
+            await joplin.commands.execute('openNote', result.note.id);
+        }
+        await post({
+            name: 'calendarEventCreateDone',
+            noteId: result.note.id,
+            uid: result.uid,
+            title: result.title,
+        });
+        await post({name: 'redrawMonth'});
+        await showToast('success', `Event note created: ${result.title}`, 4000);
+    } catch (error) {
+        const errorText = getErrorText(error);
+        await post({name: 'calendarEventCreateError', error: errorText});
+        await showToast('error', `Event creation failed: ${errorText}`, 5000);
     }
 }
 
@@ -300,6 +348,11 @@ export async function registerCalendarPanelController(
                     return;
                 }
 
+                case 'calendarEventCreate': {
+                    await handleCalendarEventCreateMessage(joplin, post, msg);
+                    return;
+                }
+
                 case 'clearEventsCache': {
                     invalidateAllEventsCache();
                     await post({name: 'redrawMonth'});
@@ -311,6 +364,12 @@ export async function registerCalendarPanelController(
                     const rows = await getAllFolders(joplin);
                     const folders = flattenFolderTree(rows);
                     await post({name: 'folders', folders});
+                    return;
+                }
+
+                case 'requestTags': {
+                    const tags = sortTagsForSelect(await getAllTagsPaged(joplin));
+                    await post({name: 'tags', tags});
                     return;
                 }
 

@@ -22,6 +22,10 @@ jest.mock('../../src/main/services/icsImportService', () => ({
     importIcsIntoNotes: jest.fn(),
 }));
 
+jest.mock('../../src/main/services/eventNoteService', () => ({
+    createCalendarEventNote: jest.fn(),
+}));
+
 jest.mock('../../src/main/utils/toast', () => ({
     showToast: jest.fn(),
 }));
@@ -36,6 +40,7 @@ jest.mock('../../src/main/utils/logger', () => ({
 
 import {ensureAllEventsCache, invalidateAllEventsCache} from '../../src/main/services/eventsCache';
 import {importIcsIntoNotes} from '../../src/main/services/icsImportService';
+import {createCalendarEventNote} from '../../src/main/services/eventNoteService';
 import {showToast} from '../../src/main/utils/toast';
 import {pushUiSettings} from '../../src/main/uiBridge/uiSettings';
 import {dbg, err, info, log, warn} from '../../src/main/utils/logger';
@@ -555,6 +560,57 @@ describe('panelController', () => {
         expect(showToast).toHaveBeenCalledWith('error', 'ICS import failed: nope', 5000);
     });
 
+
+    test('calendarEventCreate success -> creates note, opens it, invalidates cache, redraws, and shows toast', async () => {
+        const {handler, postMessage, joplin, execute} = await setup();
+
+        (createCalendarEventNote as jest.Mock).mockResolvedValue({
+            note: {id: 'note-1'},
+            uid: 'uid-1@mycalendarevent',
+            title: 'Planning',
+        });
+
+        const payload = {targetFolderId: 'folder1', title: 'Planning', start: '2026-06-16 10:00'};
+        await handler({name: 'calendarEventCreate', payload});
+
+        expect(createCalendarEventNote).toHaveBeenCalledWith(joplin, payload);
+        expect(invalidateAllEventsCache).toHaveBeenCalledTimes(1);
+        expect(execute).toHaveBeenCalledWith('openNote', 'note-1');
+        expect(postMessage).toHaveBeenCalledWith('panel-1', {
+            name: 'calendarEventCreateDone',
+            noteId: 'note-1',
+            uid: 'uid-1@mycalendarevent',
+            title: 'Planning',
+        });
+        expect(postMessage).toHaveBeenCalledWith('panel-1', {name: 'redrawMonth'});
+        expect(showToast).toHaveBeenCalledWith('success', 'Event note created: Planning', 4000);
+    });
+
+    test('calendarEventCreate invalid payload -> posts event creation error', async () => {
+        const {handler, postMessage} = await setup();
+
+        await handler({name: 'calendarEventCreate'} as any);
+
+        expect(createCalendarEventNote).not.toHaveBeenCalled();
+        expect(postMessage).toHaveBeenCalledWith('panel-1', {
+            name: 'calendarEventCreateError',
+            error: 'Missing event form payload',
+        });
+        expect(showToast).toHaveBeenCalledWith('error', 'Event creation failed: Missing event form payload', 5000);
+    });
+
+    test('calendarEventCreate service failure -> posts event creation error and does not invalidate cache', async () => {
+        const {handler, postMessage} = await setup();
+
+        (createCalendarEventNote as jest.Mock).mockRejectedValue(new Error('bad date'));
+
+        await handler({name: 'calendarEventCreate', payload: {title: 'Bad'}});
+
+        expect(postMessage).toHaveBeenCalledWith('panel-1', {name: 'calendarEventCreateError', error: 'bad date'});
+        expect(showToast).toHaveBeenCalledWith('error', 'Event creation failed: bad date', 5000);
+        expect(invalidateAllEventsCache).not.toHaveBeenCalled();
+    });
+
     test('clearEventsCache -> invalidates cache, requests redraw and shows toast', async () => {
         const {handler, postMessage} = await setup();
 
@@ -650,6 +706,48 @@ describe('panelController', () => {
         await handler({name: 'requestFolders'});
 
         expect(postMessage).toHaveBeenCalledWith('panel-1', {name: 'folders', folders: []});
+    });
+
+    test('requestTags -> paginates tags, filters invalid rows, sorts, and posts tag options', async () => {
+        const {handler, dataGet, postMessage} = await setup();
+
+        dataGet
+            .mockResolvedValueOnce({
+                items: [
+                    {id: 'tag-b', title: 'beta'},
+                    {id: 'tag-empty', title: ''},
+                    {id: 'tag-a', title: 'Alpha'},
+                ],
+                has_more: true,
+            })
+            .mockResolvedValueOnce({
+                items: [
+                    {id: 'tag-c', title: 'Calendar'},
+                    {id: 42, title: 'Bad'},
+                ],
+                has_more: false,
+            });
+
+        await handler({name: 'requestTags'});
+
+        expect(dataGet).toHaveBeenNthCalledWith(1, ['tags'], {
+            fields: ['id', 'title'],
+            limit: 100,
+            page: 1,
+        });
+        expect(dataGet).toHaveBeenNthCalledWith(2, ['tags'], {
+            fields: ['id', 'title'],
+            limit: 100,
+            page: 2,
+        });
+        expect(postMessage).toHaveBeenCalledWith('panel-1', {
+            name: 'tags',
+            tags: [
+                {id: 'tag-a', title: 'Alpha'},
+                {id: 'tag-b', title: 'beta'},
+                {id: 'tag-c', title: 'Calendar'},
+            ],
+        });
     });
 
     test('unknown msg -> no-op (no postMessage / no commands)', async () => {
