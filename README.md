@@ -29,6 +29,10 @@ note-taking app.
 - **Notes as Events**:
     - **Simple Syntax**: Turn any note into an event by adding a metadata block.
     - **Rich Details**: Support for timezones, locations, custom colors, and recurrence.
+- **In-Panel Event Creation**:
+    - **Guided Form**: Create event notes directly from the My Calendar panel without writing the event block by hand.
+    - **Full Event Details**: Set notebook, title, date/time, timezone, all-day mode, color, location, description,
+      recurrence, excluded dates, and Joplin tags.
 - **Robust ICS Import**:
     - **Broad Compatibility**: Import `.ics` files from Google Calendar, Outlook, Apple, etc.
     - **Recurrence**: Full support for complex recurring event patterns.
@@ -48,6 +52,7 @@ While we strive for parity, some features are specific to the Desktop version du
 |:-----------------------------------|:-------:|:------:|
 | Monthly Calendar Grid              |    ✅    |   ✅    |
 | Smart Day View                     |    ✅    |   ✅    |
+| In-panel Event Creation            |    ✅    |   ✅    |
 | Native Joplin Settings             |    ✅    |   ✅    |
 | ICS File Import                    |    ✅    |   ❌    |
 | Scheduled ICS Import from URLs     |    ✅    |   ❌    |
@@ -69,9 +74,31 @@ and trigger notifications on Mobile automatically.*
 3. Select `Plugins` and search for `My Calendar`.
 4. Click **Install** and restart Joplin.
 
-### 2. Manual Event Creation
+### 2. Create an Event from the Calendar Panel
 
-You don't need to import files to use the calendar. Simply add the following block to any note:
+The fastest way to add an event is the **Add event note** form in the **My Calendar** panel:
+
+1. Open the **My Calendar** panel.
+2. In **Add event note**, choose the target notebook.
+3. Fill in the event details: title, date/time, timezone, color, location, description, recurrence, and optional tags.
+4. Click **Create**.
+
+The plugin creates a regular Joplin note containing a `mycalendar-event` block, attaches the selected Joplin tags, opens
+the new note, and refreshes the calendar view.
+
+The form supports:
+
+- **All-day and timed events** with separate date and time controls.
+- **IANA timezones**, auto-populated from your device when available.
+- **12h/24h time labels** based on the plugin time-format setting.
+- **Recurring events**: daily, weekly, monthly, and yearly, with interval, repeat-until date, weekday selection, monthly
+  day, and excluded dates.
+- **Searchable tag selection** for attaching existing Joplin tags to the created note.
+- **Inline validation** before the note is created.
+
+### 3. Manual Event Creation
+
+You can also create or edit event notes manually. Simply add the following block to any note:
 
 ~~~markdown
 ```mycalendar-event

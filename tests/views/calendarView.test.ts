@@ -128,6 +128,26 @@ describe('calendarView.createCalendarPanel', () => {
         expect(log).not.toHaveBeenCalled();
     });
 
+    test('fails if addScript(eventCreate.js) rejects; show not called', async () => {
+        const {joplin, panels} = makeJoplinMock();
+
+        panels.create.mockResolvedValue('panel-123');
+        panels.setHtml.mockResolvedValue(undefined);
+
+        panels.addScript
+            .mockResolvedValueOnce(undefined) // css ok
+            .mockResolvedValueOnce(undefined) // calendar ok
+            .mockResolvedValueOnce(undefined) // icsImport ok
+            .mockRejectedValueOnce(new Error('add eventCreate failed'));
+
+        await expect(createCalendarPanel(joplin)).rejects.toThrow('add eventCreate failed');
+
+        expect(panels.addScript).toHaveBeenCalledTimes(4);
+        expect(panels.addScript).toHaveBeenNthCalledWith(4, 'panel-123', './ui/eventCreate.js');
+        expect(panels.show).not.toHaveBeenCalled();
+        expect(log).not.toHaveBeenCalled();
+    });
+
     test('creates panel, sets html, adds scripts in order and logs success', async () => {
         const {joplin, panels} = makeJoplinMock();
         panels.create.mockResolvedValue('panel-123');

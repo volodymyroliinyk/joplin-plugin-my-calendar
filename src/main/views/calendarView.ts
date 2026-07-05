@@ -35,6 +35,13 @@ export const CALENDAR_PANEL_HTML = `
      </div>
     <ul id="mc-events-list"></ul>
   </div>
+  <!-- CREATE EVENT NOTE -->
+  <div id="mc-event-create">
+    <div class="mc-event-create-header">Add event note</div>
+    <div id="mc-event-create-body">
+      <div id="mc-event-form-root"></div>
+    </div>
+  </div>
   <!-- IMPORT (SEPARATE BLOCK BELOW) -->
   <div id="mc-import">
     <div class="mc-import-header">ICS import</div>
@@ -51,6 +58,7 @@ export const CALENDAR_PANEL_SCRIPTS = [
     './ui/mycalendar.css',
     './ui/calendar.js',
     './ui/icsImport.js',
+    './ui/eventCreate.js',
 ] as const;
 
 export async function createCalendarPanel(joplin: JoplinLike): Promise<PanelHandle> {
