@@ -20,8 +20,10 @@ export const SETTING_DAY_EVENTS_VIEW_MODE = 'mycalendar.dayEventsViewMode';
 export const SETTING_TIME_FORMAT = 'mycalendar.timeFormat';
 export const SETTING_DAY_EVENTS_REFRESH_MINUTES = 'mycalendar.dayEventsRefreshMinutes';
 export const SETTING_SHOW_EVENT_TIMELINE = 'mycalendar.showEventTimeline';
-export const SETTING_TIMELINE_NOW_LINE_COLOR = 'mycalendar.timelineNowLineColor';
-export const SETTING_DEFAULT_EVENT_COLOR = 'mycalendar.defaultEventColor';
+export const SETTING_TIMELINE_NOW_LINE_COLOR_LIGHT = 'mycalendar.timelineNowLineColorLight';
+export const SETTING_TIMELINE_NOW_LINE_COLOR_DARK = 'mycalendar.timelineNowLineColorDark';
+export const SETTING_DEFAULT_EVENT_COLOR_LIGHT = 'mycalendar.defaultEventColorLight';
+export const SETTING_DEFAULT_EVENT_COLOR_DARK = 'mycalendar.defaultEventColorDark';
 
 // ICS Import
 export const SETTING_ICS_IMPORT_ALARMS_ENABLED = 'mycalendar.icsImportAlarmsEnabled';
@@ -80,6 +82,10 @@ const ICS_EXPORT_TITLE_KEYS = ICS_EXPORT_LINK_PAIRS.map(p => p.titleKey);
 const SCHEDULED_ICS_IMPORT_MINUTES_DEFAULT = 60;
 const SCHEDULED_ICS_IMPORT_MINUTES_MIN = 5;
 const SCHEDULED_ICS_IMPORT_MINUTES_MAX = 24 * 60;
+const DEFAULT_EVENT_COLOR_LIGHT = '#e65100';
+const DEFAULT_EVENT_COLOR_DARK = '#00e5e5';
+const DEFAULT_TIMELINE_NOW_LINE_COLOR_LIGHT = '#e65100';
+const DEFAULT_TIMELINE_NOW_LINE_COLOR_DARK = '#00e5e5';
 
 export const SCHEDULED_ICS_IMPORT_SETTING_KEYS = [
     SETTING_ICS_SCHEDULED_IMPORT_PAIRS,
@@ -321,21 +327,37 @@ export async function registerSettings(joplin: any) {
             label: 'Show event timeline',
             description: 'Day events section: Show a visual timeline bar under each event in the day list. Disabling this also stops related UI update timers (now dot / past status refresh).',
         },
-        [SETTING_DEFAULT_EVENT_COLOR]: {
+        [SETTING_DEFAULT_EVENT_COLOR_LIGHT]: {
             value: '',
             type: SETTING_TYPE_STRING,
             section: 'mycalendar',
             public: true,
-            label: 'Default event color (hex)',
-            description: 'ICS import section: Optional default event hex color for imported events without X-COLOR, for example #1470d9. Leave empty to use the built-in default color.',
+            label: 'Default event color - light mode (hex)',
+            description: `Day events and import fallback: Optional default event hex color for light mode, for example ${DEFAULT_EVENT_COLOR_LIGHT}. Leave empty to use the built-in light-mode default.`,
         },
-        [SETTING_TIMELINE_NOW_LINE_COLOR]: {
+        [SETTING_DEFAULT_EVENT_COLOR_DARK]: {
             value: '',
             type: SETTING_TYPE_STRING,
             section: 'mycalendar',
             public: true,
-            label: 'Current timeline line color (hex)',
-            description: 'Day events section: Optional custom hex color for the current-time timeline line, for example #ffa334. Leave empty to use the default theme color.',
+            label: 'Default event color - dark mode (hex)',
+            description: `Day events and import fallback: Optional default event hex color for dark mode, for example ${DEFAULT_EVENT_COLOR_DARK}. Leave empty to use the built-in dark-mode default.`,
+        },
+        [SETTING_TIMELINE_NOW_LINE_COLOR_LIGHT]: {
+            value: '',
+            type: SETTING_TYPE_STRING,
+            section: 'mycalendar',
+            public: true,
+            label: 'Current timeline line color - light mode (hex)',
+            description: `Day events section: Optional current-time timeline line hex color for light mode, for example ${DEFAULT_TIMELINE_NOW_LINE_COLOR_LIGHT}. Leave empty to use the built-in light-mode default.`,
+        },
+        [SETTING_TIMELINE_NOW_LINE_COLOR_DARK]: {
+            value: '',
+            type: SETTING_TYPE_STRING,
+            section: 'mycalendar',
+            public: true,
+            label: 'Current timeline line color - dark mode (hex)',
+            description: `Day events section: Optional current-time timeline line hex color for dark mode, for example ${DEFAULT_TIMELINE_NOW_LINE_COLOR_DARK}. Leave empty to use the built-in dark-mode default.`,
         },
 
         // 7) ICS Import
@@ -524,8 +546,14 @@ export async function registerSettings(joplin: any) {
                 const touchedTitle = ICS_EXPORT_TITLE_KEYS.some((k) => keys.includes(k));
                 const touchedExportPairs = keys.includes(SETTING_ICS_EXPORT_LINK_PAIRS);
                 const touchedScheduledImportPairs = keys.includes(SETTING_ICS_SCHEDULED_IMPORT_PAIRS);
-                const touchedDefaultEventColor = keys.includes(SETTING_DEFAULT_EVENT_COLOR);
-                const touchedTimelineNowLineColor = keys.includes(SETTING_TIMELINE_NOW_LINE_COLOR);
+                const touchedDefaultEventColor = [
+                    SETTING_DEFAULT_EVENT_COLOR_LIGHT,
+                    SETTING_DEFAULT_EVENT_COLOR_DARK,
+                ].some((k) => keys.includes(k));
+                const touchedTimelineNowLineColor = [
+                    SETTING_TIMELINE_NOW_LINE_COLOR_LIGHT,
+                    SETTING_TIMELINE_NOW_LINE_COLOR_DARK,
+                ].some((k) => keys.includes(k));
                 const touchedAlarmEmoji = keys.includes(SETTING_ICS_IMPORT_ALARM_EMOJI);
                 const touchedDebug = keys.includes(SETTING_DEBUG);
                 if (!touchedUrl && !touchedTitle && !touchedExportPairs && !touchedScheduledImportPairs && !touchedDefaultEventColor && !touchedTimelineNowLineColor && !touchedAlarmEmoji && !touchedDebug) return;
@@ -542,10 +570,20 @@ export async function registerSettings(joplin: any) {
                     await maybeFixScheduledPairs(SETTING_ICS_SCHEDULED_IMPORT_PAIRS);
                 }
                 if (touchedDefaultEventColor) {
-                    await maybeFixHexColor(SETTING_DEFAULT_EVENT_COLOR);
+                    for (const key of [
+                        SETTING_DEFAULT_EVENT_COLOR_LIGHT,
+                        SETTING_DEFAULT_EVENT_COLOR_DARK,
+                    ]) {
+                        if (keys.includes(key)) await maybeFixHexColor(key);
+                    }
                 }
                 if (touchedTimelineNowLineColor) {
-                    await maybeFixHexColor(SETTING_TIMELINE_NOW_LINE_COLOR);
+                    for (const key of [
+                        SETTING_TIMELINE_NOW_LINE_COLOR_LIGHT,
+                        SETTING_TIMELINE_NOW_LINE_COLOR_DARK,
+                    ]) {
+                        if (keys.includes(key)) await maybeFixHexColor(key);
+                    }
                 }
                 if (touchedAlarmEmoji) {
                     await maybeFixAlarmEmoji(SETTING_ICS_IMPORT_ALARM_EMOJI);
@@ -589,13 +627,49 @@ export async function getShowEventTimeline(joplin: any): Promise<boolean> {
 }
 
 export async function getTimelineNowLineColor(joplin: any): Promise<string> {
-    const raw = await joplin.settings.value(SETTING_TIMELINE_NOW_LINE_COLOR);
-    return sanitizeHexColor(raw);
+    return getTimelineNowLineColorLight(joplin);
+}
+
+async function getThemeColorSetting(joplin: any, key: string, builtInDefault: string): Promise<string> {
+    const raw = await joplin.settings.value(key);
+    const color = sanitizeHexColor(raw);
+    return color || builtInDefault;
+}
+
+export async function getTimelineNowLineColorLight(joplin: any): Promise<string> {
+    return getThemeColorSetting(
+        joplin,
+        SETTING_TIMELINE_NOW_LINE_COLOR_LIGHT,
+        DEFAULT_TIMELINE_NOW_LINE_COLOR_LIGHT,
+    );
+}
+
+export async function getTimelineNowLineColorDark(joplin: any): Promise<string> {
+    return getThemeColorSetting(
+        joplin,
+        SETTING_TIMELINE_NOW_LINE_COLOR_DARK,
+        DEFAULT_TIMELINE_NOW_LINE_COLOR_DARK,
+    );
 }
 
 export async function getDefaultEventColor(joplin: any): Promise<string> {
-    const raw = await joplin.settings.value(SETTING_DEFAULT_EVENT_COLOR);
-    return sanitizeHexColor(raw);
+    return getDefaultEventColorLight(joplin);
+}
+
+export async function getDefaultEventColorLight(joplin: any): Promise<string> {
+    return getThemeColorSetting(
+        joplin,
+        SETTING_DEFAULT_EVENT_COLOR_LIGHT,
+        DEFAULT_EVENT_COLOR_LIGHT,
+    );
+}
+
+export async function getDefaultEventColorDark(joplin: any): Promise<string> {
+    return getThemeColorSetting(
+        joplin,
+        SETTING_DEFAULT_EVENT_COLOR_DARK,
+        DEFAULT_EVENT_COLOR_DARK,
+    );
 }
 
 export async function getDayEventsRefreshMinutes(joplin: any): Promise<number> {

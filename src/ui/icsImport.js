@@ -8,6 +8,8 @@
         weekStart: 'monday',
         debug: undefined,
         defaultEventColor: '',
+        defaultEventColorLight: '',
+        defaultEventColorDark: '',
         // new multi-link format
         icsExportLinks: [],
     };
@@ -80,8 +82,45 @@
         return /^#[0-9a-fA-F]{6}$/.test(raw) ? raw.toLowerCase() : '';
     }
 
+    function parseColorToRgb(value) {
+        const raw = String(value || '').trim();
+        const hex = raw.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+        if (hex) {
+            const part = hex[1];
+            const full = part.length === 3 ? part.split('').map(ch => ch + ch).join('') : part;
+            return {
+                r: parseInt(full.slice(0, 2), 16),
+                g: parseInt(full.slice(2, 4), 16),
+                b: parseInt(full.slice(4, 6), 16),
+            };
+        }
+        const rgb = raw.match(/^rgba?\(\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)/i);
+        if (!rgb) return null;
+        return {r: Number(rgb[1]), g: Number(rgb[2]), b: Number(rgb[3])};
+    }
+
+    function isDarkTheme() {
+        const styles = window.getComputedStyle?.(document.documentElement);
+        const bodyStyles = window.getComputedStyle?.(document.body);
+        const bg = styles?.getPropertyValue('--joplin-background-color') ||
+            styles?.backgroundColor ||
+            bodyStyles?.backgroundColor ||
+            '';
+        const rgb = parseColorToRgb(bg);
+        if (rgb) {
+            const srgb = [rgb.r, rgb.g, rgb.b].map((channel) => {
+                const c = Math.max(0, Math.min(255, channel)) / 255;
+                return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+            });
+            const luminance = (0.2126 * srgb[0]) + (0.7152 * srgb[1]) + (0.0722 * srgb[2]);
+            return luminance < 0.5;
+        }
+        return window.matchMedia?.('(prefers-color-scheme: dark)')?.matches === true;
+    }
+
     function getPluginImportDefaultColor() {
-        return normalizeHexColor(uiSettings.defaultEventColor);
+        const color = isDarkTheme() ? uiSettings.defaultEventColorDark : uiSettings.defaultEventColorLight;
+        return normalizeHexColor(color) || normalizeHexColor(uiSettings.defaultEventColor);
     }
 
     function getBuiltInImportDefaultColor() {
@@ -545,6 +584,8 @@
                 [MSG.UI_SETTINGS]: () => {
                     if (typeof msg.debug === 'boolean') uiSettings.debug = msg.debug;
                     if (typeof msg.defaultEventColor === 'string') uiSettings.defaultEventColor = msg.defaultEventColor;
+                    if (typeof msg.defaultEventColorLight === 'string') uiSettings.defaultEventColorLight = msg.defaultEventColorLight;
+                    if (typeof msg.defaultEventColorDark === 'string') uiSettings.defaultEventColorDark = msg.defaultEventColorDark;
                     if (Array.isArray(msg.icsExportLinks)) uiSettings.icsExportLinks = msg.icsExportLinks;
                     manualImportColorValue = resolveInitialImportColor(safeGetLS(LS.manualImportColorValue, ''));
                     importColorPicker.value = manualImportColorValue;

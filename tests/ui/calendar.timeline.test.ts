@@ -255,6 +255,26 @@ describe('calendar.js timeline settings', () => {
         expect(document.documentElement.style.getPropertyValue('--mc-current-time-v-line-color')).toBe('');
     });
 
+    test('applies light and dark now-line colors based on Joplin background color', () => {
+        loadScript();
+
+        document.documentElement.style.setProperty('--joplin-background-color', '#ffffff');
+        sendSettings({
+            showEventTimeline: true,
+            timelineNowLineColorLight: '#e65100',
+            timelineNowLineColorDark: '#ffd166',
+            dayEventsRefreshMinutes: 1,
+        });
+        expect(document.documentElement.style.getPropertyValue('--mc-current-time-v-line-color')).toBe('#e65100');
+
+        document.documentElement.style.setProperty('--joplin-background-color', '#101010');
+        sendSettings({
+            timelineNowLineColorLight: '#e65100',
+            timelineNowLineColorDark: '#ffd166',
+        });
+        expect(document.documentElement.style.getPropertyValue('--mc-current-time-v-line-color')).toBe('#ffd166');
+    });
+
     test('applies custom default event color override and removes it when setting becomes empty', () => {
         loadScript();
 
@@ -263,6 +283,40 @@ describe('calendar.js timeline settings', () => {
 
         sendSettings({defaultEventColor: ''});
         expect(document.documentElement.style.getPropertyValue('--mc-event-color')).toBe('');
+    });
+
+    test('applies light and dark default event colors based on Joplin background color', () => {
+        loadScript();
+
+        document.documentElement.style.setProperty('--joplin-background-color', '#ffffff');
+        sendSettings({
+            showEventTimeline: true,
+            defaultEventColorLight: '#007c7c',
+            defaultEventColorDark: '#00e5e5',
+            dayEventsRefreshMinutes: 1,
+        });
+        expect(document.documentElement.style.getPropertyValue('--mc-event-color')).toBe('#007c7c');
+
+        document.documentElement.style.setProperty('--joplin-background-color', '#101010');
+        sendSettings({
+            defaultEventColorLight: '#007c7c',
+            defaultEventColorDark: '#00e5e5',
+        });
+        expect(document.documentElement.style.getPropertyValue('--mc-event-color')).toBe('#00e5e5');
+    });
+
+    test('theme-specific default event color falls back to legacy color when missing', () => {
+        loadScript();
+
+        document.documentElement.style.setProperty('--joplin-background-color', '#ffffff');
+        sendSettings({
+            showEventTimeline: true,
+            defaultEventColor: '#1470d9',
+            defaultEventColorLight: '',
+            defaultEventColorDark: '',
+            dayEventsRefreshMinutes: 1,
+        });
+        expect(document.documentElement.style.getPropertyValue('--mc-event-color')).toBe('#1470d9');
     });
 
     test('day events without explicit color use the configurable default event color variable', () => {

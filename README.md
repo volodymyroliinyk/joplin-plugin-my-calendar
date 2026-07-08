@@ -214,11 +214,13 @@ Customize your experience in the Joplin Settings (`Tools` > `Options` > `My Cale
   shows a gray checked checkbox icon.
 - **Show event timeline**: Show a visual timeline bar under each event in the day list. Disabling this also stops
   related UI update timers. (Default: Enabled).
-- **Current timeline line color (hex)**: Optional custom color for the current-time line in the day event timeline.
-  Use `#RGB` or `#RRGGBB`, or leave empty to keep the default color.
-- **Default event color (hex)**: Optional default hex color for imported events without `X-COLOR` and for "Day events"
-  section events without a color.
-  Use `#RGB` or `#RRGGBB`, or leave empty to keep the built-in default event color.
+- **Current timeline line color - light mode (hex)** and **Current timeline line color - dark mode (hex)**: Optional
+  custom colors for the current-time line in the day event timeline. Leave empty to use the built-in contrast defaults:
+  `#e65100` for light mode and `#ffd166` for dark mode.
+- **Default event color - light mode (hex)** and **Default event color - dark mode (hex)**: Optional default colors for
+  imported events without `X-COLOR`, the event creation form, and "Day events" section events without a color. Leave
+  empty to use the built-in contrast defaults: `#007c7c` for light mode and `#00e5e5` for dark mode.
+- Color settings accept `#RGB` or `#RRGGBB` values and are normalized to lowercase.
 
 ### ICS Import (Desktop only)
 

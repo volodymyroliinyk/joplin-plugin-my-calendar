@@ -8,7 +8,11 @@
         dayEventsRefreshMinutes: 1,
         showEventTimeline: true,
         defaultEventColor: '',
+        defaultEventColorLight: '',
+        defaultEventColorDark: '',
         timelineNowLineColor: '',
+        timelineNowLineColorLight: '',
+        timelineNowLineColorDark: '',
         showWeekNumbers: false,
         timeFormat: '24h',
         dayEventsViewMode: 'single',
@@ -131,8 +135,67 @@
         if (box) box.style.display = (uiSettings.debug === true) ? '' : 'none';
     }
 
+    function parseColorToRgb(value) {
+        const raw = String(value || '').trim();
+        const hex = raw.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+        if (hex) {
+            const part = hex[1];
+            const full = part.length === 3 ? part.split('').map(ch => ch + ch).join('') : part;
+            return {
+                r: parseInt(full.slice(0, 2), 16),
+                g: parseInt(full.slice(2, 4), 16),
+                b: parseInt(full.slice(4, 6), 16),
+            };
+        }
+        const rgb = raw.match(/^rgba?\(\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)/i);
+        if (!rgb) return null;
+        return {r: Number(rgb[1]), g: Number(rgb[2]), b: Number(rgb[3])};
+    }
+
+    function isDarkTheme() {
+        const styles = window.getComputedStyle?.(document.documentElement);
+        const bodyStyles = window.getComputedStyle?.(document.body);
+        const bg = styles?.getPropertyValue('--joplin-background-color') ||
+            styles?.backgroundColor ||
+            bodyStyles?.backgroundColor ||
+            '';
+        const rgb = parseColorToRgb(bg);
+        if (rgb) {
+            const srgb = [rgb.r, rgb.g, rgb.b].map((channel) => {
+                const c = Math.max(0, Math.min(255, channel)) / 255;
+                return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+            });
+            const luminance = (0.2126 * srgb[0]) + (0.7152 * srgb[1]) + (0.0722 * srgb[2]);
+            return luminance < 0.5;
+        }
+        return window.matchMedia?.('(prefers-color-scheme: dark)')?.matches === true;
+    }
+
+    function themeAwareColor(lightColor, darkColor, legacyColor) {
+        const color = isDarkTheme() ? darkColor : lightColor;
+        return typeof color === 'string' && color.trim()
+            ? color.trim()
+            : (typeof legacyColor === 'string' ? legacyColor.trim() : '');
+    }
+
+    function getTimelineNowLineColor() {
+        return themeAwareColor(
+            uiSettings.timelineNowLineColorLight,
+            uiSettings.timelineNowLineColorDark,
+            uiSettings.timelineNowLineColor,
+        );
+    }
+
+    function getDefaultEventColor() {
+        return themeAwareColor(
+            uiSettings.defaultEventColorLight,
+            uiSettings.defaultEventColorDark,
+            uiSettings.defaultEventColor,
+        );
+    }
+
     function applyTimelineNowLineColor() {
-        const color = typeof uiSettings.timelineNowLineColor === 'string' ? uiSettings.timelineNowLineColor.trim() : '';
+        const color = getTimelineNowLineColor();
         if (color) {
             document.documentElement.style.setProperty('--mc-current-time-v-line-color', color);
         } else {
@@ -141,7 +204,7 @@
     }
 
     function applyDefaultEventColor() {
-        const color = typeof uiSettings.defaultEventColor === 'string' ? uiSettings.defaultEventColor.trim() : '';
+        const color = getDefaultEventColor();
         if (color) {
             document.documentElement.style.setProperty('--mc-event-color', color);
         } else {
@@ -732,9 +795,25 @@
                         uiSettings.defaultEventColor = msg.defaultEventColor;
                         applyDefaultEventColor();
                     }
+                    if (typeof msg.defaultEventColorLight === 'string') {
+                        uiSettings.defaultEventColorLight = msg.defaultEventColorLight;
+                        applyDefaultEventColor();
+                    }
+                    if (typeof msg.defaultEventColorDark === 'string') {
+                        uiSettings.defaultEventColorDark = msg.defaultEventColorDark;
+                        applyDefaultEventColor();
+                    }
 
                     if (typeof msg.timelineNowLineColor === 'string') {
                         uiSettings.timelineNowLineColor = msg.timelineNowLineColor;
+                        applyTimelineNowLineColor();
+                    }
+                    if (typeof msg.timelineNowLineColorLight === 'string') {
+                        uiSettings.timelineNowLineColorLight = msg.timelineNowLineColorLight;
+                        applyTimelineNowLineColor();
+                    }
+                    if (typeof msg.timelineNowLineColorDark === 'string') {
+                        uiSettings.timelineNowLineColorDark = msg.timelineNowLineColorDark;
                         applyTimelineNowLineColor();
                     }
 

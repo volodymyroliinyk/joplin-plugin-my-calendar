@@ -485,6 +485,37 @@ describe('src/ui/icsImport.js', () => {
         expect(picker.value.toLowerCase()).toBe('#99ff66');
     });
 
+    test('uiSettings uses light and dark default import colors based on Joplin background color', () => {
+        setupDom(true);
+        const {getOnMessageCb} = installWebviewApi();
+
+        localStorage.setItem('mycalendar_manual_import_color_enabled', '1');
+        localStorage.setItem('mycalendar_manual_import_color_value', 'not-a-color');
+        document.documentElement.style.setProperty('--joplin-background-color', '#ffffff');
+
+        loadIcsImportFresh();
+
+        sendPluginMessage(getOnMessageCb, {
+            name: 'uiSettings',
+            defaultEventColorLight: '#007c7c',
+            defaultEventColorDark: '#00e5e5',
+            icsExportLinks: [],
+        });
+
+        const picker = qs('input[type="color"]') as HTMLInputElement;
+        expect(picker.value.toLowerCase()).toBe('#007c7c');
+
+        document.documentElement.style.setProperty('--joplin-background-color', '#101010');
+        sendPluginMessage(getOnMessageCb, {
+            name: 'uiSettings',
+            defaultEventColorLight: '#007c7c',
+            defaultEventColorDark: '#00e5e5',
+            icsExportLinks: [],
+        });
+
+        expect(picker.value.toLowerCase()).toBe('#00e5e5');
+    });
+
     test('uiSettings defaultEventColor does not override a valid remembered manual import color', () => {
         setupDom(true);
         const {getOnMessageCb} = installWebviewApi();
