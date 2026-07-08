@@ -334,4 +334,30 @@ describe('src/ui/eventCreate.js', () => {
         const picker = qs('input[type="color"]') as HTMLInputElement;
         expect(picker.value.toLowerCase()).toBe('#99ff66');
     });
+
+    test('uiSettings uses light and dark default colors based on Joplin background color', () => {
+        setupDom(true);
+        const {getOnMessageCb} = installWebviewApi();
+
+        document.documentElement.style.setProperty('--joplin-background-color', '#ffffff');
+        loadEventCreateFresh();
+
+        sendPluginMessage(getOnMessageCb, {
+            name: 'uiSettings',
+            defaultEventColorLight: '#007c7c',
+            defaultEventColorDark: '#00e5e5',
+        });
+
+        const picker = qs('input[type="color"]') as HTMLInputElement;
+        expect(picker.value.toLowerCase()).toBe('#007c7c');
+
+        document.documentElement.style.setProperty('--joplin-background-color', '#101010');
+        sendPluginMessage(getOnMessageCb, {
+            name: 'uiSettings',
+            defaultEventColorLight: '#007c7c',
+            defaultEventColorDark: '#00e5e5',
+        });
+
+        expect(picker.value.toLowerCase()).toBe('#00e5e5');
+    });
 });

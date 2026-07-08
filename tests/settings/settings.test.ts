@@ -196,28 +196,108 @@ describe('settings.ts logic', () => {
     });
 
     describe('getTimelineNowLineColor logic', () => {
-        const mkJoplin = (val: any) => ({
-            settings: {value: jest.fn().mockResolvedValue(val)}
+        const mkJoplin = (map: Record<string, any>) => ({
+            settings: {
+                value: jest.fn(async (key: string) => map[key]),
+            },
         });
 
-        test('returns sanitized hex color or empty string', async () => {
-            await expect(settings.getTimelineNowLineColor(mkJoplin('#ffa334'))).resolves.toBe('#ffa334');
-            await expect(settings.getTimelineNowLineColor(mkJoplin('#FFA334'))).resolves.toBe('#ffa334');
-            await expect(settings.getTimelineNowLineColor(mkJoplin('bad-color'))).resolves.toBe('');
-            await expect(settings.getTimelineNowLineColor(mkJoplin(''))).resolves.toBe('');
+        test('returns the light-mode timeline color for legacy callers', async () => {
+            await expect(settings.getTimelineNowLineColor(mkJoplin({
+                [settings.SETTING_TIMELINE_NOW_LINE_COLOR_LIGHT]: '#FFA334',
+            }))).resolves.toBe('#ffa334');
+
+            await expect(settings.getTimelineNowLineColor(mkJoplin({
+                [settings.SETTING_TIMELINE_NOW_LINE_COLOR_LIGHT]: 'bad-color',
+            }))).resolves.toBe('#e65100');
+        });
+    });
+
+    describe('theme-aware timeline color settings', () => {
+        const mkJoplin = (map: Record<string, any>) => ({
+            settings: {
+                value: jest.fn(async (key: string) => map[key]),
+            },
+        });
+
+        test('returns sanitized light/dark values when configured', async () => {
+            const joplin = mkJoplin({
+                [settings.SETTING_TIMELINE_NOW_LINE_COLOR_LIGHT]: '#E65100',
+                [settings.SETTING_TIMELINE_NOW_LINE_COLOR_DARK]: '#FFD166',
+            });
+
+            await expect(settings.getTimelineNowLineColorLight(joplin)).resolves.toBe('#e65100');
+            await expect(settings.getTimelineNowLineColorDark(joplin)).resolves.toBe('#ffd166');
+        });
+
+        test('ignores invalid theme values and uses built-in defaults', async () => {
+            const joplin = mkJoplin({
+                [settings.SETTING_TIMELINE_NOW_LINE_COLOR_LIGHT]: '',
+                [settings.SETTING_TIMELINE_NOW_LINE_COLOR_DARK]: 'bad-color',
+            });
+
+            await expect(settings.getTimelineNowLineColorLight(joplin)).resolves.toBe('#e65100');
+            await expect(settings.getTimelineNowLineColorDark(joplin)).resolves.toBe('#00e5e5');
+        });
+
+        test('uses built-in contrast defaults when settings are empty', async () => {
+            const joplin = mkJoplin({});
+
+            await expect(settings.getTimelineNowLineColorLight(joplin)).resolves.toBe('#e65100');
+            await expect(settings.getTimelineNowLineColorDark(joplin)).resolves.toBe('#00e5e5');
         });
     });
 
     describe('getDefaultEventColor logic', () => {
-        const mkJoplin = (val: any) => ({
-            settings: {value: jest.fn().mockResolvedValue(val)}
+        const mkJoplin = (map: Record<string, any>) => ({
+            settings: {
+                value: jest.fn(async (key: string) => map[key]),
+            },
         });
 
-        test('returns sanitized hex color or empty string', async () => {
-            await expect(settings.getDefaultEventColor(mkJoplin('#1470d9'))).resolves.toBe('#1470d9');
-            await expect(settings.getDefaultEventColor(mkJoplin('#AABBCC'))).resolves.toBe('#aabbcc');
-            await expect(settings.getDefaultEventColor(mkJoplin('blue'))).resolves.toBe('');
-            await expect(settings.getDefaultEventColor(mkJoplin(''))).resolves.toBe('');
+        test('returns the light-mode default event color for legacy callers', async () => {
+            await expect(settings.getDefaultEventColor(mkJoplin({
+                [settings.SETTING_DEFAULT_EVENT_COLOR_LIGHT]: '#1470d9',
+            }))).resolves.toBe('#1470d9');
+
+            await expect(settings.getDefaultEventColor(mkJoplin({
+                [settings.SETTING_DEFAULT_EVENT_COLOR_LIGHT]: 'blue',
+            }))).resolves.toBe('#e65100');
+        });
+    });
+
+    describe('theme-aware default event color settings', () => {
+        const mkJoplin = (map: Record<string, any>) => ({
+            settings: {
+                value: jest.fn(async (key: string) => map[key]),
+            },
+        });
+
+        test('returns sanitized light/dark values when configured', async () => {
+            const joplin = mkJoplin({
+                [settings.SETTING_DEFAULT_EVENT_COLOR_LIGHT]: '#007C7C',
+                [settings.SETTING_DEFAULT_EVENT_COLOR_DARK]: '#00E5E5',
+            });
+
+            await expect(settings.getDefaultEventColorLight(joplin)).resolves.toBe('#007c7c');
+            await expect(settings.getDefaultEventColorDark(joplin)).resolves.toBe('#00e5e5');
+        });
+
+        test('ignores invalid theme values and uses built-in defaults', async () => {
+            const joplin = mkJoplin({
+                [settings.SETTING_DEFAULT_EVENT_COLOR_LIGHT]: '',
+                [settings.SETTING_DEFAULT_EVENT_COLOR_DARK]: 'bad-color',
+            });
+
+            await expect(settings.getDefaultEventColorLight(joplin)).resolves.toBe('#e65100');
+            await expect(settings.getDefaultEventColorDark(joplin)).resolves.toBe('#00e5e5');
+        });
+
+        test('uses built-in contrast defaults when settings are empty', async () => {
+            const joplin = mkJoplin({});
+
+            await expect(settings.getDefaultEventColorLight(joplin)).resolves.toBe('#e65100');
+            await expect(settings.getDefaultEventColorDark(joplin)).resolves.toBe('#00e5e5');
         });
     });
 
@@ -397,8 +477,10 @@ describe('settings.ts logic', () => {
             const values = new Map<string, any>([
                 [settings.SETTING_ICS_EXPORT_LINK_PAIRS, `  ${'x'.repeat(100)} | https://ok.test/a.ics ;; Bad | javascript:alert(1) `],
                 [settings.SETTING_ICS_IMPORT_ALARM_EMOJI, ' \n⏰\t '],
-                [settings.SETTING_DEFAULT_EVENT_COLOR, '  dodgerblue  '],
-                [settings.SETTING_TIMELINE_NOW_LINE_COLOR, '  orange  '],
+                [settings.SETTING_DEFAULT_EVENT_COLOR_LIGHT, '  #007C7C  '],
+                [settings.SETTING_DEFAULT_EVENT_COLOR_DARK, '  cyan  '],
+                [settings.SETTING_TIMELINE_NOW_LINE_COLOR_LIGHT, '  #E65100  '],
+                [settings.SETTING_TIMELINE_NOW_LINE_COLOR_DARK, '  amber  '],
                 [settings.SETTING_DEBUG, true],
             ]);
 
@@ -424,8 +506,10 @@ describe('settings.ts logic', () => {
                 keys: [
                     settings.SETTING_ICS_EXPORT_LINK_PAIRS,
                     settings.SETTING_ICS_IMPORT_ALARM_EMOJI,
-                    settings.SETTING_DEFAULT_EVENT_COLOR,
-                    settings.SETTING_TIMELINE_NOW_LINE_COLOR,
+                    settings.SETTING_DEFAULT_EVENT_COLOR_LIGHT,
+                    settings.SETTING_DEFAULT_EVENT_COLOR_DARK,
+                    settings.SETTING_TIMELINE_NOW_LINE_COLOR_LIGHT,
+                    settings.SETTING_TIMELINE_NOW_LINE_COLOR_DARK,
                     settings.SETTING_DEBUG,
                 ],
             });
@@ -439,11 +523,19 @@ describe('settings.ts logic', () => {
                 '⏰',
             );
             expect(joplin.settings.setValue).toHaveBeenCalledWith(
-                settings.SETTING_DEFAULT_EVENT_COLOR,
+                settings.SETTING_DEFAULT_EVENT_COLOR_LIGHT,
+                '#007c7c',
+            );
+            expect(joplin.settings.setValue).toHaveBeenCalledWith(
+                settings.SETTING_DEFAULT_EVENT_COLOR_DARK,
                 '',
             );
             expect(joplin.settings.setValue).toHaveBeenCalledWith(
-                settings.SETTING_TIMELINE_NOW_LINE_COLOR,
+                settings.SETTING_TIMELINE_NOW_LINE_COLOR_LIGHT,
+                '#e65100',
+            );
+            expect(joplin.settings.setValue).toHaveBeenCalledWith(
+                settings.SETTING_TIMELINE_NOW_LINE_COLOR_DARK,
                 '',
             );
 
@@ -515,10 +607,20 @@ describe('settings.ts logic', () => {
             expect(arg[settings.SETTING_DAY_EVENTS_VIEW_MODE]).toBeDefined();
             expect(arg[settings.SETTING_DAY_EVENTS_VIEW_MODE].value).toBe('single');
             expect(arg[settings.SETTING_DAY_EVENTS_VIEW_MODE].isEnum).toBe(true);
-            expect(arg[settings.SETTING_DEFAULT_EVENT_COLOR]).toBeDefined();
-            expect(arg[settings.SETTING_DEFAULT_EVENT_COLOR].value).toBe('');
-            expect(arg[settings.SETTING_TIMELINE_NOW_LINE_COLOR]).toBeDefined();
-            expect(arg[settings.SETTING_TIMELINE_NOW_LINE_COLOR].value).toBe('');
+            expect(arg['mycalendar.defaultEventColor']).toBeUndefined();
+            expect(arg[settings.SETTING_DEFAULT_EVENT_COLOR_LIGHT]).toBeDefined();
+            expect(arg[settings.SETTING_DEFAULT_EVENT_COLOR_LIGHT].value).toBe('');
+            expect(arg[settings.SETTING_DEFAULT_EVENT_COLOR_LIGHT].public).toBe(true);
+            expect(arg[settings.SETTING_DEFAULT_EVENT_COLOR_DARK]).toBeDefined();
+            expect(arg[settings.SETTING_DEFAULT_EVENT_COLOR_DARK].value).toBe('');
+            expect(arg[settings.SETTING_DEFAULT_EVENT_COLOR_DARK].public).toBe(true);
+            expect(arg['mycalendar.timelineNowLineColor']).toBeUndefined();
+            expect(arg[settings.SETTING_TIMELINE_NOW_LINE_COLOR_LIGHT]).toBeDefined();
+            expect(arg[settings.SETTING_TIMELINE_NOW_LINE_COLOR_LIGHT].value).toBe('');
+            expect(arg[settings.SETTING_TIMELINE_NOW_LINE_COLOR_LIGHT].public).toBe(true);
+            expect(arg[settings.SETTING_TIMELINE_NOW_LINE_COLOR_DARK]).toBeDefined();
+            expect(arg[settings.SETTING_TIMELINE_NOW_LINE_COLOR_DARK].value).toBe('');
+            expect(arg[settings.SETTING_TIMELINE_NOW_LINE_COLOR_DARK].public).toBe(true);
         });
     });
 });

@@ -1,13 +1,14 @@
 joplin-plugin-my-calendar/
 ├── assets/
-│   ├── screenshots/
+│   └── screenshots/
 │       ├── dark_settings_view.png
 │       ├── dark_view.png
 │       ├── light_settings_view.png
 │       └── light_view.png
 ├── docs/
 │   ├── DIAGRAMS.md
-│   └── WORKFLOW.md
+│   ├── WORKFLOW.md
+│   └── authentication-before-release.sh
 ├── examples/
 │   ├── all-day.md
 │   ├── custom-content.md
@@ -34,6 +35,7 @@ joplin-plugin-my-calendar/
 │   │   │   └── icsParser.ts
 │   │   ├── services/
 │   │   │   ├── alarmService.ts
+│   │   │   ├── eventNoteService.ts
 │   │   │   ├── eventsCache.ts
 │   │   │   ├── folderService.ts
 │   │   │   ├── icsImportService.ts
@@ -66,6 +68,7 @@ joplin-plugin-my-calendar/
 │   │   └── joplin-api.d.ts
 │   ├── ui/
 │   │   ├── calendar.js
+│   │   ├── eventCreate.js
 │   │   ├── icsImport.js
 │   │   └── mycalendar.css
 │   └── index.ts
@@ -80,6 +83,7 @@ joplin-plugin-my-calendar/
 │   ├── services/
 │   │   ├── alarmSafety.test.ts
 │   │   ├── alarmService.test.ts
+│   │   ├── eventNoteService.test.ts
 │   │   ├── eventsCache.test.ts
 │   │   ├── folderService.test.ts
 │   │   ├── icsImportService.test.ts
@@ -98,6 +102,7 @@ joplin-plugin-my-calendar/
 │   │   ├── calendar.timeline.test.ts
 │   │   ├── calendar.weekNumbers.test.ts
 │   │   ├── calendar.weekStart.test.ts
+│   │   ├── eventCreate.test.ts
 │   │   └── icsImport.test.ts
 │   ├── uiBridge/
 │   │   ├── panelController.test.ts
