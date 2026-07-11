@@ -15,6 +15,7 @@ jest.mock('../../src/main/uiBridge/uiSettings', () => ({
 
 jest.mock('../../src/main/services/eventsCache', () => ({
     ensureAllEventsCache: jest.fn(),
+    getEventsCacheVersion: jest.fn(),
     invalidateAllEventsCache: jest.fn(),
 }));
 
@@ -38,7 +39,11 @@ jest.mock('../../src/main/utils/logger', () => ({
     err: jest.fn(),
 }));
 
-import {ensureAllEventsCache, invalidateAllEventsCache} from '../../src/main/services/eventsCache';
+import {
+    ensureAllEventsCache,
+    getEventsCacheVersion,
+    invalidateAllEventsCache
+} from '../../src/main/services/eventsCache';
 import {importIcsIntoNotes} from '../../src/main/services/icsImportService';
 import {createCalendarEventNote} from '../../src/main/services/eventNoteService';
 import {showToast} from '../../src/main/utils/toast';
@@ -112,6 +117,7 @@ async function setup() {
 
 beforeEach(() => {
     jest.clearAllMocks();
+    (getEventsCacheVersion as jest.Mock).mockReturnValue(1);
 });
 
 describe('panelController', () => {
@@ -188,6 +194,47 @@ describe('panelController', () => {
             name: 'rangeEvents',
             events: [{id: 1}],
         });
+    });
+
+    test('requestRangeEvents -> reuses expanded range while cache version is unchanged', async () => {
+        const {handler, postMessage, helpers} = await setup();
+
+        (ensureAllEventsCache as jest.Mock).mockResolvedValue([{id: 1}]);
+        helpers.expandAllInRange.mockReturnValue([{id: 'expanded'}]);
+
+        await handler({name: 'requestRangeEvents', fromUtc: 10, toUtc: 20});
+        await handler({name: 'requestRangeEvents', fromUtc: 10, toUtc: 20});
+
+        expect(ensureAllEventsCache).toHaveBeenCalledTimes(1);
+        expect(helpers.expandAllInRange).toHaveBeenCalledTimes(1);
+        expect(postMessage).toHaveBeenCalledTimes(2);
+        expect(postMessage).toHaveBeenLastCalledWith('panel-1', {
+            name: 'rangeEvents',
+            events: [{id: 'expanded'}],
+        });
+    });
+
+    test('requestRangeEvents -> recomputes expanded range after cache version changes', async () => {
+        const {handler, helpers} = await setup();
+
+        (ensureAllEventsCache as jest.Mock)
+            .mockResolvedValueOnce([{id: 1}])
+            .mockResolvedValueOnce([{id: 2}]);
+        (getEventsCacheVersion as jest.Mock)
+            .mockReturnValueOnce(1)
+            .mockReturnValueOnce(1)
+            .mockReturnValueOnce(2)
+            .mockReturnValueOnce(2);
+        helpers.expandAllInRange
+            .mockReturnValueOnce([{id: 'v1'}])
+            .mockReturnValueOnce([{id: 'v2'}]);
+
+        await handler({name: 'requestRangeEvents', fromUtc: 10, toUtc: 20});
+        await handler({name: 'requestRangeEvents', fromUtc: 10, toUtc: 20});
+
+        expect(ensureAllEventsCache).toHaveBeenCalledTimes(2);
+        expect(helpers.expandAllInRange).toHaveBeenCalledTimes(2);
+        expect(helpers.expandAllInRange).toHaveBeenNthCalledWith(2, [{id: 2}], 10, 20);
     });
 
     test('uiReady -> works with wrapped message payload', async () => {
@@ -759,7 +806,7 @@ describe('panelController', () => {
         expect(execute).not.toHaveBeenCalled();
     });
 
-    test('outer try/catch -> logs error if handler body throws (e.g., ensureAllEventsCache rejects)', async () => {
+    test('outer try/catch -> logs error and sends empty rangeEvents if range cache fails', async () => {
         const {handler, postMessage} = await setup();
 
 
@@ -767,9 +814,9 @@ describe('panelController', () => {
 
         await handler({name: 'requestRangeEvents', fromUtc: 1, toUtc: 2});
 
-        // should not throw further, only log
+        // should not throw further; UI still gets a response so the loader clears.
         expect(err).toHaveBeenCalledWith('panelController', 'onMessage error:', expect.any(Error));
-        expect(postMessage).not.toHaveBeenCalled();
+        expect(postMessage).toHaveBeenCalledWith('panel-1', {name: 'rangeEvents', events: []});
 
     });
 

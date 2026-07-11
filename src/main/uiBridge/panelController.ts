@@ -1,6 +1,6 @@
 // src/main/uiBridge/panelController.ts
 
-import {ensureAllEventsCache, invalidateAllEventsCache} from '../services/eventsCache';
+import {ensureAllEventsCache, getEventsCacheVersion, invalidateAllEventsCache} from '../services/eventsCache';
 import {importIcsIntoNotes} from '../services/icsImportService';
 import {showToast} from '../utils/toast';
 import {pushUiSettings} from './uiSettings';
@@ -100,6 +100,11 @@ function buildImportDoneText(result: ImportResultLike): string {
 type UtcRange = {
     fromUtc: number;
     toUtc: number;
+};
+
+type RangeCacheEntry = {
+    version: number;
+    events: Occurrence[];
 };
 
 function buildRangeIcsFilename(fromUtc: number, toUtc: number): string {
@@ -264,6 +269,26 @@ export async function registerCalendarPanelController(
     }
 ) {
     const post = (message: unknown) => joplin.views.panels.postMessage(panel, message);
+    const rangeEventsCache = new Map<string, RangeCacheEntry>();
+
+    const clearRangeEventsCache = () => {
+        rangeEventsCache.clear();
+    };
+
+    const getRangeEvents = async (fromUtc: number, toUtc: number): Promise<Occurrence[]> => {
+        const version = getEventsCacheVersion();
+        const key = `${fromUtc}:${toUtc}`;
+        const cached = rangeEventsCache.get(key);
+        if (cached && cached.version === version) {
+            return cached.events;
+        }
+
+        const all = await ensureAllEventsCache(joplin);
+        const nextVersion = getEventsCacheVersion();
+        const events = helpers.expandAllInRange(all, fromUtc, toUtc);
+        rangeEventsCache.set(key, {version: nextVersion, events});
+        return events;
+    };
 
     await joplin.views.panels.onMessage(panel, async (rawMsg: unknown) => {
         try {
@@ -284,8 +309,7 @@ export async function registerCalendarPanelController(
 
                 case 'requestRangeEvents': {
                     if (!isValidUtcRange(msg.fromUtc, msg.toUtc)) return;
-                    const all = await ensureAllEventsCache(joplin);
-                    const list = helpers.expandAllInRange(all, msg.fromUtc, msg.toUtc);
+                    const list = await getRangeEvents(msg.fromUtc, msg.toUtc);
                     await post({name: 'rangeEvents', events: list});
                     return;
                 }
@@ -304,9 +328,7 @@ export async function registerCalendarPanelController(
                         dayEnd = range.toUtc;
                     }
 
-                    const all = await ensureAllEventsCache(joplin);
-                    const list = helpers
-                        .expandAllInRange(all, dayStart, dayEnd)
+                    const list = (await getRangeEvents(dayStart, dayEnd))
                         .filter((e) => {
                             if (!isNumber(e.startUtc)) return false;
                             const endUtc = isNumber(e.endUtc) ? e.endUtc : e.startUtc;
@@ -331,8 +353,7 @@ export async function registerCalendarPanelController(
                 case 'exportRangeIcs': {
                     if (!isValidUtcRange(msg.fromUtc, msg.toUtc)) return;
 
-                    const all = await ensureAllEventsCache(joplin);
-                    const list = helpers.expandAllInRange(all, msg.fromUtc, msg.toUtc);
+                    const list = await getRangeEvents(msg.fromUtc, msg.toUtc);
                     const ics = helpers.buildICS(list);
 
                     await post({
@@ -355,6 +376,7 @@ export async function registerCalendarPanelController(
 
                 case 'clearEventsCache': {
                     invalidateAllEventsCache();
+                    clearRangeEventsCache();
                     await post({name: 'redrawMonth'});
                     await showToast('info', 'Events cache cleared', 3000);
                     return;
@@ -378,6 +400,10 @@ export async function registerCalendarPanelController(
             }
         } catch (e) {
             err('panelController', 'onMessage error:', e);
+            const unwrapped = unwrapMessage(rawMsg);
+            if (isRecord(unwrapped) && unwrapped.name === 'requestRangeEvents') {
+                await post({name: 'rangeEvents', events: []});
+            }
         }
     });
 }
