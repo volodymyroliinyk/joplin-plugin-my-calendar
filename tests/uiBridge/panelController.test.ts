@@ -491,6 +491,34 @@ describe('panelController', () => {
         );
     });
 
+    test('icsImport success -> clears cached expanded ranges before next range request', async () => {
+        const {handler, helpers} = await setup();
+
+        (ensureAllEventsCache as jest.Mock)
+            .mockResolvedValueOnce([{id: 'before-import'}])
+            .mockResolvedValueOnce([{id: 'after-import'}]);
+        helpers.expandAllInRange
+            .mockReturnValueOnce([{id: 'expanded-before'}])
+            .mockReturnValueOnce([{id: 'expanded-after'}]);
+        (importIcsIntoNotes as jest.Mock).mockResolvedValue({
+            added: 1,
+            updated: 0,
+            skipped: 0,
+            errors: 0,
+            alarmsCreated: 0,
+            alarmsDeleted: 0,
+        });
+
+        await handler({name: 'requestRangeEvents', fromUtc: 10, toUtc: 20});
+        await handler({name: 'icsImport', ics: 'BEGIN:VCALENDAR...'});
+        await handler({name: 'requestRangeEvents', fromUtc: 10, toUtc: 20});
+
+        expect(invalidateAllEventsCache).toHaveBeenCalledTimes(1);
+        expect(ensureAllEventsCache).toHaveBeenCalledTimes(2);
+        expect(helpers.expandAllInRange).toHaveBeenCalledTimes(2);
+        expect(helpers.expandAllInRange).toHaveBeenNthCalledWith(2, [{id: 'after-import'}], 10, 20);
+    });
+
     test('icsImport -> passes targetFolderId only when it is a string; otherwise undefined', async () => {
         const {handler} = await setup();
 
@@ -631,6 +659,34 @@ describe('panelController', () => {
         });
         expect(postMessage).toHaveBeenCalledWith('panel-1', {name: 'redrawMonth'});
         expect(showToast).toHaveBeenCalledWith('success', 'Event note created: Planning', 4000);
+    });
+
+    test('calendarEventCreate success -> clears cached expanded ranges before next range request', async () => {
+        const {handler, helpers} = await setup();
+
+        (ensureAllEventsCache as jest.Mock)
+            .mockResolvedValueOnce([{id: 'before-create'}])
+            .mockResolvedValueOnce([{id: 'after-create'}]);
+        helpers.expandAllInRange
+            .mockReturnValueOnce([{id: 'expanded-before'}])
+            .mockReturnValueOnce([{id: 'expanded-after'}]);
+        (createCalendarEventNote as jest.Mock).mockResolvedValue({
+            note: {id: 'note-created'},
+            uid: 'uid-created@mycalendarevent',
+            title: 'Created event',
+        });
+
+        await handler({name: 'requestRangeEvents', fromUtc: 10, toUtc: 20});
+        await handler({
+            name: 'calendarEventCreate',
+            payload: {targetFolderId: 'folder1', title: 'Created event', start: '2026-06-16 10:00'},
+        });
+        await handler({name: 'requestRangeEvents', fromUtc: 10, toUtc: 20});
+
+        expect(invalidateAllEventsCache).toHaveBeenCalledTimes(1);
+        expect(ensureAllEventsCache).toHaveBeenCalledTimes(2);
+        expect(helpers.expandAllInRange).toHaveBeenCalledTimes(2);
+        expect(helpers.expandAllInRange).toHaveBeenNthCalledWith(2, [{id: 'after-create'}], 10, 20);
     });
 
     test('calendarEventCreate invalid payload -> posts event creation error', async () => {
