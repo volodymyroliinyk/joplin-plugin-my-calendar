@@ -84,6 +84,30 @@ function buildExcludedStartSet(exdates: string[] | undefined, tz: string): Set<n
     return out;
 }
 
+function zonedTimeToUtcMsOrNull(
+    localY: number,
+    localM: number,
+    localD: number,
+    localH: number,
+    localMin: number,
+    localSec: number,
+    tz: string,
+    context: { id: string; title: string },
+): number | null {
+    try {
+        return zonedTimeToUtcMs(localY, localM, localD, localH, localMin, localSec, tz);
+    } catch (error) {
+        dbg('occurrence', 'Skipping non-existent recurrence local time:', {
+            id: context.id,
+            title: context.title,
+            tz,
+            local: `${localY}-${pad2(localM)}-${pad2(localD)} ${pad2(localH)}:${pad2(localMin)}:${pad2(localSec)}`,
+            error,
+        });
+        return null;
+    }
+}
+
 export function expandOccurrences(ev: IcsEvent, windowStart: Date, windowEnd: Date): Occurrence[] {
     if (!ev.start) return [];
     if (String(ev.status || '').trim().toLowerCase() === 'cancelled') return [];
@@ -160,6 +184,7 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
     const baseH = baseLocal.h, baseMin = baseLocal.m, baseS = baseLocal.sec;
     const until = ev.repeatUntilUtc ?? toUtc;
     const step = Math.max(1, ev.repeatInterval || 1);
+    const eventContext = {id: ev.id, title: ev.title};
 
     if (ev.repeat === 'daily') {
         const from2 = fromUtc - Math.max(0, dur);
@@ -172,7 +197,8 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
 
         for (; ; k++) {
             const occ = addDaysYMD(baseY, baseM, baseD, k * step);
-            const start = zonedTimeToUtcMs(occ.Y, occ.M, occ.D, baseH, baseMin, baseS, tz);
+            const start = zonedTimeToUtcMsOrNull(occ.Y, occ.M, occ.D, baseH, baseMin, baseS, tz, eventContext);
+            if (start == null) continue;
             if (start < from2) continue;
             if (start > until) break;
             if (!push(start, out)) break;
@@ -212,7 +238,8 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
             for (const wd of list) {
                 const occ = addDaysYMD(weekStart.Y, weekStart.M, weekStart.D, wd);
 
-                const start = zonedTimeToUtcMs(occ.Y, occ.M, occ.D, baseLocal.h, baseLocal.m, baseLocal.sec, tz);
+                const start = zonedTimeToUtcMsOrNull(occ.Y, occ.M, occ.D, baseLocal.h, baseLocal.m, baseLocal.sec, tz, eventContext);
+                if (start == null) continue;
                 if (start < from2 || start > until) continue;
 
                 if (!push(start, out)) return out;
@@ -220,8 +247,8 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
 
             // stop condition: next week start beyond range
             const nextWeek = addDaysYMD(mondayBase.Y, mondayBase.M, mondayBase.D, (weekIndex + 1) * 7 * step);
-            const nextWeekStartUtc = zonedTimeToUtcMs(nextWeek.Y, nextWeek.M, nextWeek.D, 0, 0, 0, tz);
-            if (nextWeekStartUtc > toUtc) break;
+            const nextWeekStartUtc = zonedTimeToUtcMsOrNull(nextWeek.Y, nextWeek.M, nextWeek.D, 0, 0, 0, tz, eventContext);
+            if (nextWeekStartUtc != null && nextWeekStartUtc > toUtc) break;
 
             weekIndex++;
         }
@@ -241,12 +268,7 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
         for (; ;) {
             const year = Math.floor(monthIndex / 12);
             const month = (monthIndex % 12 + 12) % 12 + 1;
-            let start: number | null = null;
-            try {
-                start = zonedTimeToUtcMs(year, month, dom, baseH, baseMin, baseS, tz);
-            } catch {
-                // Skip impossible dates such as February 31.
-            }
+            const start = zonedTimeToUtcMsOrNull(year, month, dom, baseH, baseMin, baseS, tz, eventContext);
 
             if (start !== null) {
                 const localParts = getPartsInTzHms(start, tz);
@@ -265,8 +287,8 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
             monthIndex += step;
             const nextYear = Math.floor(monthIndex / 12);
             const nextMonth = (monthIndex % 12 + 12) % 12 + 1;
-            const nextStart = zonedTimeToUtcMs(nextYear, nextMonth, 1, 0, 0, 0, tz);
-            if (nextStart > toUtc && nextStart > until) break;
+            const nextStart = zonedTimeToUtcMsOrNull(nextYear, nextMonth, 1, 0, 0, 0, tz, eventContext);
+            if (nextStart != null && nextStart > toUtc && nextStart > until) break;
         }
         return out;
     }
@@ -280,12 +302,7 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
         }
 
         for (; ;) {
-            let start: number | null = null;
-            try {
-                start = zonedTimeToUtcMs(year, baseM, baseD, baseH, baseMin, baseS, tz);
-            } catch {
-                // Skip impossible dates such as February 29 in non-leap years.
-            }
+            const start = zonedTimeToUtcMsOrNull(year, baseM, baseD, baseH, baseMin, baseS, tz, eventContext);
 
             if (start !== null) {
                 const localParts = getPartsInTzHms(start, tz);
@@ -302,8 +319,8 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
             }
 
             year += step;
-            const nextStart = zonedTimeToUtcMs(year, 1, 1, 0, 0, 0, tz);
-            if (nextStart > toUtc && nextStart > until) break;
+            const nextStart = zonedTimeToUtcMsOrNull(year, 1, 1, 0, 0, 0, tz, eventContext);
+            if (nextStart != null && nextStart > toUtc && nextStart > until) break;
         }
         return out;
     }

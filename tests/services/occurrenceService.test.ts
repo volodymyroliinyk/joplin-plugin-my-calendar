@@ -54,6 +54,32 @@ describe('occurrenceService.expandOccurrences', () => {
         ]);
     });
 
+    test('daily recurrence skips DST spring-forward gap occurrence instead of throwing', () => {
+        const ev: IcsEvent = {
+            start: '2024-03-09 02:30:00',
+            end: '2024-03-09 03:00:00',
+            tz: 'America/New_York',
+            repeat: 'daily',
+        };
+
+        expect(() => expandOccurrences(
+            ev,
+            new Date('2024-03-09T00:00:00Z'),
+            new Date('2024-03-12T00:00:00Z'),
+        )).not.toThrow();
+
+        const occs = expandOccurrences(
+            ev,
+            new Date('2024-03-09T00:00:00Z'),
+            new Date('2024-03-12T00:00:00Z'),
+        );
+
+        expect(occs.map(o => isoLocal(o.start))).toEqual([
+            '2024-03-09T07:30:00.000Z',
+            '2024-03-11T06:30:00.000Z',
+        ]);
+    });
+
     test('repeat_until clamps generation', () => {
         const ev: IcsEvent = {
             start: '2025-01-01 10:00:00+00:00',
@@ -115,6 +141,26 @@ describe('occurrenceService.expandOccurrences', () => {
             '2025-01-08T10:00:00.000Z', // WE
             '2025-01-13T10:00:00.000Z', // MO
             '2025-01-15T10:00:00.000Z', // WE
+        ]);
+    });
+
+    test('weekly recurrence skips DST spring-forward gap occurrence instead of throwing', () => {
+        const ev: IcsEvent = {
+            start: '2024-03-03 02:30:00',
+            end: '2024-03-03 03:00:00',
+            tz: 'America/New_York',
+            repeat: 'weekly',
+        };
+
+        const occs = expandOccurrences(
+            ev,
+            new Date('2024-03-01T00:00:00Z'),
+            new Date('2024-03-18T00:00:00Z'),
+        );
+
+        expect(occs.map(o => isoLocal(o.start))).toEqual([
+            '2024-03-03T07:30:00.000Z',
+            '2024-03-17T06:30:00.000Z',
         ]);
     });
 
