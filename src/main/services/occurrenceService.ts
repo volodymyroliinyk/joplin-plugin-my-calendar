@@ -92,7 +92,14 @@ export function expandOccurrences(ev: IcsEvent, windowStart: Date, windowEnd: Da
     const startUtc = toUtcOrNull(ev.start, tz);
     if (startUtc == null) return [];
 
-    const endUtc = toUtcOrNull(ev.end, tz) ?? startUtc;
+    let endUtc = toUtcOrNull(ev.end, tz) ?? startUtc;
+    if (ev.all_day) {
+        if (endUtc > startUtc) {
+            endUtc -= 1;
+        } else {
+            endUtc = startUtc + DAY_MS - 1;
+        }
+    }
 
     const repeatUntilUtc = ev.repeat_until ? (parseRepeatUntilToUTC(ev.repeat_until, tz) ?? undefined) : undefined;
 
@@ -110,6 +117,7 @@ export function expandOccurrences(ev: IcsEvent, windowStart: Date, windowEnd: Da
         byWeekdays: parseByWeekdaysStrToMon0(ev.byweekday),
         byMonthDay: parseByMonthDaySafe(ev.bymonthday),
         exdates: ev.exdates,
+        allDay: ev.all_day,
     };
 
     const occs = expandOccurrencesInRange(eventInput, windowStart.getTime(), windowEnd.getTime());

@@ -25,6 +25,20 @@ describe('occurrenceService.expandOccurrences', () => {
         expect(isoLocal(occs[0].end)).toBe('2025-01-10T11:00:00.000Z');
     });
 
+    test('all-day event treats DTEND as exclusive and returns inclusive display end', () => {
+        const ev: IcsEvent = {
+            start: '2025-01-01 00:00:00',
+            end: '2025-01-02 00:00:00',
+            tz: 'America/Toronto',
+            all_day: true,
+            repeat: 'none',
+        };
+        const occs = expandOccurrences(ev, new Date('2025-01-01T00:00:00Z'), new Date('2025-01-03T00:00:00Z'));
+        expect(occs).toHaveLength(1);
+        expect(isoLocal(occs[0].start)).toBe('2025-01-01T05:00:00.000Z');
+        expect(isoLocal(occs[0].end)).toBe('2025-01-02T04:59:59.999Z');
+    });
+
     test('daily recurrence with interval=2', () => {
         const ev: IcsEvent = {
             start: '2025-01-01 10:00:00+00:00',
