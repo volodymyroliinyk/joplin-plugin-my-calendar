@@ -880,6 +880,36 @@ describe('pluginMain.runPlugin', () => {
         nowSpy.mockRestore();
     });
 
+    test('helpers: buildICS exports all-day events as VALUE=DATE with exclusive DTEND', async () => {
+        (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
+        (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);
+
+        const {joplin} = makeJoplinMock();
+        await runPlugin(joplin as any);
+
+        const [, , helpers] = (registerCalendarPanelController as jest.Mock).mock.calls[0];
+        const nowSpy = jest.spyOn(Date, 'now').mockReturnValue(1700000000000);
+
+        const ics = helpers.buildICS([
+            {
+                id: 'all-day-note',
+                occurrenceId: 'all-day-note#1',
+                startUtc: new Date('2025-01-01T05:00:00.000Z').getTime(),
+                endUtc: new Date('2025-01-02T04:59:59.999Z').getTime(),
+                tz: 'America/Toronto',
+                allDay: true,
+                title: 'Holiday',
+            },
+        ]);
+
+        expect(ics).toContain('DTSTART;VALUE=DATE:20250101');
+        expect(ics).toContain('DTEND;VALUE=DATE:20250102');
+        expect(ics).not.toContain('DTSTART:20250101T050000Z');
+        expect(ics).not.toContain('DTEND:20250102T045959Z');
+
+        nowSpy.mockRestore();
+    });
+
     test('helpers: buildICS folds long lines', async () => {
         (createCalendarPanel as jest.Mock).mockResolvedValue('panel-1');
         (ensureAllEventsCache as jest.Mock).mockResolvedValue([]);

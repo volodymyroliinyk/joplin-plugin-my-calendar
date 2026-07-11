@@ -90,6 +90,38 @@ describe('eventNoteService', () => {
             .toThrow('Selected tags contain an invalid tag id');
     });
 
+    test('normalizes all-day event creation to date-only start and exclusive end date', () => {
+        const normalized = normalizeCalendarEventFormPayload({
+            targetFolderId: 'folder_123',
+            title: 'Conference',
+            start: '2026-06-16',
+            end: '2026-06-18',
+            tz: 'America/Toronto',
+            all_day: true,
+        });
+
+        expect(normalized.event).toMatchObject({
+            title: 'Conference',
+            start: '2026-06-16',
+            end: '2026-06-19',
+            tz: 'America/Toronto',
+            all_day: true,
+        });
+    });
+
+    test('normalizes same-day all-day event creation to one exclusive day', () => {
+        const normalized = normalizeCalendarEventFormPayload({
+            targetFolderId: 'folder_123',
+            title: 'Holiday',
+            start: '2026-06-16',
+            end: '2026-06-16',
+            all_day: true,
+        });
+
+        expect(normalized.event.start).toBe('2026-06-16');
+        expect(normalized.event.end).toBe('2026-06-17');
+    });
+
     test('createCalendarEventNote writes a sanitized mycalendar-event note', async () => {
         const joplin = {
             data: {

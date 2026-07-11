@@ -40,6 +40,30 @@ function fmtICS(tsUtc: number) {
         'T' + pad2(d.getUTCHours()) + pad2(d.getUTCMinutes()) + pad2(d.getUTCSeconds()) + 'Z';
 }
 
+function fmtIcsDateInZone(tsUtc: number, tz?: string) {
+    if (tz) {
+        try {
+            const parts = new Intl.DateTimeFormat('en-CA', {
+                timeZone: tz,
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+            }).formatToParts(new Date(tsUtc)).reduce<Record<string, string>>((acc, part) => {
+                if (part.type !== 'literal') acc[part.type] = part.value;
+                return acc;
+            }, {});
+            if (parts.year && parts.month && parts.day) {
+                return `${parts.year}${parts.month}${parts.day}`;
+            }
+        } catch {
+            // Fall back to UTC formatting below.
+        }
+    }
+
+    const d = new Date(tsUtc);
+    return d.getUTCFullYear().toString() + pad2(d.getUTCMonth() + 1) + pad2(d.getUTCDate());
+}
+
 function icsEscape(s: string) {
     return (s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
 }
@@ -73,8 +97,14 @@ function buildICS(events: Occurrence[], prodId = '-//MyCalendar//Joplin//EN') {
         push('BEGIN:VEVENT');
         push(`UID:${icsEscape(uid)}`);
         push(`DTSTAMP:${fmtICS(Date.now())}`);
-        push(`DTSTART:${fmtICS(ev.startUtc)}`);
-        if (ev.endUtc) push(`DTEND:${fmtICS(ev.endUtc)}`);
+        if (ev.allDay) {
+            push(`DTSTART;VALUE=DATE:${fmtIcsDateInZone(ev.startUtc, ev.tz)}`);
+            const exclusiveEndUtc = ev.endUtc != null ? ev.endUtc + 1 : ev.startUtc + 24 * 60 * 60 * 1000;
+            push(`DTEND;VALUE=DATE:${fmtIcsDateInZone(exclusiveEndUtc, ev.tz)}`);
+        } else {
+            push(`DTSTART:${fmtICS(ev.startUtc)}`);
+            if (ev.endUtc) push(`DTEND:${fmtICS(ev.endUtc)}`);
+        }
         push(`SUMMARY:${icsEscape(ev.title || 'Event')}`);
         if (ev.location) push(`LOCATION:${icsEscape(ev.location)}`);
         if (ev.description) push(`DESCRIPTION:${icsEscape(ev.description)}`);

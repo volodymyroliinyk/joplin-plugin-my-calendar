@@ -116,6 +116,10 @@ export function parseDateTimeToUTC(text: string, tz?: string): number | null {
     const trimmed = text.trim();
     if (!trimmed) return null;
 
+    if (isDateOnlyText(trimmed)) {
+        return parseDateTimeToUTC(`${trimmed} 00:00:00`, tz);
+    }
+
     // Explicit offset or Z -> trust Date parsing (absolute moment)
     if (/[+-]\d{2}:?\d{2}$/.test(trimmed) || /Z$/i.test(trimmed)) {
         const canon = trimmed

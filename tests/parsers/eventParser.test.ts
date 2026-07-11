@@ -65,4 +65,25 @@ describe('eventParser.parseEventsFromBody', () => {
         expect(utc).not.toBeNull();
         expect(new Date(utc as number).toISOString()).toBe('2027-01-01T04:59:59.000Z');
     });
+
+    test('date-only all-day event is interpreted as midnight in its timezone', () => {
+        const body = [
+            '```mycalendar-event',
+            'title: All day',
+            'start: 2025-01-01',
+            'end: 2025-01-02',
+            'tz: America/Toronto',
+            'all_day: true',
+            '',
+            'uid: u-all-day',
+            '```',
+        ].join('\n');
+
+        const events = parseEventsFromBody('note-1', 'Fallback', body);
+
+        expect(events).toHaveLength(1);
+        expect(events[0].allDay).toBe(true);
+        expect(new Date(events[0].startUtc).toISOString()).toBe('2025-01-01T05:00:00.000Z');
+        expect(new Date(events[0].endUtc as number).toISOString()).toBe('2025-01-02T04:59:59.999Z');
+    });
 });

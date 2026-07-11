@@ -58,6 +58,31 @@ function parseBool(value: unknown): boolean {
     return value === true || value === 'true' || value === '1';
 }
 
+function dateOnlyText(value: string): string {
+    const raw = value.trim();
+    const match = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+    return match?.[1] || raw;
+}
+
+function addDaysToDateOnly(value: string, days: number): string {
+    const match = dateOnlyText(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return value;
+    const dt = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])) + days * 24 * 60 * 60 * 1000);
+    const y = dt.getUTCFullYear();
+    const m = String(dt.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(dt.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
+function normalizeAllDayDateRange(start: string, end: string): { start: string; end: string } {
+    const startDate = dateOnlyText(start);
+    const endDate = dateOnlyText(end) || startDate;
+    const exclusiveEnd = endDate <= startDate
+        ? addDaysToDateOnly(startDate, 1)
+        : addDaysToDateOnly(endDate, 1);
+    return {start: startDate, end: exclusiveEnd};
+}
+
 function parseRepeat(value: unknown): RepeatValue {
     const normalized = asTrimmedString(value).toLowerCase();
     return (REPEAT_VALUES as readonly string[]).includes(normalized) ? normalized as RepeatValue : 'none';
@@ -160,12 +185,15 @@ export function normalizeCalendarEventFormPayload(payload: CalendarEventFormPayl
     if (rawTz && !tz) throw new Error('Timezone must be a valid IANA timezone');
 
     const allDay = parseBool(payload.all_day);
-    const startUtc = parseDateTimeToUTC(start, tz);
+    const normalizedAllDayRange = allDay ? normalizeAllDayDateRange(start, asTrimmedString(payload.end)) : undefined;
+    const normalizedStart = normalizedAllDayRange?.start ?? start;
+    const normalizedEnd = normalizedAllDayRange?.end ?? asTrimmedString(payload.end);
+
+    const startUtc = parseDateTimeToUTC(normalizedStart, tz);
     if (startUtc == null) throw new Error('Start date/time is invalid');
 
-    const end = asTrimmedString(payload.end);
-    if (end) {
-        const endUtc = parseDateTimeToUTC(end, tz);
+    if (normalizedEnd) {
+        const endUtc = parseDateTimeToUTC(normalizedEnd, tz);
         if (endUtc == null) throw new Error('End date/time is invalid');
         if (endUtc < startUtc) throw new Error('End date/time must be after start');
     }
@@ -185,8 +213,8 @@ export function normalizeCalendarEventFormPayload(payload: CalendarEventFormPayl
     const event: IcsEvent = {
         uid: generateMyCalendarEventUid(),
         title,
-        start,
-        end: end || undefined,
+        start: normalizedStart,
+        end: normalizedEnd || undefined,
         tz,
         all_day: allDay || undefined,
         color,
