@@ -158,7 +158,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
         });
     });
 
-    test('scans only notes from the provided existing-notes folder scope', async () => {
+    test('always scans all notes even when legacy existing-notes folder scope is provided', async () => {
         const ics = [
             'BEGIN:VCALENDAR',
             'BEGIN:VEVENT',
@@ -182,13 +182,64 @@ describe('icsImportService.importIcsIntoNotes', () => {
         await importIcsIntoNotes(joplin as any, ics, undefined, 'target-folder', true, undefined, undefined, 'scan-folder');
 
         expect(joplin.data.get).toHaveBeenCalledWith(
-            ['folders', 'scan-folder', 'notes'],
+            ['notes'],
             {
                 fields: ['id', 'title', 'body', 'parent_id', 'todo_due', 'todo_completed', 'is_todo'],
                 limit: 100,
                 page: 1
             },
         );
+    });
+
+    test('reimport into another notebook updates and moves existing event instead of creating duplicate', async () => {
+        const existingBody = block([
+            'uid: u-move-folder',
+            'title: Old title',
+            'start: 2025-01-15 10:00:00+00:00',
+            'end: 2025-01-15 11:00:00+00:00',
+        ].join('\n'));
+        const ics = [
+            'BEGIN:VCALENDAR',
+            'BEGIN:VEVENT',
+            'UID:u-move-folder',
+            'SUMMARY:Updated title',
+            'DTSTART:20250115T100000Z',
+            'DTEND:20250115T113000Z',
+            'END:VEVENT',
+            'END:VCALENDAR',
+        ].join('\n');
+
+        const joplin = mkJoplin({
+            get: jest.fn().mockResolvedValueOnce({
+                items: [{
+                    id: 'existing-note',
+                    title: 'Old title',
+                    body: existingBody,
+                    parent_id: 'old-folder',
+                }],
+                has_more: false,
+            }),
+            post: jest.fn(),
+            put: jest.fn(),
+        });
+
+        const res = await importIcsIntoNotes(joplin as any, ics, undefined, 'new-folder');
+
+        expect(joplin.data.post).not.toHaveBeenCalled();
+        expect(joplin.data.put).toHaveBeenCalledTimes(1);
+        expect(joplin.data.put).toHaveBeenCalledWith(
+            ['notes', 'existing-note'],
+            null,
+            expect.objectContaining({
+                title: 'Updated title',
+                parent_id: 'new-folder',
+                body: expect.stringContaining('title: Updated title'),
+            }),
+        );
+        expect(res.added).toBe(0);
+        expect(res.updated).toBe(1);
+        expect(res.skipped).toBe(0);
+        expect(res.errors).toBe(0);
     });
 
     test('keeps the lexicographically smallest note id as owner without surfacing duplicate ownership warning in import status', async () => {

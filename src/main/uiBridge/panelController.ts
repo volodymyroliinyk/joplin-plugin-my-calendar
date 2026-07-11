@@ -189,7 +189,6 @@ async function handleIcsImportMessage(
             preserveLocalColor,
             fallbackColor,
             importAlarmRangeDays,
-            targetFolderId,
         ) as ImportResultLike;
 
         invalidateCalendarData();

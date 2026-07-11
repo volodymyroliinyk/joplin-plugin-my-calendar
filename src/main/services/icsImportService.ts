@@ -13,7 +13,7 @@ import {
 import {syncAlarmsForEvents, ExistingAlarm} from './alarmService';
 import {buildMyCalBlock} from './noteBuilder';
 import {Joplin} from '../types/joplin.interface';
-import {createNote, getAllNotesPaged, getFolderNotesPaged, NoteItem, updateNote} from './joplinNoteService';
+import {createNote, getAllNotesPaged, NoteItem, updateNote} from './joplinNoteService';
 import {getIcsImportAlarmsEnabled} from '../settings/settings';
 import {getErrorText} from '../utils/errorUtils';
 import {createSafeTextReporter} from '../utils/statusNotifier';
@@ -61,6 +61,10 @@ type ImportIcsOptions = {
     preserveLocalColor: boolean;
     fallbackColor?: string;
     importAlarmRangeDays?: number;
+    /**
+     * Deprecated: event identity is global, so imports always scan all notes to
+     * avoid duplicating an existing UID/RECURRENCE-ID in another notebook.
+     */
     existingNotesFolderId?: string;
 };
 
@@ -341,9 +345,7 @@ export async function importIcsIntoNotes(
     await say(`Parsed ${events.length} VEVENT(s)`);
 
     const noteFields = ['id', 'title', 'body', 'parent_id', 'todo_due', 'todo_completed', 'is_todo'];
-    const allNotes = options.existingNotesFolderId
-        ? await getFolderNotesPaged(joplin, options.existingNotesFolderId, noteFields)
-        : await getAllNotesPaged(joplin, noteFields);
+    const allNotes = await getAllNotesPaged(joplin, noteFields);
     allNotes.sort(compareExistingNotesForOwnership);
 
     const {

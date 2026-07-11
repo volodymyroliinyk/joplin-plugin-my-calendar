@@ -99,7 +99,6 @@ describe('scheduledIcsImportService', () => {
             true,
             undefined,
             30,
-            'folder-1',
         );
         expect(invalidateAllEventsCache).toHaveBeenCalledTimes(1);
         expect(showToast).toHaveBeenCalledWith(
@@ -237,7 +236,6 @@ describe('scheduledIcsImportService', () => {
             true,
             '#00ff00',
             30,
-            'folder-1',
         );
     });
 
