@@ -249,7 +249,6 @@ export async function startScheduledIcsImport(
                         true,
                         defaultEventColor || undefined,
                         importAlarmRangeDays,
-                        folderId,
                     );
                     importedAtLeastOne = true;
                     mergeSummary(summary, result);
