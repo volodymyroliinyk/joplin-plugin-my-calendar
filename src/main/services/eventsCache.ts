@@ -17,18 +17,28 @@ const PAGE_LIMIT = 100;
 
 const eventCacheByNote = new Map<string, EventInput[]>();
 let allEventsCache: EventInput[] | null = null;
+let cacheVersion = 0;
+let lastRebuildFailed = false;
 
 // Guard against concurrent rebuilds
 let rebuildPromise: Promise<void> | null = null;
 
 export function invalidateAllEventsCache(): void {
+    cacheVersion++;
+    lastRebuildFailed = false;
     allEventsCache = null;
     eventCacheByNote.clear();
 }
 
 export function invalidateNote(noteId: string): void {
+    cacheVersion++;
+    lastRebuildFailed = false;
     eventCacheByNote.delete(noteId);
     allEventsCache = null;
+}
+
+export function getEventsCacheVersion(): number {
+    return cacheVersion;
 }
 
 export async function refreshNoteCache(joplin: JoplinLike, noteId: string): Promise<void> {
@@ -61,12 +71,16 @@ export async function refreshNoteCache(joplin: JoplinLike, noteId: string): Prom
         // Rebuild aggregated cache incrementally
         const filtered = allEventsCache.filter(e => e.id !== noteId);
         allEventsCache = extracted ? filtered.concat(extracted.events) : filtered;
+        cacheVersion++;
+        lastRebuildFailed = false;
     } catch (error) {
         // Note could be deleted or not accessible; remove its cache entries.
         eventCacheByNote.delete(noteId);
         if (allEventsCache) {
             allEventsCache = allEventsCache.filter(e => e.id !== noteId);
         }
+        cacheVersion++;
+        lastRebuildFailed = false;
         err('eventsCache', 'Error refreshing note cache:', error);
     }
 }
@@ -122,29 +136,48 @@ export async function rebuildAllEventsCache(joplin: JoplinLike): Promise<void> {
         return;
     }
 
+    const rebuildVersion = cacheVersion;
+
     rebuildPromise = (async () => {
         try {
             log('eventsCache', 'Rebuilding all events cache...');
 
-            eventCacheByNote.clear();
             const notes = await fetchAllNotes(joplin);
 
+            if (cacheVersion !== rebuildVersion) {
+                log('eventsCache', 'Skipping stale events cache rebuild result');
+                return;
+            }
+
+            const nextByNote = new Map<string, EventInput[]>();
             const all: EventInput[] = [];
 
             for (const n of notes) {
                 const extracted = extractEventsFromNote(n);
                 if (!extracted) continue;
 
-                eventCacheByNote.set(extracted.noteId, extracted.events);
+                nextByNote.set(extracted.noteId, extracted.events);
                 all.push(...extracted.events);
             }
 
+            if (cacheVersion !== rebuildVersion) {
+                log('eventsCache', 'Skipping stale events cache rebuild result');
+                return;
+            }
+
+            eventCacheByNote.clear();
+            for (const [noteId, events] of nextByNote) {
+                eventCacheByNote.set(noteId, events);
+            }
             allEventsCache = all;
+            lastRebuildFailed = false;
             log('eventsCache', 'Rebuild complete. Events found:', allEventsCache.length);
         } catch (error) {
             err('eventsCache', 'Error rebuilding events cache:', error);
-            // Keep cache usable + avoid "stuck" state
-            allEventsCache = allEventsCache || [];
+            lastRebuildFailed = true;
+            // Keep cache usable for the current request; ensureAllEventsCache() will retry
+            // on the next request while lastRebuildFailed remains true.
+            if (!allEventsCache) allEventsCache = [];
         }
     })();
 
@@ -156,7 +189,7 @@ export async function rebuildAllEventsCache(joplin: JoplinLike): Promise<void> {
 }
 
 export async function ensureAllEventsCache(joplin: JoplinLike): Promise<EventInput[]> {
-    if (!allEventsCache) {
+    if (!allEventsCache || lastRebuildFailed) {
         await rebuildAllEventsCache(joplin);
     }
     return allEventsCache || [];

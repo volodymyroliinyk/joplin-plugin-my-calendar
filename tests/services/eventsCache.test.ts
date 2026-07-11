@@ -347,7 +347,7 @@ describe('eventsCache.ts', () => {
         expect(get).toHaveBeenCalledTimes(3);
     });
 
-    test('on error: rebuild catches (no throw), keeps cache usable, and releases rebuilding flag so rebuild can be called again', async () => {
+    test('on error: rebuild catches, keeps cache usable, releases rebuild flag, and next ensure retries', async () => {
         // 1) arrange
         const parseEventsFromBody = jest.fn().mockReturnValue([]);
         const mod = await loadModuleWithMockedParser({parseEventsFromBody});
@@ -365,17 +365,102 @@ describe('eventsCache.ts', () => {
         expect(errSpy).toHaveBeenCalledWith('eventsCache', 'Error rebuilding events cache:', expect.any(Error));
 
         // 4) act + assert: after an error, the cache does not "break" - ensure returns []
-        // (in your code allEventsCache becomes allEventsCache || [] in catch)
+        // and retries once because the last rebuild failed.
         const all = await mod.ensureAllEventsCache(joplin);
         expect(all).toEqual([]);
 
         // 5) act + assert: rebuilding flag released - rebuild can be called again
         await expect(mod.rebuildAllEventsCache(joplin)).resolves.toBeUndefined();
 
-        // 6) assert: data.get is called 2 times (two rebuild attempts)
-        expect(getMock).toHaveBeenCalledTimes(2);
+        // 6) assert: data.get is called 3 times:
+        // initial rebuild + retry from ensure + explicit rebuild.
+        expect(getMock).toHaveBeenCalledTimes(3);
 
         errSpy.mockRestore();
+    });
+
+    test('ensureAllEventsCache retries after a failed rebuild and stores later successful result', async () => {
+        const parseEventsFromBody = jest.fn().mockReturnValue([
+            {id: 'note-1', title: 'Recovered', startText: '2025-01-01T00:00:00Z', startUtc: 1},
+        ]);
+        const mod = await loadModuleWithMockedParser({parseEventsFromBody});
+
+        const get = jest
+            .fn()
+            .mockRejectedValueOnce(new Error('temporary'))
+            .mockResolvedValueOnce({
+                items: [{id: 'note-1', title: 'Note', body: 'body'}],
+                has_more: false,
+            });
+        const joplin = mkJoplin(get);
+
+        await expect(mod.ensureAllEventsCache(joplin)).resolves.toEqual([]);
+        const recovered = await mod.ensureAllEventsCache(joplin);
+
+        expect(get).toHaveBeenCalledTimes(2);
+        expect(recovered).toHaveLength(1);
+        expect(recovered[0].title).toBe('Recovered');
+    });
+
+    test('rebuildAllEventsCache does not commit stale result when cache is invalidated mid-rebuild', async () => {
+        const parseEventsFromBody = jest.fn().mockReturnValue([
+            {id: 'note-1', title: 'Stale', startText: '2025-01-01T00:00:00Z', startUtc: 1},
+        ]);
+        const mod = await loadModuleWithMockedParser({parseEventsFromBody});
+
+        let resolveGet!: (v: any) => void;
+        const get = jest.fn()
+            .mockReturnValueOnce(new Promise((resolve) => {
+                resolveGet = resolve;
+            }))
+            .mockResolvedValueOnce({
+                items: [],
+                has_more: false,
+            });
+        const joplin = mkJoplin(get);
+
+        const rebuild = mod.rebuildAllEventsCache(joplin);
+        mod.invalidateAllEventsCache();
+        resolveGet({
+            items: [{id: 'note-1', title: 'Note', body: 'body'}],
+            has_more: false,
+        });
+        await rebuild;
+
+        const all = await mod.ensureAllEventsCache(joplin);
+
+        expect(all).toEqual([]);
+        expect(get).toHaveBeenCalledTimes(2);
+        expect(parseEventsFromBody).not.toHaveBeenCalled();
+    });
+
+    test('refreshNoteCache bumps cache version so range-level caches can invalidate', async () => {
+        const parseEventsFromBody = jest.fn()
+            .mockReturnValueOnce([
+                {id: 'note-1', title: 'E1', startText: '2025-01-01T00:00:00Z', startUtc: 1},
+            ])
+            .mockReturnValueOnce([
+                {id: 'note-1', title: 'E2', startText: '2025-01-02T00:00:00Z', startUtc: 2},
+            ]);
+
+        const mod = await loadModuleWithMockedParser({parseEventsFromBody});
+        const get = jest
+            .fn()
+            .mockResolvedValueOnce({
+                items: [{id: 'note-1', title: 'Note', body: 'body'}],
+                has_more: false,
+            })
+            .mockResolvedValueOnce({id: 'note-1', title: 'Note', body: 'body-2'});
+
+        const joplin = mkJoplin(get);
+
+        const versionBefore = mod.getEventsCacheVersion();
+        await mod.ensureAllEventsCache(joplin);
+        expect(mod.getEventsCacheVersion()).toBe(versionBefore);
+
+        await mod.refreshNoteCache(joplin, 'note-1');
+
+        expect(mod.getEventsCacheVersion()).toBe(versionBefore + 1);
     });
 
 
