@@ -163,6 +163,7 @@ async function handleIcsImportMessage(
     joplin: Joplin,
     post: (message: unknown) => Promise<void>,
     msg: Extract<PanelMsg, { name: 'icsImport' }>,
+    invalidateCalendarData: () => void,
 ): Promise<void> {
     const sendStatus = async (text: string) => {
         await post({name: 'importStatus', text});
@@ -191,7 +192,7 @@ async function handleIcsImportMessage(
             targetFolderId,
         ) as ImportResultLike;
 
-        invalidateAllEventsCache();
+        invalidateCalendarData();
         await post({name: 'importDone', ...res});
 
         const doneText = buildImportDoneText(res);
@@ -205,6 +206,7 @@ async function handleCalendarEventCreateMessage(
     joplin: Joplin,
     post: (message: unknown) => Promise<void>,
     msg: Extract<PanelMsg, { name: 'calendarEventCreate' }>,
+    invalidateCalendarData: () => void,
 ): Promise<void> {
     try {
         if (!isRecord(msg.payload)) {
@@ -215,7 +217,7 @@ async function handleCalendarEventCreateMessage(
 
         const result = await createCalendarEventNote(joplin, msg.payload);
 
-        invalidateAllEventsCache();
+        invalidateCalendarData();
         if (result.note.id) {
             await joplin.commands.execute('openNote', result.note.id);
         }
@@ -273,6 +275,11 @@ export async function registerCalendarPanelController(
 
     const clearRangeEventsCache = () => {
         rangeEventsCache.clear();
+    };
+
+    const invalidateCalendarData = () => {
+        invalidateAllEventsCache();
+        clearRangeEventsCache();
     };
 
     const getRangeEvents = async (fromUtc: number, toUtc: number): Promise<Occurrence[]> => {
@@ -365,18 +372,17 @@ export async function registerCalendarPanelController(
                 }
 
                 case 'icsImport': {
-                    await handleIcsImportMessage(joplin, post, msg);
+                    await handleIcsImportMessage(joplin, post, msg, invalidateCalendarData);
                     return;
                 }
 
                 case 'calendarEventCreate': {
-                    await handleCalendarEventCreateMessage(joplin, post, msg);
+                    await handleCalendarEventCreateMessage(joplin, post, msg, invalidateCalendarData);
                     return;
                 }
 
                 case 'clearEventsCache': {
-                    invalidateAllEventsCache();
-                    clearRangeEventsCache();
+                    invalidateCalendarData();
                     await post({name: 'redrawMonth'});
                     await showToast('info', 'Events cache cleared', 3000);
                     return;
