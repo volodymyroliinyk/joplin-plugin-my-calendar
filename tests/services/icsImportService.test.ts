@@ -885,6 +885,58 @@ describe('icsImportService.importIcsIntoNotes', () => {
         expect(masterBody).not.toContain('status: cancelled');
     });
 
+    test('cancelled recurrence exception without master updates existing master exdate and does not create standalone note', async () => {
+        const existingMasterBody = block([
+            'title: Series',
+            'start: 2025-01-15 09:00:00',
+            'tz: America/Toronto',
+            '',
+            'repeat: weekly',
+            'repeat_interval: 1',
+            '',
+            'uid: u-cancel-existing',
+        ].join('\n'));
+        const ics = [
+            'BEGIN:VCALENDAR',
+            'BEGIN:VEVENT',
+            'UID:u-cancel-existing',
+            'RECURRENCE-ID;TZID=America/Toronto:20250122T090000',
+            'STATUS:CANCELLED',
+            'END:VEVENT',
+            'END:VCALENDAR',
+        ].join('\n');
+
+        const joplin = mkJoplin({
+            get: jest.fn().mockResolvedValue({
+                items: [{
+                    id: 'master-note',
+                    title: 'Series',
+                    body: existingMasterBody,
+                    parent_id: 'nb1',
+                }],
+                has_more: false,
+            }),
+            post: jest.fn(),
+            put: jest.fn(),
+        });
+
+        const res = await importIcsIntoNotes(joplin as any, ics, undefined, 'nb1');
+
+        expect(joplin.data.post).not.toHaveBeenCalled();
+        expect(joplin.data.put).toHaveBeenCalledTimes(1);
+        expect(joplin.data.put).toHaveBeenCalledWith(
+            ['notes', 'master-note'],
+            null,
+            expect.objectContaining({
+                body: expect.stringContaining('exdate: 2025-01-22 09:00:00'),
+            }),
+        );
+        expect(res.added).toBe(0);
+        expect(res.updated).toBe(1);
+        expect(res.skipped).toBe(0);
+        expect(res.errors).toBe(0);
+    });
+
     test('parses non-ICS input as key:value format and supports "---" separator + inline comments', async () => {
         const text = [
             'uid: u1',

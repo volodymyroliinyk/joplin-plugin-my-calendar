@@ -5,6 +5,7 @@ import {IcsEvent} from '../types/icsTypes';
 import {
     extractEventColorFromBody,
     makeEventKey,
+    parseUidAndRecurrence,
     extractAllEventKeysFromBody,
     extractAllAlarmKeysFromBody,
     replaceEventBlockByKey
@@ -68,6 +69,16 @@ type PendingCreate = {
     desiredTitle: string;
     block: string;
 };
+type CancelledRecurrenceException = {
+    uid: string;
+    recurrence_id: string;
+    exdate: string;
+};
+type PreparedImportEvents = {
+    events: IcsEvent[];
+    cancelledExceptions: CancelledRecurrenceException[];
+    masterUidsInImport: Set<string>;
+};
 
 const CREATE_NOTES_CONCURRENCY = 6;
 
@@ -117,7 +128,7 @@ function pushUniqueExdate(target: IcsEvent | undefined, exdate: string | undefin
     }
 }
 
-function prepareImportedEvents(eventsRaw: IcsEvent[]): IcsEvent[] {
+function prepareImportedEvents(eventsRaw: IcsEvent[]): PreparedImportEvents {
     const events = eventsRaw.map((e) => ({
         ...e,
         exdates: Array.isArray(e.exdates) ? [...e.exdates] : undefined,
@@ -125,30 +136,69 @@ function prepareImportedEvents(eventsRaw: IcsEvent[]): IcsEvent[] {
     }));
 
     const mastersByUid = new Map<string, IcsEvent>();
+    const masterUidsInImport = new Set<string>();
     for (const ev of events) {
         const uid = String(ev.uid || '').trim();
         if (!uid || ev.recurrence_id) continue;
         if (!mastersByUid.has(uid)) {
             mastersByUid.set(uid, ev);
+            masterUidsInImport.add(uid);
         }
     }
 
     const prepared: IcsEvent[] = [];
+    const cancelledExceptions: CancelledRecurrenceException[] = [];
     for (const ev of events) {
         const uid = String(ev.uid || '').trim();
         const rid = String(ev.recurrence_id || '').trim();
+        const status = String(ev.status || '').trim().toLowerCase();
         if (uid && rid) {
-            pushUniqueExdate(mastersByUid.get(uid), normalizeExceptionDate(rid));
+            const exdate = normalizeExceptionDate(rid);
+            pushUniqueExdate(mastersByUid.get(uid), exdate);
+            if (status === 'cancelled' && exdate) {
+                cancelledExceptions.push({uid, recurrence_id: rid, exdate});
+            }
         }
 
-        if (String(ev.status || '').trim().toLowerCase() === 'cancelled') {
+        if (status === 'cancelled') {
             continue;
         }
 
         prepared.push(ev);
     }
 
-    return prepared;
+    return {events: prepared, cancelledExceptions, masterUidsInImport};
+}
+
+function addExdateToEventBlockByKey(
+    body: string,
+    uid: string,
+    recurrenceId: string | undefined,
+    exdate: string,
+): string {
+    const targetKey = makeEventKey(uid, recurrenceId);
+    const normalizedExdate = exdate.trim();
+    if (!targetKey || !normalizedExdate) return body;
+
+    const re =
+        /(^|\r?\n)([ \t]*```mycalendar-event[ \t]*\r?\n[\s\S]*?\r?\n[ \t]*```)(?=\r?\n|$)/g;
+
+    return body.replace(re, (fullMatch, prefixNL, wholeBlock) => {
+        const innerM = wholeBlock.match(/^[ \t]*```mycalendar-event[ \t]*\r?\n([\s\S]*?)\r?\n[ \t]*```$/);
+        const inner = innerM?.[1] ?? '';
+        const meta = parseUidAndRecurrence(inner);
+
+        if (makeEventKey(meta.uid || '', meta.recurrence_id) !== targetKey) return fullMatch;
+
+        const existingExdates = inner
+            .split(/\r?\n/)
+            .map((line: string) => line.match(/^\s*exdate\s*:\s*(.+?)\s*$/i)?.[1]?.trim())
+            .filter(Boolean);
+        if (existingExdates.includes(normalizedExdate)) return fullMatch;
+
+        const updatedBlock = wholeBlock.replace(/\r?\n[ \t]*```$/, `\nexdate: ${normalizedExdate}\n\`\`\``);
+        return `${prefixNL}${updatedBlock}`;
+    });
 }
 
 function indexExistingNotes(allNotes: ExistingNoteRow[]): {
@@ -287,7 +337,7 @@ export async function importIcsIntoNotes(
     };
 
     const eventsRaw = parseImportText(ics);
-    const events = prepareImportedEvents(eventsRaw);
+    const {events, cancelledExceptions, masterUidsInImport} = prepareImportedEvents(eventsRaw);
     await say(`Parsed ${events.length} VEVENT(s)`);
 
     const noteFields = ['id', 'title', 'body', 'parent_id', 'todo_due', 'todo_completed', 'is_todo'];
@@ -324,6 +374,45 @@ export async function importIcsIntoNotes(
     let added = 0, updated = 0, skipped = 0, errors = 0;
     const importedEventNotes: ImportedEventNotes = {};
     const pendingCreates: PendingCreate[] = [];
+
+    for (const cancellation of cancelledExceptions) {
+        if (masterUidsInImport.has(cancellation.uid)) {
+            continue;
+        }
+
+        const masterKey = makeEventKey(cancellation.uid, undefined);
+        const existingMaster = existing[masterKey];
+        if (!existingMaster) {
+            skipped++;
+            continue;
+        }
+
+        try {
+            const newBody = addExdateToEventBlockByKey(
+                existingMaster.body,
+                cancellation.uid,
+                undefined,
+                cancellation.exdate,
+            );
+
+            if (newBody === existingMaster.body) {
+                skipped++;
+                continue;
+            }
+
+            existingMaster.body = newBody;
+            const keysInSameNote = noteIdToKeys[existingMaster.id] ?? [];
+            for (const k of keysInSameNote) {
+                if (existing[k]) existing[k].body = newBody;
+            }
+            await updateNote(joplin, existingMaster.id, {body: newBody});
+            updated++;
+        } catch (e) {
+            errors++;
+            issues++;
+            err('icsImportService', `ERROR applying cancelled recurrence exception: ${cancellation.uid}|${cancellation.recurrence_id} - ${getErrorText(e)}`);
+        }
+    }
 
     for (const ev of events) {
         const uid = (ev.uid || '').trim();
