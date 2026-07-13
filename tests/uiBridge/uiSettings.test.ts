@@ -95,7 +95,9 @@ describe('uiSettings.buildUiSettingsMessage', () => {
 
         const mod = await loadModuleWithMocks(settingsMock, loggerMock);
 
-        const joplin = {any: 'shape'};
+        const joplin = {
+            versionInfo: jest.fn().mockResolvedValue({platform: 'mobile'}),
+        };
 
         const msg = await mod.buildUiSettingsMessage(joplin);
 
@@ -116,6 +118,7 @@ describe('uiSettings.buildUiSettingsMessage', () => {
             showWeekNumbers: false,
             timeFormat: '24h',
             dayEventsViewMode: 'single',
+            scheduledIcsImportAvailable: false,
         });
     });
 
@@ -216,6 +219,7 @@ describe('uiSettings.pushUiSettings', () => {
             showWeekNumbers: false,
             timeFormat: '24h',
             dayEventsViewMode: 'grouped',
+            scheduledIcsImportAvailable: true,
         });
     });
 
@@ -266,6 +270,7 @@ describe('uiSettings.pushUiSettings', () => {
             showWeekNumbers: false,
             timeFormat: '24h',
             dayEventsViewMode: 'single',
+            scheduledIcsImportAvailable: true,
         });
 
         expect(settingsMock.getIcsExportLinks).toHaveBeenCalledTimes(1);

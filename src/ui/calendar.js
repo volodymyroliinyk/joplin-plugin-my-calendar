@@ -16,6 +16,7 @@
         showWeekNumbers: false,
         timeFormat: '24h',
         dayEventsViewMode: 'single',
+        scheduledIcsImportAvailable: false,
     };
 
     const uiSettings = window.__mcUiSettings;
@@ -33,7 +34,11 @@
         SHOW_EVENTS: 'showEvents',
         RANGE_ICS: 'rangeIcs',
         CLEAR_EVENTS_CACHE: 'clearEventsCache',
+        RUN_SCHEDULED_ICS_IMPORT: 'runScheduledIcsImport',
+        SCHEDULED_ICS_IMPORT_FINISHED: 'scheduledIcsImportFinished',
     });
+
+    let scheduledIcsImportRunning = false;
 
     function postToPlugin(message) {
         window.webviewApi?.postMessage?.(message);
@@ -824,6 +829,7 @@
                     if (msg.dayEventsViewMode === 'single' || msg.dayEventsViewMode === 'grouped') {
                         uiSettings.dayEventsViewMode = msg.dayEventsViewMode;
                     }
+                    uiSettings.scheduledIcsImportAvailable = msg.scheduledIcsImportAvailable === true;
 
                     if (prevShowEventTimeline !== uiSettings.showEventTimeline) {
                         applyDayTimelineVisibility();
@@ -868,6 +874,11 @@
                     // --- ICS import complete (success or error) -> restart grid ---
                     [MSG.IMPORT_DONE]: handleImportCompletion,
                     [MSG.IMPORT_ERROR]: handleImportCompletion,
+
+                    [MSG.SCHEDULED_ICS_IMPORT_FINISHED]: () => {
+                        scheduledIcsImportRunning = false;
+                        renderToolbar();
+                    },
 
                     [MSG.RANGE_EVENTS]: () => {
                         log('got rangeEvents:', (msg.events || []).length);
@@ -1038,6 +1049,19 @@
                 btnClearCache.classList.add('mc-cache-clear-btn');
                 btnClearCache.setAttribute('aria-label', 'Clear events cache');
                 wrap.appendChild(btnClearCache);
+
+                if (uiSettings.scheduledIcsImportAvailable) {
+                    const btnRunImport = button('⇩', 'Run scheduled ICS import now', () => {
+                        if (scheduledIcsImportRunning) return;
+                        scheduledIcsImportRunning = true;
+                        renderToolbar();
+                        postToPlugin({name: MSG.RUN_SCHEDULED_ICS_IMPORT});
+                    });
+                    btnRunImport.classList.add('mc-scheduled-import-btn');
+                    btnRunImport.setAttribute('aria-label', 'Run scheduled ICS import now');
+                    btnRunImport.disabled = scheduledIcsImportRunning;
+                    wrap.appendChild(btnRunImport);
+                }
 
                 if (isPickerOpen) {
                     const picker = renderMonthYearPicker();

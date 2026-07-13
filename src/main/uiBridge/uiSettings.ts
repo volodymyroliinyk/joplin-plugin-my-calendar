@@ -23,15 +23,28 @@ export type UiSettingsMessage = {
     showWeekNumbers: boolean;
     timeFormat: settings.TimeFormat;
     dayEventsViewMode: settings.DayEventsViewMode;
+    scheduledIcsImportAvailable: boolean;
 };
 
 type JoplinLike = {
+    versionInfo?: () => Promise<{ platform?: string }>;
     views?: {
         panels?: {
             postMessage?: (panel: string, message: unknown) => Promise<void>;
         };
     };
 };
+
+async function isScheduledIcsImportAvailable(joplin: unknown): Promise<boolean> {
+    const versionInfo = (joplin as JoplinLike)?.versionInfo;
+    if (typeof versionInfo !== 'function') return true;
+    try {
+        const info = await versionInfo();
+        return String(info?.platform ?? '').toLowerCase() !== 'mobile';
+    } catch {
+        return true;
+    }
+}
 
 type SettingsWithOptionalIcs = typeof settings & {
     getIcsExportLinks?: (joplin: unknown) => Promise<IcsExportLink[]>;
@@ -62,6 +75,7 @@ export async function buildUiSettingsMessage(joplin: unknown): Promise<UiSetting
         showWeekNumbers,
         timeFormat,
         dayEventsViewMode,
+        scheduledIcsImportAvailable,
     ] = await Promise.all([
         settings.getWeekStart(joplin as any),
         settings.getDebugEnabled(joplin as any),
@@ -77,6 +91,7 @@ export async function buildUiSettingsMessage(joplin: unknown): Promise<UiSetting
         settings.getShowWeekNumbers(joplin as any),
         settings.getTimeFormat(joplin as any),
         settings.getDayEventsViewMode(joplin as any),
+        isScheduledIcsImportAvailable(joplin),
     ]);
 
     const debugEnabled = Boolean(debugRaw);
@@ -100,6 +115,7 @@ export async function buildUiSettingsMessage(joplin: unknown): Promise<UiSetting
         showWeekNumbers,
         timeFormat,
         dayEventsViewMode,
+        scheduledIcsImportAvailable,
     };
 
     return message;

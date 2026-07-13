@@ -176,15 +176,16 @@ async function startPlugin(joplin: Joplin): Promise<void> {
     const panel = await createCalendarPanel(joplin);
     log('pluginMain', 'Panel created:', panel);
 
-    await registerCalendarPanelController(joplin, panel, {
-        expandAllInRange,
-        buildICS,
-    });
-
     const scheduledIcsImport = await startScheduledIcsImport(joplin, {
         onAfterImport: async () => {
             await postRedrawMonth(joplin, panel);
         },
+    });
+
+    await registerCalendarPanelController(joplin, panel, {
+        expandAllInRange,
+        buildICS,
+        runScheduledIcsImport: scheduledIcsImport.runNow,
     });
 
     // warm up the cache after the UI already has handlers

@@ -237,7 +237,10 @@ Customize your experience in the Joplin Settings (`Tools` > `Options` > `My Cale
   `https://...ics | Notebook Title ;; https://...ics | Another Notebook`. Each valid HTTPS ICS link is imported into
   its own existing notebook. If the notebook title is missing, invalid, not found, or ambiguous, that pair is skipped.
 - **Scheduled ICS import interval**: Choose how often scheduled URL imports run in the background. Allowed range:
-  **5-1440 minutes**. (Default: 60 minutes).
+  **5-1440 minutes**. (Default: 60 minutes). The first automatic import waits for one complete interval after startup
+  to avoid unnecessary requests during plugin or Joplin restarts.
+- **Run scheduled import manually**: On desktop, use the `⇩` toolbar button beside **Clear events cache** to import all
+  configured scheduled ICS pairs immediately. The button is disabled while the import cycle is running.
 - **ICS export links**: Add as many quick-access links as you need to your favorite calendar exporters (e.g., Google
   Calendar Export URL). These will appear as convenient buttons in the import panel.
 

@@ -166,6 +166,7 @@ beforeEach(() => {
     __resetPluginMainForTests();
     (startScheduledIcsImport as jest.Mock).mockResolvedValue({
         refresh: jest.fn().mockResolvedValue(undefined),
+        runNow: jest.fn().mockResolvedValue(undefined),
         stop: jest.fn(),
     });
 });

@@ -41,6 +41,7 @@ const KNOWN_MSG_NAMES = [
     'icsImport',
     'calendarEventCreate',
     'clearEventsCache',
+    'runScheduledIcsImport',
     'requestFolders',
     'requestTags',
 ] as const;
@@ -75,6 +76,7 @@ type PanelMsg =
     payload?: CalendarEventFormPayload;
 }
     | { name: 'clearEventsCache' }
+    | { name: 'runScheduledIcsImport' }
     | { name: 'requestFolders' }
     | { name: 'requestTags' };
 
@@ -267,6 +269,7 @@ export async function registerCalendarPanelController(
     helpers: {
         expandAllInRange: (events: EventInput[], fromUtc: number, toUtc: number) => Occurrence[];
         buildICS: (events: Occurrence[]) => string;
+        runScheduledIcsImport?: () => Promise<void>;
     }
 ) {
     const post = (message: unknown) => joplin.views.panels.postMessage(panel, message);
@@ -384,6 +387,18 @@ export async function registerCalendarPanelController(
                     invalidateCalendarData();
                     await post({name: 'redrawMonth'});
                     await showToast('info', 'Events cache cleared', 3000);
+                    return;
+                }
+
+                case 'runScheduledIcsImport': {
+                    try {
+                        await helpers.runScheduledIcsImport?.();
+                        await post({name: 'scheduledIcsImportFinished'});
+                    } catch (error) {
+                        const errorText = getErrorText(error);
+                        await post({name: 'scheduledIcsImportFinished', error: errorText});
+                        await showToast('error', `Scheduled ICS import failed: ${errorText}`, 5000);
+                    }
                     return;
                 }
 
