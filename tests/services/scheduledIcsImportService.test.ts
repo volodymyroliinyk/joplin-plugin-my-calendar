@@ -120,13 +120,29 @@ describe('scheduledIcsImportService', () => {
         controller.stop();
     });
 
+    test('runNow imports immediately without resetting the scheduled interval', async () => {
+        const downloadIcs = jest.fn().mockResolvedValue('BEGIN:VCALENDAR\nEND:VCALENDAR');
+        const joplin = {versionInfo: jest.fn().mockResolvedValue({platform: 'desktop'})};
+        const controller = await startScheduledIcsImport(joplin as any, {downloadIcs});
+
+        await controller.runNow();
+
+        expect(downloadIcs).toHaveBeenCalledTimes(1);
+        expect(importIcsIntoNotes).toHaveBeenCalledTimes(1);
+
+        await jest.advanceTimersByTimeAsync(15 * 60 * 1000);
+        expect(downloadIcs).toHaveBeenCalledTimes(2);
+        controller.stop();
+    });
+
     test('does not start scheduled import on mobile', async () => {
         const downloadIcs = jest.fn();
         const joplin = {
             versionInfo: jest.fn().mockResolvedValue({platform: 'mobile'}),
         };
 
-        await startScheduledIcsImport(joplin as any, {downloadIcs});
+        const controller = await startScheduledIcsImport(joplin as any, {downloadIcs});
+        await controller.runNow();
 
         expect(downloadIcs).not.toHaveBeenCalled();
         expect(importIcsIntoNotes).not.toHaveBeenCalled();

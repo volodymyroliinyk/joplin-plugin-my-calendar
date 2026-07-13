@@ -310,6 +310,40 @@ describe('src/ui/calendar.js', () => {
         expect(calls[0][0]).toEqual({name: 'clearEventsCache'});
     });
 
+    test('desktop toolbar manual scheduled-import button disables until completion', () => {
+        const {getOnMessageCb, postMessage} = installWebviewApi();
+        loadCalendarJsFresh();
+        sendPluginMessage(getOnMessageCb, {
+            name: 'uiSettings',
+            weekStart: 'sunday',
+            scheduledIcsImportAvailable: true,
+        });
+
+        let btn = document.querySelector('#mc-toolbar button[title="Run scheduled ICS import now"]') as HTMLButtonElement;
+        expect(btn).toBeTruthy();
+        btn.click();
+
+        expect(postMessage).toHaveBeenCalledWith({name: 'runScheduledIcsImport'});
+        btn = document.querySelector('#mc-toolbar button[title="Run scheduled ICS import now"]') as HTMLButtonElement;
+        expect(btn.disabled).toBe(true);
+
+        sendPluginMessage(getOnMessageCb, {name: 'scheduledIcsImportFinished'});
+        btn = document.querySelector('#mc-toolbar button[title="Run scheduled ICS import now"]') as HTMLButtonElement;
+        expect(btn.disabled).toBe(false);
+    });
+
+    test('mobile toolbar does not show manual scheduled-import button', () => {
+        const {getOnMessageCb} = installWebviewApi();
+        loadCalendarJsFresh();
+        sendPluginMessage(getOnMessageCb, {
+            name: 'uiSettings',
+            weekStart: 'sunday',
+            scheduledIcsImportAvailable: false,
+        });
+
+        expect(document.querySelector('#mc-toolbar button[title="Run scheduled ICS import now"]')).toBeNull();
+    });
+
     test('clicking a grid cell posts dateClick and updates selection class', () => {
         const {postMessage, getOnMessageCb} = installWebviewApi();
         loadCalendarJsFresh();

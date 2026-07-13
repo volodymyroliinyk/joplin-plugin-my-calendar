@@ -95,6 +95,7 @@ function makeHelpers() {
     return {
         expandAllInRange: jest.fn((events: any[], _fromUtc: number, _toUtc: number) => events),
         buildICS: jest.fn((events: any[]) => `ICS(${events.length})`),
+        runScheduledIcsImport: jest.fn().mockResolvedValue(undefined),
     };
 }
 
@@ -722,6 +723,28 @@ describe('panelController', () => {
         expect(invalidateAllEventsCache).toHaveBeenCalledTimes(1);
         expect(postMessage).toHaveBeenCalledWith('panel-1', {name: 'redrawMonth'});
         expect(showToast).toHaveBeenCalledWith('info', 'Events cache cleared', 3000);
+    });
+
+    test('runScheduledIcsImport -> runs controller and posts completion', async () => {
+        const {handler, helpers, postMessage} = await setup();
+
+        await handler({name: 'runScheduledIcsImport'});
+
+        expect(helpers.runScheduledIcsImport).toHaveBeenCalledTimes(1);
+        expect(postMessage).toHaveBeenCalledWith('panel-1', {name: 'scheduledIcsImportFinished'});
+    });
+
+    test('runScheduledIcsImport failure -> posts completion error and shows toast', async () => {
+        const {handler, helpers, postMessage} = await setup();
+        helpers.runScheduledIcsImport.mockRejectedValue(new Error('download failed'));
+
+        await handler({name: 'runScheduledIcsImport'});
+
+        expect(postMessage).toHaveBeenCalledWith('panel-1', {
+            name: 'scheduledIcsImportFinished',
+            error: 'download failed',
+        });
+        expect(showToast).toHaveBeenCalledWith('error', 'Scheduled ICS import failed: download failed', 5000);
     });
 
     test('requestFolders -> paginates folders, flattens tree, sorts, and posts folders options', async () => {

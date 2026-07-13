@@ -27,6 +27,7 @@ type ImportSummary = {
 
 export type ScheduledIcsImportController = {
     refresh: () => Promise<void>;
+    runNow: () => Promise<void>;
     stop: () => void;
 };
 
@@ -310,6 +311,7 @@ export async function startScheduledIcsImport(
                 log('scheduledIcsImport', 'Scheduled ICS import is disabled on mobile');
                 return {
                     refresh,
+                    runNow: async () => undefined,
                     stop: () => {
                         disposed = true;
                         clearTimer();
@@ -326,6 +328,7 @@ export async function startScheduledIcsImport(
 
     return {
         refresh,
+        runNow: () => runOnce(configVersion),
         stop: () => {
             disposed = true;
             clearTimer();
