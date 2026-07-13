@@ -118,6 +118,18 @@ export function normalizeTz(z?: string): string | undefined {
 }
 
 // "2025-08-12 10:00:00-04:00" | "2025-08-12T10:00:00-04:00" | Without offset (з tz)
+function hasValidDateTimeComponents(y: number, mo: number, da: number, hh: number, mi: number, ss: number): boolean {
+    if (!Number.isInteger(y) || y < 1 || y > 9999) return false;
+    if (!Number.isInteger(mo) || mo < 1 || mo > 12) return false;
+    if (!Number.isInteger(hh) || hh < 0 || hh > 23) return false;
+    if (!Number.isInteger(mi) || mi < 0 || mi > 59) return false;
+    if (!Number.isInteger(ss) || ss < 0 || ss > 59) return false;
+
+    const leapYear = y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0);
+    const daysInMonth = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    return Number.isInteger(da) && da >= 1 && da <= daysInMonth[mo - 1];
+}
+
 export function parseDateTimeToUTC(text: string, tz?: string): number | null {
     const trimmed = text.trim();
     if (!trimmed) return null;
@@ -126,30 +138,31 @@ export function parseDateTimeToUTC(text: string, tz?: string): number | null {
         return parseDateTimeToUTC(`${trimmed} 00:00:00`, tz);
     }
 
-    // Explicit offset or Z -> trust Date parsing (absolute moment)
-    if (/[+-]\d{2}:?\d{2}$/.test(trimmed) || /Z$/i.test(trimmed)) {
+    const dateTimeMatch = trimmed.match(
+        /^([0-9]{4})-([0-9]{2})-([0-9]{2})[ T]([0-9]{2}):([0-9]{2})(?::([0-9]{2}))?(Z|[+-][0-9]{2}:?[0-9]{2})?$/i
+    );
+    if (!dateTimeMatch) return null;
+
+    const y = Number(dateTimeMatch[1]);
+    const mo = Number(dateTimeMatch[2]);
+    const da = Number(dateTimeMatch[3]);
+    const hh = Number(dateTimeMatch[4]);
+    const mi = Number(dateTimeMatch[5]);
+    const ss = Number(dateTimeMatch[6] ?? '0');
+    const offset = dateTimeMatch[7];
+
+    if (!hasValidDateTimeComponents(y, mo, da, hh, mi, ss)) return null;
+
+    // Explicit offset or Z represents an absolute moment.
+    if (offset) {
+        const offsetMatch = offset.match(/^([+-])([0-9]{2}):?([0-9]{2})$/);
+        if (offsetMatch && (Number(offsetMatch[2]) > 23 || Number(offsetMatch[3]) > 59)) return null;
         const canon = trimmed
             .replace(' ', 'T')
             .replace(/([+-]\d{2})(\d{2})$/, '$1:$2'); // +0300 -> +03:00
         const d = new Date(canon);
         return isNaN(d.getTime()) ? null : d.getTime();
     }
-
-    // No offset: parse wall-clock components
-    const m = trimmed.match(
-        /^([0-9]{4})-([0-9]{2})-([0-9]{2})[ T]([0-9]{2}):([0-9]{2})(?::([0-9]{2}))?$/
-    );
-    if (!m) {
-        const d = new Date(trimmed.replace(' ', 'T'));
-        return isNaN(d.getTime()) ? null : d.getTime();
-    }
-
-    const y = Number(m[1]);
-    const mo = Number(m[2]);
-    const da = Number(m[3]);
-    const hh = Number(m[4]);
-    const mi = Number(m[5]);
-    const ss = Number(m[6] ?? '0');
 
     // If tz is given but is invalid - DO NOT try to convert, return null (and the event will be skipped)
     const safeTz = normalizeTz(tz);
@@ -158,9 +171,14 @@ export function parseDateTimeToUTC(text: string, tz?: string): number | null {
     if (!safeTz) {
         if (tz && tz.trim()) return null;
         const d = new Date(
-            `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${String(ss).padStart(2, '0')}`
+            `${dateTimeMatch[1]}-${dateTimeMatch[2]}-${dateTimeMatch[3]}T${dateTimeMatch[4]}:${dateTimeMatch[5]}:${String(ss).padStart(2, '0')}`
         );
-        return isNaN(d.getTime()) ? null : d.getTime();
+        if (isNaN(d.getTime())) return null;
+        if (
+            d.getFullYear() !== y || d.getMonth() + 1 !== mo || d.getDate() !== da ||
+            d.getHours() !== hh || d.getMinutes() !== mi || d.getSeconds() !== ss
+        ) return null;
+        return d.getTime();
     }
 
     // tz provided without offset: interpret components as wall-clock time in that tz, then convert to UTC
@@ -211,6 +229,28 @@ export function parseDateTimeToUTC(text: string, tz?: string): number | null {
 
     // second-pass for DST boundary correctness
     if (off2 !== off1) utc = wallUtc - off2;
+
+    try {
+        const parts = new Intl.DateTimeFormat('en-CA', {
+            timeZone: safeTz,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hourCycle: 'h23',
+        }).formatToParts(new Date(utc)).reduce<Record<string, number>>((acc, part) => {
+            if (part.type !== 'literal') acc[part.type] = Number(part.value);
+            return acc;
+        }, {});
+        if (
+            parts.year !== y || parts.month !== mo || parts.day !== da ||
+            parts.hour !== hh || parts.minute !== mi || parts.second !== ss
+        ) return null;
+    } catch {
+        return null;
+    }
 
     return utc;
 }
