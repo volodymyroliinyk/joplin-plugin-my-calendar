@@ -18,6 +18,7 @@ import {getIcsImportAlarmsEnabled} from '../settings/settings';
 import {getErrorText} from '../utils/errorUtils';
 import {createSafeTextReporter} from '../utils/statusNotifier';
 import {dbg, err, warn} from '../utils/logger';
+import {normalizeIcsEvent, normalizeRecurrenceExceptionDate} from './calendarEventNormalizer';
 
 type ExistingEventNote = { id: string; title: string; body: string; parent_id?: string };
 type ExistingEventNoteMap = Record<string, ExistingEventNote>;
@@ -86,37 +87,6 @@ type PreparedImportEvents = {
 
 const CREATE_NOTES_CONCURRENCY = 6;
 
-function normalizeExceptionDate(value: string): string | undefined {
-    const raw = String(value || '').trim();
-    if (!raw) return undefined;
-
-    const dateOnly = raw.match(/^DATE:(\d{8})$/i);
-    if (dateOnly) {
-        return `${dateOnly[1].slice(0, 4)}-${dateOnly[1].slice(4, 6)}-${dateOnly[1].slice(6, 8)} 00:00:00`;
-    }
-
-    const tzPrefixed = raw.match(/^[^:]+:(\d{8}T\d{6}Z?)$/);
-    if (tzPrefixed) {
-        const dt = tzPrefixed[1];
-        if (/Z$/i.test(dt)) {
-            return `${dt.slice(0, 4)}-${dt.slice(4, 6)}-${dt.slice(6, 8)} ${dt.slice(9, 11)}:${dt.slice(11, 13)}:${dt.slice(13, 15)}+00:00`;
-        }
-        return `${dt.slice(0, 4)}-${dt.slice(4, 6)}-${dt.slice(6, 8)} ${dt.slice(9, 11)}:${dt.slice(11, 13)}:${dt.slice(13, 15)}`;
-    }
-
-    const plainDateTime = raw.match(/^(\d{8})T(\d{6}Z?)$/);
-    if (plainDateTime) {
-        const date = plainDateTime[1];
-        const time = plainDateTime[2];
-        if (/Z$/i.test(time)) {
-            return `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)} ${time.slice(0, 2)}:${time.slice(2, 4)}:${time.slice(4, 6)}+00:00`;
-        }
-        return `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)} ${time.slice(0, 2)}:${time.slice(2, 4)}:${time.slice(4, 6)}`;
-    }
-
-    return raw;
-}
-
 function pushUniqueExdate(target: IcsEvent | undefined, exdate: string | undefined): void {
     if (!target || !exdate) return;
     const normalized = exdate.trim();
@@ -133,11 +103,7 @@ function pushUniqueExdate(target: IcsEvent | undefined, exdate: string | undefin
 }
 
 function prepareImportedEvents(eventsRaw: IcsEvent[]): PreparedImportEvents {
-    const events = eventsRaw.map((e) => ({
-        ...e,
-        exdates: Array.isArray(e.exdates) ? [...e.exdates] : undefined,
-        valarms: Array.isArray(e.valarms) ? e.valarms.map((alarm) => ({...alarm})) : undefined,
-    }));
+    const events = eventsRaw.map(normalizeIcsEvent);
 
     const mastersByUid = new Map<string, IcsEvent>();
     const masterUidsInImport = new Set<string>();
@@ -157,7 +123,7 @@ function prepareImportedEvents(eventsRaw: IcsEvent[]): PreparedImportEvents {
         const rid = String(ev.recurrence_id || '').trim();
         const status = String(ev.status || '').trim().toLowerCase();
         if (uid && rid) {
-            const exdate = normalizeExceptionDate(rid);
+            const exdate = normalizeRecurrenceExceptionDate(rid);
             pushUniqueExdate(mastersByUid.get(uid), exdate);
             if (status === 'cancelled' && exdate) {
                 cancelledExceptions.push({uid, recurrence_id: rid, exdate});

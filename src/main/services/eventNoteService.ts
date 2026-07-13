@@ -1,9 +1,18 @@
 import {IcsEvent} from '../types/icsTypes';
 import {Joplin} from '../types/joplin.interface';
 import {normalizeHexColor} from '../utils/colorUtils';
-import {normalizeTz, parseDateTimeToUTC, parseRepeatUntilToUTC} from '../parsers/eventParser';
+import {parseDateTimeToUTC, parseRepeatUntilToUTC} from '../parsers/eventParser';
 import {buildMyCalBlock, sanitizeForMarkdownBlock} from './noteBuilder';
 import {attachTagToNote, createNote, NoteItem} from './joplinNoteService';
+import {
+    canonicalWeekdays,
+    normalizeAllDayDateRange,
+    normalizeMonthDay,
+    normalizeRepeatFrequency,
+    normalizeRepeatInterval,
+    normalizeTimeZone,
+    parseCalendarBoolean,
+} from './calendarEventNormalizer';
 
 const MAX_TITLE_LEN = 500;
 const MAX_LOCATION_LEN = 1000;
@@ -11,12 +20,6 @@ const MAX_DESCRIPTION_LEN = 10000;
 const MAX_EXDATES = 100;
 const MAX_TAG_IDS = 100;
 const SAFE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
-const REPEAT_VALUES = ['none', 'daily', 'weekly', 'monthly', 'yearly'] as const;
-const WEEKDAY_VALUES = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'] as const;
-
-type RepeatValue = typeof REPEAT_VALUES[number];
-type WeekdayValue = typeof WEEKDAY_VALUES[number];
-
 export type CalendarEventFormPayload = {
     targetFolderId?: unknown;
     title?: unknown;
@@ -55,74 +58,24 @@ function isSafeId(value: string): boolean {
 }
 
 function parseBool(value: unknown): boolean {
-    return value === true || value === 'true' || value === '1';
-}
-
-function dateOnlyText(value: string): string {
-    const raw = value.trim();
-    const match = raw.match(/^(\d{4}-\d{2}-\d{2})/);
-    return match?.[1] || raw;
-}
-
-function addDaysToDateOnly(value: string, days: number): string {
-    const match = dateOnlyText(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (!match) return value;
-    const dt = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])) + days * 24 * 60 * 60 * 1000);
-    const y = dt.getUTCFullYear();
-    const m = String(dt.getUTCMonth() + 1).padStart(2, '0');
-    const d = String(dt.getUTCDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-}
-
-function normalizeAllDayDateRange(start: string, end: string): { start: string; end: string } {
-    const startDate = dateOnlyText(start);
-    const endDate = dateOnlyText(end) || startDate;
-    const exclusiveEnd = endDate <= startDate
-        ? addDaysToDateOnly(startDate, 1)
-        : addDaysToDateOnly(endDate, 1);
-    return {start: startDate, end: exclusiveEnd};
-}
-
-function parseRepeat(value: unknown): RepeatValue {
-    const normalized = asTrimmedString(value).toLowerCase();
-    return (REPEAT_VALUES as readonly string[]).includes(normalized) ? normalized as RepeatValue : 'none';
-}
-
-function parseRepeatInterval(value: unknown): number {
-    const n = typeof value === 'number' ? value : Number(value);
-    if (!Number.isFinite(n)) return 1;
-    return Math.max(1, Math.min(999, Math.floor(n)));
+    return parseCalendarBoolean(value) === true;
 }
 
 function parseByMonthDay(value: unknown): string | undefined {
     const raw = asTrimmedString(value);
     if (!raw) return undefined;
-    const n = Number(raw);
-    if (!Number.isInteger(n) || n < 1 || n > 31) {
+    const monthDay = normalizeMonthDay(raw);
+    if (monthDay == null) {
         throw new Error('Monthly repeat day must be between 1 and 31');
     }
-    return String(n);
+    return String(monthDay);
 }
 
 function parseByWeekday(value: unknown): string | undefined {
     const raw = asTrimmedString(value);
     if (!raw) return undefined;
 
-    const allowed = new Set<string>(WEEKDAY_VALUES);
-    const seen = new Set<WeekdayValue>();
-    const out: WeekdayValue[] = [];
-
-    for (const part of raw.split(',')) {
-        const token = part.trim().toUpperCase();
-        if (!token) continue;
-        if (!allowed.has(token)) throw new Error(`Invalid weekday: ${token}`);
-        if (!seen.has(token as WeekdayValue)) {
-            seen.add(token as WeekdayValue);
-            out.push(token as WeekdayValue);
-        }
-    }
-
-    return out.length ? out.join(',') : undefined;
+    return canonicalWeekdays(raw, true);
 }
 
 function parseExdates(value: unknown): string[] | undefined {
@@ -181,7 +134,7 @@ export function normalizeCalendarEventFormPayload(payload: CalendarEventFormPayl
     if (!start) throw new Error('Start date/time is required');
 
     const rawTz = asTrimmedString(payload.tz);
-    const tz = rawTz ? normalizeTz(rawTz) : undefined;
+    const tz = rawTz ? normalizeTimeZone(rawTz) : undefined;
     if (rawTz && !tz) throw new Error('Timezone must be a valid IANA timezone');
 
     const allDay = parseBool(payload.all_day);
@@ -198,7 +151,7 @@ export function normalizeCalendarEventFormPayload(payload: CalendarEventFormPayl
         if (endUtc < startUtc) throw new Error('End date/time must be after start');
     }
 
-    const repeat = parseRepeat(payload.repeat);
+    const repeat = normalizeRepeatFrequency(payload.repeat);
     const repeatUntil = asTrimmedString(payload.repeat_until);
     if (repeatUntil && parseRepeatUntilToUTC(repeatUntil, tz) == null) {
         throw new Error('Repeat-until date/time is invalid');
@@ -221,7 +174,7 @@ export function normalizeCalendarEventFormPayload(payload: CalendarEventFormPayl
         location: limitString(asTrimmedString(payload.location), MAX_LOCATION_LEN) || undefined,
         description: limitString(asTrimmedString(payload.description), MAX_DESCRIPTION_LEN) || undefined,
         repeat,
-        repeat_interval: repeat !== 'none' ? parseRepeatInterval(payload.repeat_interval) : undefined,
+        repeat_interval: repeat !== 'none' ? normalizeRepeatInterval(payload.repeat_interval, 999) : undefined,
         repeat_until: repeat !== 'none' && repeatUntil ? repeatUntil : undefined,
         byweekday,
         bymonthday,

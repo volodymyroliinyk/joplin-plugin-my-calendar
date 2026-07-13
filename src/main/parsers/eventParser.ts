@@ -6,8 +6,18 @@
 // Invalid events are silently skipped.
 import {normalizeColorIfHex} from '../utils/colorUtils';
 import {IcsValarm} from '../types/icsTypes';
+import {
+    normalizeMonthDay,
+    normalizeRepeatFrequency,
+    normalizeRepeatInterval,
+    normalizeTimeZone,
+    normalizeWeekdayIndices,
+    parseCalendarBoolean,
+    RepeatFrequency,
+    toInclusiveAllDayEndUtc,
+} from '../services/calendarEventNormalizer';
 
-type RepeatFreq = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
+type RepeatFreq = RepeatFrequency;
 
 type EventInput = {
     id: string;
@@ -43,11 +53,6 @@ type EventInput = {
 const EVENT_BLOCK_RE =
     /(?:^|\r?\n)[ \t]*```mycalendar-event[ \t]*\r?\n([\s\S]*?)\r?\n[ \t]*```(?=\r?\n|$)/g;
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-// Map: MO..SU -> 0..6 (Mon..Sun)
-const WD_MAP: Record<string, number> = {MO: 0, TU: 1, WE: 2, TH: 3, FR: 4, SA: 5, SU: 6};
-
 type ParsedBlockFields = {
     title?: string;
     description?: string;
@@ -78,43 +83,24 @@ function parseKeyVal(line: string): [string, string] | null {
 }
 
 function parseByWeekdays(v: string): number[] | undefined {
-    const arr = v.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
-    const out = new Set<number>();
-    for (const t of arr) {
-        if (t in WD_MAP) out.add(WD_MAP[t]);
-    }
-    return out.size ? Array.from(out).sort((a, b) => a - b) : undefined;
+    return normalizeWeekdayIndices(v);
 }
 
 function parseIntSafe(v?: string): number | undefined {
-    const n = v ? parseInt(v, 10) : NaN;
-    return Number.isFinite(n) && n >= 1 ? n : undefined;
+    if (!v || !Number.isFinite(Number(v))) return undefined;
+    return normalizeRepeatInterval(v);
 }
 
 function parseByMonthDay(v: string): number | undefined {
-    const n = parseInt(v, 10);
-    return Number.isFinite(n) && n >= 1 && n <= 31 ? n : undefined;
+    return normalizeMonthDay(v);
 }
 
 function parseAllDayBool(v: string): boolean | undefined {
-    const vv = v.trim().toLowerCase();
-    if (vv === 'true' || vv === '1' || vv === 'yes') return true;
-    if (vv === 'false' || vv === '0' || vv === 'no') return false;
-    return undefined;
+    return parseCalendarBoolean(v);
 }
 
 export function normalizeTz(z?: string): string | undefined {
-    if (!z) return undefined;
-    const tz = z.trim();
-    if (!tz) return undefined;
-
-    try {
-        // If the timezone is not IANA, Intl will throw RangeError
-        new Intl.DateTimeFormat('en-US', {timeZone: tz}).format(new Date());
-        return tz;
-    } catch {
-        return undefined;
-    }
+    return normalizeTimeZone(z);
 }
 
 // "2025-08-12 10:00:00-04:00" | "2025-08-12T10:00:00-04:00" | Without offset (з tz)
@@ -271,9 +257,8 @@ export function parseRepeatUntilToUTC(text: string, tz?: string): number | null 
 }
 
 function parseRepeatFreq(v: string): RepeatFreq | undefined {
-    const vv = v.trim().toLowerCase();
-    if (vv === 'daily' || vv === 'weekly' || vv === 'monthly' || vv === 'yearly' || vv === 'none') return vv;
-    return undefined;
+    const normalized = normalizeRepeatFrequency(v);
+    return normalized === 'none' && v.trim().toLowerCase() !== 'none' ? undefined : normalized;
 }
 
 function assignParsedField(fields: ParsedBlockFields, key: ParsedBlockScalarKey, value: string): void {
@@ -375,14 +360,7 @@ export function parseEventsFromBody(noteId: string, titleFallback: string, body:
         }
 
         if (allDay) {
-            if (endUtc != null) {
-                // ICS all-day uses exclusive end -> make it inclusive for UI
-                if (endUtc > startUtc) endUtc = endUtc - 1;
-                else endUtc = startUtc + DAY_MS - 1; // insurance
-            } else {
-                // if end not provided, treat as one-day all-day
-                endUtc = startUtc + DAY_MS - 1;
-            }
+            endUtc = toInclusiveAllDayEndUtc(startUtc, endUtc);
         }
 
         out.push({
