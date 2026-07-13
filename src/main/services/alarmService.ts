@@ -280,7 +280,7 @@ export async function syncAlarmsForEvents(
                         }
                     });
                 }
-            } else if (isCompleted) {
+            } else {
                 pendingOps.push(async () => {
                     try {
                         await deleteNote(joplin, alarm.id);

@@ -333,7 +333,7 @@ describe('alarmService', () => {
         expect(mockCreateNote).toHaveBeenCalledTimes(1);
     });
 
-    it('should NOT delete incomplete invalid alarms that do not match desired alarms', async () => {
+    it('should delete incomplete future alarms that do not match desired alarms', async () => {
         jest.useFakeTimers();
         jest.setSystemTime(new Date('2026-01-30T10:00:00.000Z'));
 
@@ -370,9 +370,9 @@ describe('alarmService', () => {
             true
         );
 
-        expect(mockDeleteNote).not.toHaveBeenCalled();
+        expect(mockDeleteNote).toHaveBeenCalledWith(mockJoplin, 'alarm1');
         expect(mockCreateNote).toHaveBeenCalledTimes(1);
-        expect(result.alarmsDeleted).toBe(0);
+        expect(result.alarmsDeleted).toBe(1);
     });
 
     it('should create missing alarms when none exist', async () => {
