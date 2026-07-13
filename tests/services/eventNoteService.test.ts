@@ -40,7 +40,7 @@ describe('eventNoteService', () => {
             repeat: 'weekly',
             repeat_interval: 2,
             repeat_until: '2026-12-31',
-            byweekday: 'WE,MO',
+            byweekday: 'MO,WE',
             exdates: ['2026-07-01 10:00', '2026-08-01 10:00'],
         });
         expect(normalized.event.uid).toMatch(/@mycalendarevent$/);

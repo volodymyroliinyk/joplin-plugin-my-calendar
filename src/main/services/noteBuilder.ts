@@ -2,6 +2,7 @@
 
 import {IcsEvent, IcsValarm} from '../types/icsTypes';
 import {normalizeHexColor} from '../utils/colorUtils';
+import {normalizeIcsEvent} from './calendarEventNormalizer';
 
 const MAX_TITLE_LEN = 500;
 const MAX_LOCATION_LEN = 1000;
@@ -120,7 +121,8 @@ function canonicalizeValarms(valarms?: IcsValarm[]): string[] {
 /**
  * Form the block ```mycalendar-event ... ```
  */
-export function buildMyCalBlock(ev: IcsEvent): string {
+export function buildMyCalBlock(input: IcsEvent): string {
+    const ev = normalizeIcsEvent(input);
     const lines: string[] = [];
     const canonicalByweekday = canonicalizeByWeekday(ev.byweekday);
     const canonicalExdates = canonicalizeExdates(ev.exdates);

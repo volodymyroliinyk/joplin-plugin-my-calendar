@@ -21,6 +21,7 @@ import {createNote, deleteNote, NoteItem, updateNote} from './joplinNoteService'
 import {err, log, warn} from '../utils/logger';
 import {getErrorText} from '../utils/errorUtils';
 import {createSafeTextReporter} from '../utils/statusNotifier';
+import {normalizeIcsEvent} from './calendarEventNormalizer';
 
 export type AlarmSyncResult = {
     alarmsCreated: number;
@@ -188,7 +189,8 @@ export async function syncAlarmsForEvents(
     let issues = 0;
     const pendingOps: Array<() => Promise<void>> = [];
 
-    for (const ev of events) {
+    for (const input of events) {
+        const ev = normalizeIcsEvent(input);
         const uid = (ev.uid || '').trim();
         if (!uid) continue;
         const rid = (ev.recurrence_id || '').trim();

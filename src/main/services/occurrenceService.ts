@@ -11,10 +11,15 @@ import {
     Occurrence as UiOccurrence
 } from '../utils/dateUtils';
 import {dbg, warn} from '../utils/logger';
+import {
+    normalizeIcsEvent,
+    normalizeMonthDay,
+    normalizeTimeZone,
+    normalizeWeekdayIndices,
+    toInclusiveAllDayEndUtc,
+} from './calendarEventNormalizer';
 
 export type Occurrence = { start: Date; end: Date; recurrence_id?: string };
-
-const WD_MAP_MON0: Record<string, number> = {MO: 0, TU: 1, WE: 2, TH: 3, FR: 4, SA: 5, SU: 6};
 
 export const MAX_OCCURRENCES_PER_EVENT = 2_000;
 export const MAX_OCCURRENCES_PER_REQUEST = 10_000;
@@ -30,30 +35,15 @@ function formatLocalYmdHms(msUtc: number, tz: string): string {
 }
 
 function parseByWeekdaysStrToMon0(v?: string): number[] | undefined {
-    if (!v) return undefined;
-    const arr = v.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
-    const out = new Set<number>();
-    for (const t of arr) {
-        if (t in WD_MAP_MON0) out.add(WD_MAP_MON0[t]);
-    }
-    return out.size ? Array.from(out).sort((a, b) => a - b) : undefined;
+    return normalizeWeekdayIndices(v);
 }
 
 function parseByMonthDaySafe(v?: string): number | undefined {
-    if (!v) return undefined;
-    const n = parseInt(v, 10);
-    return Number.isFinite(n) && n >= 1 && n <= 31 ? n : undefined;
+    return normalizeMonthDay(v);
 }
 
 function parseTzSafe(tz?: string): string {
-    const fallback = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (!tz) return fallback;
-    try {
-        new Intl.DateTimeFormat('en-US', {timeZone: tz}).format(new Date());
-        return tz;
-    } catch {
-        return fallback;
-    }
+    return normalizeTimeZone(tz) || Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
 
 function hasExplicitOffsetOrZulu(text?: string): boolean {
@@ -112,7 +102,8 @@ function zonedTimeToUtcMsOrNull(
     }
 }
 
-export function expandOccurrences(ev: IcsEvent, windowStart: Date, windowEnd: Date): Occurrence[] {
+export function expandOccurrences(input: IcsEvent, windowStart: Date, windowEnd: Date): Occurrence[] {
+    const ev = normalizeIcsEvent(input);
     if (!ev.start) return [];
     if (String(ev.status || '').trim().toLowerCase() === 'cancelled') return [];
 
@@ -122,11 +113,7 @@ export function expandOccurrences(ev: IcsEvent, windowStart: Date, windowEnd: Da
 
     let endUtc = toUtcOrNull(ev.end, tz) ?? startUtc;
     if (ev.all_day) {
-        if (endUtc > startUtc) {
-            endUtc -= 1;
-        } else {
-            endUtc = startUtc + DAY_MS - 1;
-        }
+        endUtc = toInclusiveAllDayEndUtc(startUtc, endUtc);
     }
 
     const repeatUntilUtc = ev.repeat_until ? (parseRepeatUntilToUTC(ev.repeat_until, tz) ?? undefined) : undefined;
