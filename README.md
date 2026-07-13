@@ -35,7 +35,8 @@ note-taking app.
       recurrence, excluded dates, and Joplin tags.
 - **Robust ICS Import**:
     - **Broad Compatibility**: Import `.ics` files from Google Calendar, Outlook, Apple, etc.
-    - **Recurrence**: Full support for complex recurring event patterns.
+  - **Preserved calendar metadata**: Keeps recurring rules, excluded and modified occurrences, all-day dates,
+    IANA timezones, alarms, and source event identity.
     - **Smart Sync**: Deduplicates events and preserves local changes like custom colors.
 - **Native Alarms**:
     - **System Notifications**: Automatically converts calendar alarms into Joplin "Todo" notes, triggering native

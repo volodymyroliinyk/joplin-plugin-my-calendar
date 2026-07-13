@@ -5,6 +5,7 @@
 // Any invalid syntax, date, or timezone MUST NOT break calendar rendering.
 // Invalid events are silently skipped.
 import {normalizeColorIfHex} from '../utils/colorUtils';
+import {IcsValarm} from '../types/icsTypes';
 
 type RepeatFreq = 'none' | 'daily' | 'weekly' | 'monthly' | 'yearly';
 
@@ -15,6 +16,9 @@ type EventInput = {
     location?: string;
     color?: string;
     exdates?: string[];
+    uid?: string;
+    recurrenceId?: string;
+    valarms?: IcsValarm[];
 
     startUtc: number;
     endUtc?: number;
@@ -58,11 +62,13 @@ type ParsedBlockFields = {
     byweekday?: string;
     bymonthday?: string;
     all_day?: string;
-    valarm?: string;
+    valarm?: string[];
     exdate?: string[];
+    uid?: string;
+    recurrence_id?: string;
 };
 
-type ParsedBlockScalarKey = Exclude<keyof ParsedBlockFields, 'exdate'>;
+type ParsedBlockScalarKey = Exclude<keyof ParsedBlockFields, 'exdate' | 'valarm'>;
 
 function parseKeyVal(line: string): [string, string] | null {
     const m = line.match(/^\s*([a-zA-Z_]+)\s*:\s*(.+)\s*$/);
@@ -238,6 +244,25 @@ function appendParsedExdate(fields: ParsedBlockFields, value: string): void {
     (fields.exdate ??= []).push(value);
 }
 
+function appendParsedValarm(fields: ParsedBlockFields, value: string): void {
+    (fields.valarm ??= []).push(value);
+}
+
+function parseValarms(values: string[] | undefined): IcsValarm[] | undefined {
+    const alarms: IcsValarm[] = [];
+    for (const value of values ?? []) {
+        try {
+            const alarm = JSON.parse(value) as Partial<IcsValarm>;
+            if (alarm && typeof alarm === 'object' && typeof alarm.trigger === 'string' && alarm.trigger.trim()) {
+                alarms.push({...alarm, trigger: alarm.trigger.trim()} as IcsValarm);
+            }
+        } catch {
+            // Invalid alarm metadata must not make the event unavailable.
+        }
+    }
+    return alarms.length ? alarms : undefined;
+}
+
 export function parseEventsFromBody(noteId: string, titleFallback: string, body: string): EventInput[] {
     const out: EventInput[] = [];
     let m: RegExpExecArray | null;
@@ -261,6 +286,8 @@ export function parseEventsFromBody(noteId: string, titleFallback: string, body:
                 const [k, v] = kv;
                 if (k === 'exdate') {
                     appendParsedExdate(fields, v);
+                } else if (k === 'valarm') {
+                    appendParsedValarm(fields, v);
                 } else {
                     assignParsedField(fields, k as ParsedBlockScalarKey, v);
                 }
@@ -287,6 +314,7 @@ export function parseEventsFromBody(noteId: string, titleFallback: string, body:
         const byMonthDay = fields.bymonthday ? parseByMonthDay(fields.bymonthday) : undefined;
         const allDay = fields.all_day ? parseAllDayBool(fields.all_day) : undefined;
         const exdates = Array.isArray(fields.exdate) ? fields.exdate.filter(Boolean) : undefined;
+        const valarms = parseValarms(fields.valarm);
 
         if (!startText) continue;
 
@@ -337,9 +365,12 @@ export function parseEventsFromBody(noteId: string, titleFallback: string, body:
             byWeekdays,
             byMonthDay,
             exdates,
+            uid: fields.uid?.trim() || undefined,
+            recurrenceId: fields.recurrence_id?.trim() || undefined,
+            valarms,
 
             allDay,
-            hasAlarms: !!fields.valarm,
+            hasAlarms: !!valarms?.length,
         });
     }
 
