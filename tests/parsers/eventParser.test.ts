@@ -86,4 +86,29 @@ describe('eventParser.parseEventsFromBody', () => {
         expect(new Date(events[0].startUtc).toISOString()).toBe('2025-01-01T05:00:00.000Z');
         expect(new Date(events[0].endUtc as number).toISOString()).toBe('2025-01-02T04:59:59.999Z');
     });
+
+    test('preserves imported UID, recurrence identity, and all valid VALARMs', () => {
+        const body = [
+            '```mycalendar-event',
+            'title: Exception',
+            'start: 2025-01-22 10:00:00',
+            'tz: America/Toronto',
+            'valarm: {"trigger":"-PT15M","action":"DISPLAY"}',
+            'valarm: invalid-json',
+            'valarm: {"trigger":"-PT1H","related":"START"}',
+            'uid: source-series',
+            'recurrence_id: America/Toronto:20250122T090000',
+            '```',
+        ].join('\n');
+
+        const [event] = parseEventsFromBody('note-1', 'Fallback', body);
+
+        expect(event.uid).toBe('source-series');
+        expect(event.recurrenceId).toBe('America/Toronto:20250122T090000');
+        expect(event.valarms).toEqual([
+            {trigger: '-PT15M', action: 'DISPLAY'},
+            {trigger: '-PT1H', related: 'START'},
+        ]);
+        expect(event.hasAlarms).toBe(true);
+    });
 });
