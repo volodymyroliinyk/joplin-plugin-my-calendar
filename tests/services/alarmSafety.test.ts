@@ -99,15 +99,15 @@ describe('Alarm Deletion Safety', () => {
         const res = await importIcsIntoNotes(joplin as any, ics);
 
         // 4. Verification
-        // - Incomplete alarm for A must remain so an unread mobile notification keeps a valid target
-        expect(deletedIds).not.toContain('alarm-a-old');
+        // - Stale alarm for A must be removed because its trigger changed
+        expect(deletedIds).toContain('alarm-a-old');
         // - Unrelated note MUST NOT be deleted
         expect(deletedIds).not.toContain('unrelated');
         // - Alarm for B MUST NOT be deleted (since uid-b was not in the imported ICS)
         // Wait, if uid-b is not in the imported ICS, it should actually stay!
         expect(deletedIds).not.toContain('alarm-b');
 
-        expect(res.alarmsDeleted).toBe(0);
+        expect(res.alarmsDeleted).toBe(1);
         expect(res.alarmsCreated).toBe(1);
 
         jest.useRealTimers();
