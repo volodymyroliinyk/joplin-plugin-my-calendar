@@ -4,8 +4,14 @@
 //
 // TZ=UTC npx jest tests/services/occurrenceService.test.ts --runInBand --no-cache;
 //
-import {expandOccurrences} from '../../src/main/services/occurrenceService';
+import {
+    expandAllInRange,
+    expandOccurrences,
+    MAX_OCCURRENCES_PER_EVENT,
+    MAX_OCCURRENCES_PER_REQUEST,
+} from '../../src/main/services/occurrenceService';
 import {IcsEvent} from '../../src/main/types/icsTypes';
+import {EventInput} from '../../src/main/parsers/eventParser';
 
 function isoLocal(d: Date): string {
     // for debugging/readability in asserts
@@ -13,6 +19,10 @@ function isoLocal(d: Date): string {
 }
 
 describe('occurrenceService.expandOccurrences', () => {
+    afterEach(() => {
+        jest.restoreAllMocks();
+    });
+
     test('non-recurring event: returns single occurrence if in window', () => {
         const ev: IcsEvent = {
             start: '2025-01-10 10:00:00+00:00',
@@ -249,5 +259,60 @@ describe('occurrenceService.expandOccurrences', () => {
         };
         const occs = expandOccurrences(ev, new Date('2025-01-01T00:00:00Z'), new Date('2025-01-20T00:00:00Z'));
         expect(occs).toEqual([]);
+    });
+
+    test('caps a single recurring event for a very large range', () => {
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const ev: IcsEvent = {
+            uid: 'large-daily',
+            title: 'Large daily series',
+            start: '2025-01-01 10:00:00+00:00',
+            repeat: 'daily',
+        };
+
+        const occs = expandOccurrences(
+            ev,
+            new Date('2025-01-01T00:00:00Z'),
+            new Date('2100-01-01T00:00:00Z'),
+        );
+
+        expect(occs).toHaveLength(MAX_OCCURRENCES_PER_EVENT);
+        expect(occs[0].start.toISOString()).toBe('2025-01-01T10:00:00.000Z');
+        expect(warnSpy).toHaveBeenCalledWith(
+            expect.stringContaining('Recurrence expansion truncated by per-event occurrence limit'),
+            expect.objectContaining({id: 'large-daily'}),
+        );
+    });
+
+    test('caps total occurrences across events for a very large request', () => {
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const events: EventInput[] = Array.from({length: 6}, (_, index) => ({
+            id: `series-${index}`,
+            title: `Series ${index}`,
+            startUtc: Date.UTC(2025, 0, 1, 10, 0, 0),
+            startText: '2025-01-01 10:00:00',
+            tz: 'UTC',
+            repeat: 'daily',
+            repeatInterval: 1,
+        }));
+
+        const occs = expandAllInRange(
+            events,
+            Date.UTC(2025, 0, 1),
+            Date.UTC(2100, 0, 1),
+        );
+
+        expect(occs).toHaveLength(MAX_OCCURRENCES_PER_REQUEST);
+        expect(new Set(occs.map((occurrence) => occurrence.id))).toEqual(new Set([
+            'series-0',
+            'series-1',
+            'series-2',
+            'series-3',
+            'series-4',
+        ]));
+        expect(warnSpy).toHaveBeenCalledWith(
+            expect.stringContaining('Recurrence expansion truncated by per-request occurrence limit'),
+            expect.objectContaining({limit: MAX_OCCURRENCES_PER_REQUEST}),
+        );
     });
 });

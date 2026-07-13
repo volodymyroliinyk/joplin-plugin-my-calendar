@@ -10,11 +10,15 @@ import {
     DAY_MS,
     Occurrence as UiOccurrence
 } from '../utils/dateUtils';
-import {dbg} from '../utils/logger';
+import {dbg, warn} from '../utils/logger';
 
 export type Occurrence = { start: Date; end: Date; recurrence_id?: string };
 
 const WD_MAP_MON0: Record<string, number> = {MO: 0, TU: 1, WE: 2, TH: 3, FR: 4, SA: 5, SU: 6};
+
+export const MAX_OCCURRENCES_PER_EVENT = 2_000;
+export const MAX_OCCURRENCES_PER_REQUEST = 10_000;
+const MAX_RECURRENCE_ITERATIONS_PER_EVENT = 10_000;
 
 function pad2(n: number): string {
     return String(n).padStart(2, '0');
@@ -152,7 +156,12 @@ export function expandOccurrences(ev: IcsEvent, windowStart: Date, windowEnd: Da
     }));
 }
 
-function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number): UiOccurrence[] {
+function expandOccurrencesInRange(
+    ev: EventInput,
+    fromUtc: number,
+    toUtc: number,
+    occurrenceLimit: number = MAX_OCCURRENCES_PER_EVENT,
+): UiOccurrence[] {
     // Invariant: recurring events must have timezone
     const tz = ev.tz || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
@@ -162,11 +171,35 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
 
     const dur = (ev.endUtc ?? ev.startUtc) - ev.startUtc;
     const excludedStarts = buildExcludedStartSet(ev.exdates, tz);
+    const effectiveOccurrenceLimit = Math.max(0, Math.min(MAX_OCCURRENCES_PER_EVENT, Math.trunc(occurrenceLimit)));
+    let iterations = 0;
+    let limitWarningLogged = false;
+    const warnLimit = (limit: string) => {
+        if (limitWarningLogged) return;
+        limitWarningLogged = true;
+        warn('occurrence', `Recurrence expansion truncated by ${limit}`, {
+            id: ev.id,
+            title: ev.title,
+            repeat: ev.repeat,
+            fromUtc,
+            toUtc,
+        });
+    };
+    const beginIteration = (): boolean => {
+        iterations++;
+        if (iterations <= MAX_RECURRENCE_ITERATIONS_PER_EVENT) return true;
+        warnLimit('iteration limit');
+        return false;
+    };
     const push = (start: number, out: UiOccurrence[]) => {
         if (start > toUtc) return false;
         const end = dur ? start + dur : start;
         if (end < fromUtc) return true;
         if (excludedStarts.has(start)) return true;
+        if (out.length >= effectiveOccurrenceLimit) {
+            warnLimit('per-event occurrence limit');
+            return false;
+        }
         out.push({...ev, occurrenceId: `${ev.id}#${start}`, startUtc: start, endUtc: dur ? end : undefined});
         return true;
     };
@@ -174,6 +207,7 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
     if (ev.repeat === 'none') {
         const end = ev.endUtc ?? ev.startUtc;
         if (end < fromUtc || ev.startUtc > toUtc) return [];
+        if (effectiveOccurrenceLimit === 0) return [];
         return [{...ev, occurrenceId: `${ev.id}#${ev.startUtc}`}];
     }
 
@@ -196,6 +230,7 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
         if (k < 0) k = 0;
 
         for (; ; k++) {
+            if (!beginIteration()) break;
             const occ = addDaysYMD(baseY, baseM, baseD, k * step);
             const start = zonedTimeToUtcMsOrNull(occ.Y, occ.M, occ.D, baseH, baseMin, baseS, tz, eventContext);
             if (start == null) continue;
@@ -233,6 +268,7 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
         const until = Math.min(toUtc, ev.repeatUntilUtc ?? Number.POSITIVE_INFINITY);
 
         for (; ;) {
+            if (!beginIteration()) break;
             const weekStart = addDaysYMD(mondayBase.Y, mondayBase.M, mondayBase.D, weekIndex * 7 * step);
 
             for (const wd of list) {
@@ -266,6 +302,7 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
         }
 
         for (; ;) {
+            if (!beginIteration()) break;
             const year = Math.floor(monthIndex / 12);
             const month = (monthIndex % 12 + 12) % 12 + 1;
             const start = zonedTimeToUtcMsOrNull(year, month, dom, baseH, baseMin, baseS, tz, eventContext);
@@ -302,6 +339,7 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
         }
 
         for (; ;) {
+            if (!beginIteration()) break;
             const start = zonedTimeToUtcMsOrNull(year, baseM, baseD, baseH, baseMin, baseS, tz, eventContext);
 
             if (start !== null) {
@@ -330,7 +368,19 @@ function expandOccurrencesInRange(ev: EventInput, fromUtc: number, toUtc: number
 
 export function expandAllInRange(evs: EventInput[], fromUtc: number, toUtc: number): UiOccurrence[] {
     const out: UiOccurrence[] = [];
-    for (const ev of evs) out.push(...expandOccurrencesInRange(ev, fromUtc, toUtc));
+    for (const ev of evs) {
+        const remaining = MAX_OCCURRENCES_PER_REQUEST - out.length;
+        if (remaining <= 0) {
+            warn('occurrence', 'Recurrence expansion truncated by per-request occurrence limit', {
+                eventCount: evs.length,
+                fromUtc,
+                toUtc,
+                limit: MAX_OCCURRENCES_PER_REQUEST,
+            });
+            break;
+        }
+        out.push(...expandOccurrencesInRange(ev, fromUtc, toUtc, remaining));
+    }
     out.sort((a, b) => a.startUtc - b.startUtc || a.occurrenceId.localeCompare(b.occurrenceId));
     return out;
 }
