@@ -1372,7 +1372,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
         expect(patchBody).toContain('start: 2025-01-16 09:00:00+00:00');
     });
 
-    test('duplicate events in import with same UID cause multiple updates (PUT called twice)', async () => {
+    test('duplicate events with equal revision metadata deterministically keep the later VEVENT', async () => {
         const ics = [
             'BEGIN:VCALENDAR',
             'BEGIN:VEVENT',
@@ -1405,14 +1405,94 @@ describe('icsImportService.importIcsIntoNotes', () => {
 
         const res = await importIcsIntoNotes(joplin as any, ics);
 
-        expect(res.updated).toBe(2);
-        expect(joplin.data.put).toHaveBeenCalledTimes(2);
+        expect(res.updated).toBe(1);
+        expect(res.issues).toBe(1);
+        expect(joplin.data.put).toHaveBeenCalledTimes(1);
 
-        const patch1 = joplin.data.put.mock.calls[0][2].body as string;
-        const patch2 = joplin.data.put.mock.calls[1][2].body as string;
+        const patch = joplin.data.put.mock.calls[0][2].body as string;
+        expect(patch).toContain('start: 2025-01-15 11:00:00+00:00');
+        expect(res.warnings).toEqual([expect.objectContaining({
+            code: 'duplicate_feed_event',
+            key: 'u1|',
+            keptInputIndex: 1,
+            discardedInputIndex: 0,
+        })]);
+    });
 
-        expect(patch1).toContain('start: 2025-01-15 10:00:00+00:00');
-        expect(patch2).toContain('start: 2025-01-15 11:00:00+00:00');
+    test('duplicate new events create one note and higher SEQUENCE wins before concurrent creation', async () => {
+        const ics = [
+            'BEGIN:VCALENDAR',
+            'BEGIN:VEVENT',
+            'UID:u-new-duplicate',
+            'SEQUENCE:5',
+            'LAST-MODIFIED:20250115T120000Z',
+            'SUMMARY:Newer revision',
+            'DTSTART:20270115T110000Z',
+            'BEGIN:VALARM',
+            'TRIGGER:-PT15M',
+            'ACTION:DISPLAY',
+            'END:VALARM',
+            'END:VEVENT',
+            'BEGIN:VEVENT',
+            'UID:u-new-duplicate',
+            'SEQUENCE:2',
+            'LAST-MODIFIED:20260115T120000Z',
+            'SUMMARY:Older revision',
+            'DTSTART:20270115T100000Z',
+            'END:VEVENT',
+            'END:VCALENDAR',
+        ].join('\n');
+        const joplin = mkJoplin({
+            get: jest.fn().mockResolvedValue({items: [], has_more: false}),
+            post: jest.fn()
+                .mockResolvedValueOnce({id: 'event-note-id'})
+                .mockResolvedValueOnce({id: 'alarm-note-id'}),
+            put: jest.fn().mockResolvedValue({}),
+        });
+
+        const result = await importIcsIntoNotes(joplin as any, ics, undefined, 'folder1', true, undefined, 10_000);
+
+        const eventCreates = joplin.data.post.mock.calls.filter((call) => String(call[2]?.body).includes('```mycalendar-event'));
+        const alarmCreates = joplin.data.post.mock.calls.filter((call) => String(call[2]?.body).includes('```mycalendar-alarm'));
+        expect(eventCreates).toHaveLength(1);
+        expect(alarmCreates).toHaveLength(1);
+        expect(joplin.data.post).toHaveBeenCalledWith(['notes'], null, expect.objectContaining({
+            title: 'Newer revision',
+            body: expect.stringContaining('start: 2027-01-15 11:00:00+00:00'),
+        }));
+        expect(alarmCreates[0][2].body).toContain('[Newer revision](:/event-note-id)');
+        expect(result.added).toBe(1);
+        expect(result.alarmsCreated).toBe(1);
+        expect(result.issues).toBe(1);
+    });
+
+    test('master and recurrence exception remain distinct event keys during feed deduplication', async () => {
+        const ics = [
+            'BEGIN:VCALENDAR',
+            'BEGIN:VEVENT',
+            'UID:u-series',
+            'SUMMARY:Master',
+            'DTSTART:20270115T100000Z',
+            'END:VEVENT',
+            'BEGIN:VEVENT',
+            'UID:u-series',
+            'RECURRENCE-ID:20270116T100000Z',
+            'SUMMARY:Exception',
+            'DTSTART:20270116T110000Z',
+            'END:VEVENT',
+            'END:VCALENDAR',
+        ].join('\n');
+        const joplin = mkJoplin({
+            get: jest.fn().mockResolvedValue({items: [], has_more: false}),
+            post: jest.fn().mockResolvedValue({id: 'event-note-id'}),
+        });
+
+        const result = await importIcsIntoNotes(joplin as any, ics);
+
+        expect(joplin.data.post).toHaveBeenCalledTimes(2);
+        expect(result.added).toBe(2);
+        expect(result.issues).toBe(0);
+        expect(result.warnings).toBeUndefined();
     });
 
     test('0 VEVENT(s): still scans existing notes, but produces no writes and returns all zeros', async () => {

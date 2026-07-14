@@ -92,9 +92,11 @@ type ImportResultLike = {
     warnings?: Array<{
         code: string;
         key: string;
-        existingNoteId: string;
-        duplicateNoteId: string;
         message: string;
+        existingNoteId?: string;
+        duplicateNoteId?: string;
+        keptInputIndex?: number;
+        discardedInputIndex?: number;
     }>;
 };
 

@@ -14,6 +14,8 @@ export type IcsEvent = {
     uid?: string;
     recurrence_id?: string;
     status?: string;
+    sequence?: number;
+    last_modified?: string;
 
     // MyCalendar normalized fields (what we write into ```mycalendar-event``` blocks)
     title?: string;
