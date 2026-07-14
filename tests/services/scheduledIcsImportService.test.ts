@@ -274,7 +274,7 @@ describe('scheduledIcsImportService', () => {
         );
     });
 
-    test('suppresses stale toasts from an older run after refresh with newer settings', async () => {
+    test('defers refreshed settings until the active cycle finishes', async () => {
         const downloadIcs = jest.fn().mockResolvedValue('BEGIN:VCALENDAR\nEND:VCALENDAR');
         const joplin = {
             versionInfo: jest.fn().mockResolvedValue({platform: 'desktop'}),
@@ -304,13 +304,111 @@ describe('scheduledIcsImportService', () => {
         await refreshPromise;
         await jest.advanceTimersByTimeAsync(15 * 60 * 1000);
 
-        expect(showToast).toHaveBeenCalledTimes(1);
-        expect(showToast).toHaveBeenCalledWith(
+        expect(showToast).toHaveBeenCalledTimes(2);
+        expect(showToast).toHaveBeenNthCalledWith(1,
             'success',
             'Scheduled ICS import finished for Work: added=1, updated=2, skipped=3, errors=0, alarmsCreated=4, alarmsDeleted=5',
             5000,
         );
+        expect(showToast).toHaveBeenNthCalledWith(2,
+            'success',
+            'Scheduled ICS import finished for Work: added=1, updated=2, skipped=3, errors=0, alarmsCreated=4, alarmsDeleted=5',
+            5000,
+        );
+        expect(invalidateAllEventsCache).toHaveBeenCalledTimes(2);
+    });
+
+    test('refresh while note import is pending still invalidates cache after it resolves', async () => {
+        let resolveImport!: (value: any) => void;
+        (importIcsIntoNotes as jest.Mock).mockReturnValue(new Promise((resolve) => {
+            resolveImport = resolve;
+        }));
+        const onAfterImport = jest.fn();
+        const controller = await startScheduledIcsImport(
+            {versionInfo: jest.fn().mockResolvedValue({platform: 'desktop'})} as any,
+            {downloadIcs: jest.fn().mockResolvedValue('ICS'), onAfterImport},
+        );
+
+        const runPromise = controller.runNow();
+        await Promise.resolve();
+        await Promise.resolve();
+        const refreshPromise = controller.refresh();
+        expect(invalidateAllEventsCache).not.toHaveBeenCalled();
+
+        resolveImport({
+            added: 1, updated: 0, skipped: 0, errors: 0,
+            alarmsCreated: 0, alarmsDeleted: 0, alarmsUpdated: 0, issues: 0,
+        });
+        await runPromise;
+        await refreshPromise;
+
         expect(invalidateAllEventsCache).toHaveBeenCalledTimes(1);
+        expect(onAfterImport).toHaveBeenCalledWith(expect.objectContaining({added: 1}));
+        controller.stop();
+    });
+
+    test('refresh between configured feeds lets the active snapshot finish with a complete summary', async () => {
+        (getScheduledIcsImportEntries as jest.Mock).mockResolvedValue([
+            {url: 'https://example.com/a.ics', notebookTitle: 'Work'},
+            {url: 'https://example.com/b.ics', notebookTitle: 'Personal'},
+        ]);
+        let resolveFirst!: (value: any) => void;
+        (importIcsIntoNotes as jest.Mock)
+            .mockReturnValueOnce(new Promise((resolve) => {
+                resolveFirst = resolve;
+            }))
+            .mockResolvedValueOnce({
+                added: 0, updated: 2, skipped: 0, errors: 0,
+                alarmsCreated: 0, alarmsDeleted: 0, alarmsUpdated: 0, issues: 0,
+            });
+        const onAfterImport = jest.fn();
+        const controller = await startScheduledIcsImport(
+            {versionInfo: jest.fn().mockResolvedValue({platform: 'desktop'})} as any,
+            {downloadIcs: jest.fn().mockResolvedValue('ICS'), onAfterImport},
+        );
+
+        const runPromise = controller.runNow();
+        await Promise.resolve();
+        await Promise.resolve();
+        const refreshPromise = controller.refresh();
+        resolveFirst({
+            added: 1, updated: 0, skipped: 0, errors: 0,
+            alarmsCreated: 0, alarmsDeleted: 0, alarmsUpdated: 0, issues: 0,
+        });
+        await runPromise;
+        await refreshPromise;
+
+        expect(importIcsIntoNotes).toHaveBeenCalledTimes(2);
+        expect(invalidateAllEventsCache).toHaveBeenCalledTimes(1);
+        expect(onAfterImport).toHaveBeenCalledWith(expect.objectContaining({added: 1, updated: 2}));
+        controller.stop();
+    });
+
+    test('dispose during an active import still finalizes completed mutations', async () => {
+        let resolveImport!: (value: any) => void;
+        (importIcsIntoNotes as jest.Mock).mockReturnValue(new Promise((resolve) => {
+            resolveImport = resolve;
+        }));
+        const onAfterImport = jest.fn();
+        const controller = await startScheduledIcsImport(
+            {versionInfo: jest.fn().mockResolvedValue({platform: 'desktop'})} as any,
+            {downloadIcs: jest.fn().mockResolvedValue('ICS'), onAfterImport},
+        );
+
+        const runPromise = controller.runNow();
+        for (let i = 0; i < 10 && (importIcsIntoNotes as jest.Mock).mock.calls.length === 0; i++) {
+            await Promise.resolve();
+        }
+        expect(importIcsIntoNotes).toHaveBeenCalledTimes(1);
+        controller.stop();
+        resolveImport({
+            added: 1, updated: 0, skipped: 0, errors: 0,
+            alarmsCreated: 0, alarmsDeleted: 0, alarmsUpdated: 0, issues: 0,
+        });
+        await runPromise;
+
+        expect(invalidateAllEventsCache).toHaveBeenCalledTimes(1);
+        expect(onAfterImport).toHaveBeenCalledWith(expect.objectContaining({added: 1}));
     });
 
     test('masks query params in error toast text when an error message includes the URL', async () => {

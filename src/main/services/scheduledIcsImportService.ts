@@ -192,6 +192,8 @@ export async function startScheduledIcsImport(
     let disposed = false;
     let running = false;
     let configVersion = 0;
+    let runningCompletion: Promise<void> | null = null;
+    let resolveRunningCompletion: (() => void) | null = null;
 
     const clearTimer = () => {
         if (!timer) return;
@@ -210,6 +212,11 @@ export async function startScheduledIcsImport(
         }
 
         running = true;
+        runningCompletion = new Promise<void>((resolve) => {
+            resolveRunningCompletion = resolve;
+        });
+        const summary = emptySummary();
+        let importedAtLeastOne = false;
         try {
             const entries = await getScheduledIcsImportEntries(joplin);
             if (!entries.length) return;
@@ -217,8 +224,6 @@ export async function startScheduledIcsImport(
             const folders = await getAllFolders(joplin);
             const importAlarmRangeDays = await getIcsImportAlarmRangeDays(joplin);
             const defaultEventColor = await getDefaultEventColor(joplin);
-            const summary = emptySummary();
-            let importedAtLeastOne = false;
 
             for (const entry of entries) {
                 const url = entry.url;
@@ -273,19 +278,29 @@ export async function startScheduledIcsImport(
                 }
             }
 
-            if (importedAtLeastOne && isCurrentVersion(version)) {
-                invalidateAllEventsCache();
-                await options.onAfterImport?.(summary);
-            }
         } catch (error) {
             err('scheduledIcsImport', 'Scheduled ICS import cycle failed:', error);
         } finally {
+            if (importedAtLeastOne) {
+                invalidateAllEventsCache();
+                try {
+                    await options.onAfterImport?.(summary);
+                } catch (error) {
+                    err('scheduledIcsImport', 'Scheduled ICS import finalization failed:', error);
+                }
+            }
             running = false;
+            resolveRunningCompletion?.();
+            resolveRunningCompletion = null;
+            runningCompletion = null;
         }
     };
 
     const refresh = async () => {
         clearTimer();
+        if (disposed) return;
+        const activeCycle = runningCompletion;
+        if (activeCycle) await activeCycle;
         if (disposed) return;
         configVersion += 1;
         const version = configVersion;
