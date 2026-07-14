@@ -522,6 +522,76 @@ describe('alarmService', () => {
         expect(mockUpdateNote).not.toHaveBeenCalled();
     });
 
+    it('disabled alarms delete future, recent-past, and old incomplete alarms only for imported event keys', async () => {
+        const now = new Date('2026-01-30T10:00:00.000Z');
+        const events: IcsEvent[] = [{
+            uid: 'uid1',
+            start: '2026-01-30 12:00',
+            valarms: [{action: 'DISPLAY', trigger: '-PT15M'}],
+        }];
+        const importedEventNotes = {
+            'uid1|': {id: 'note1', title: 'Imported event', parent_id: 'folder1'},
+        };
+        const existingAlarms = {
+            'uid1|': [
+                {
+                    id: 'future',
+                    todo_due: now.getTime() + 60_000,
+                    body: '',
+                    is_todo: 1,
+                    todo_completed: 0,
+                    title: 'Future'
+                },
+                {
+                    id: 'recent-past',
+                    todo_due: now.getTime() - 60_000,
+                    body: '',
+                    is_todo: 1,
+                    todo_completed: 0,
+                    title: 'Recent'
+                },
+                {
+                    id: 'old-incomplete',
+                    todo_due: now.getTime() - 48 * 60 * 60_000,
+                    body: '',
+                    is_todo: 1,
+                    todo_completed: 0,
+                    title: 'Old'
+                },
+            ],
+            'unrelated|': [
+                {
+                    id: 'unrelated',
+                    todo_due: now.getTime() + 60_000,
+                    body: '',
+                    is_todo: 1,
+                    todo_completed: 0,
+                    title: 'Unrelated'
+                },
+            ],
+        };
+
+        const result = await syncAlarmsForEvents(
+            mockJoplin,
+            events,
+            importedEventNotes,
+            existingAlarms,
+            undefined,
+            undefined,
+            {alarmsEnabled: false, now},
+        );
+
+        expect(mockDeleteNote.mock.calls.map((call) => call[1]).sort()).toEqual([
+            'future',
+            'old-incomplete',
+            'recent-past',
+        ]);
+        expect(mockDeleteNote).not.toHaveBeenCalledWith(mockJoplin, 'unrelated');
+        expect(result.alarmsDeleted).toBe(3);
+        expect(mockCreateNote).not.toHaveBeenCalled();
+        expect(mockUpdateNote).not.toHaveBeenCalled();
+    });
+
     it('options object: alarmsEnabled=false takes precedence over legacy param and creates no alarms', async () => {
         jest.useFakeTimers();
         jest.setSystemTime(new Date('2026-01-30T10:00:00.000Z'));

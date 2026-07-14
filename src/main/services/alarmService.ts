@@ -199,13 +199,27 @@ export async function syncAlarmsForEvents(
         const eventNote = importedEventNotes[key];
         if (!eventNote) continue;
 
+        const oldAlarms = existingAlarms[key] || [];
+        if (!alarmsEnabled) {
+            for (const alarm of oldAlarms) {
+                pendingOps.push(async () => {
+                    try {
+                        await deleteNote(joplin, alarm.id);
+                        alarmsDeleted++;
+                    } catch (e) {
+                        issues++;
+                        err('alarmService', `ERROR deleting disabled alarm: ${key} - ${getErrorText(e)}`);
+                    }
+                });
+            }
+            continue;
+        }
+
         const notebookId = targetFolderId || eventNote.parent_id;
         if (!notebookId) continue;
 
-        // If alarms are disabled, desiredAlarms is empty -> all existing will be deleted
-        const desiredAlarms = alarmsEnabled ? buildDesiredAlarmsForEvent(ev, now, windowEnd) : [];
+        const desiredAlarms = buildDesiredAlarmsForEvent(ev, now, windowEnd);
 
-        const oldAlarms = existingAlarms[key] || [];
         const matchedDesiredIndices = new Set<number>();
 
         for (const alarm of oldAlarms) {
