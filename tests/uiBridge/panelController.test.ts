@@ -724,6 +724,43 @@ describe('panelController', () => {
         expect(helpers.expandAllInRange).toHaveBeenNthCalledWith(2, [{id: 'after-create'}], 10, 20);
     });
 
+    test('calendarEventCreate tag failure reports partial success and still invalidates and opens the note', async () => {
+        const {handler, postMessage, execute} = await setup();
+        const warning = {
+            code: 'tag_attachment_failed',
+            tagId: 'tag-b',
+            message: 'Event note was created, but tag tag-b could not be attached: denied',
+        };
+        (createCalendarEventNote as jest.Mock).mockResolvedValue({
+            note: {id: 'note-partial'},
+            uid: 'uid-partial@mycalendarevent',
+            title: 'Partial event',
+            warnings: [warning],
+        });
+
+        await handler({
+            name: 'calendarEventCreate',
+            payload: {targetFolderId: 'folder1', title: 'Partial event', start: '2026-06-16 10:00'},
+        });
+
+        expect(invalidateAllEventsCache).toHaveBeenCalledTimes(1);
+        expect(execute).toHaveBeenCalledWith('openNote', 'note-partial');
+        expect(postMessage).toHaveBeenCalledWith('panel-1', {
+            name: 'calendarEventCreateDone',
+            noteId: 'note-partial',
+            uid: 'uid-partial@mycalendarevent',
+            title: 'Partial event',
+            warnings: [warning],
+        });
+        expect(postMessage).toHaveBeenCalledWith('panel-1', {name: 'redrawMonth'});
+        expect(postMessage).not.toHaveBeenCalledWith('panel-1', expect.objectContaining({name: 'calendarEventCreateError'}));
+        expect(showToast).toHaveBeenCalledWith(
+            'warning',
+            'Event note created, but 1 tag could not be attached',
+            8000,
+        );
+    });
+
     test('calendarEventCreate invalid payload -> posts event creation error', async () => {
         const {handler, postMessage} = await setup();
 

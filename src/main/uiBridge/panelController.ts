@@ -237,14 +237,21 @@ async function handleCalendarEventCreateMessage(
         if (result.note.id) {
             await joplin.commands.execute('openNote', result.note.id);
         }
+        const warnings = result.warnings ?? [];
         await post({
             name: 'calendarEventCreateDone',
             noteId: result.note.id,
             uid: result.uid,
             title: result.title,
+            ...(warnings.length ? {warnings} : {}),
         });
         await post({name: 'redrawMonth'});
-        await showToast('success', `Event note created: ${result.title}`, 4000);
+        if (warnings.length) {
+            const warningText = `Event note created, but ${warnings.length} tag${warnings.length === 1 ? '' : 's'} could not be attached`;
+            await showToast('warning', warningText, 8000);
+        } else {
+            await showToast('success', `Event note created: ${result.title}`, 4000);
+        }
     } catch (error) {
         const errorText = getErrorText(error);
         await post({name: 'calendarEventCreateError', error: errorText});
