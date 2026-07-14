@@ -89,6 +89,13 @@ type ImportResultLike = {
     alarmsCreated: number;
     alarmsDeleted: number;
     issues?: number;
+    warnings?: Array<{
+        code: string;
+        key: string;
+        existingNoteId: string;
+        duplicateNoteId: string;
+        message: string;
+    }>;
 };
 
 function buildImportDoneText(result: ImportResultLike): string {
@@ -195,6 +202,12 @@ async function handleIcsImportMessage(
 
         invalidateCalendarData();
         await post({name: 'importDone', ...res});
+
+        for (const warning of res.warnings ?? []) {
+            if (!isString(warning.message) || !warning.message.trim()) continue;
+            await post({name: 'importStatus', level: 'warning', text: warning.message});
+            await showToast('warning', warning.message, 8000);
+        }
 
         const doneText = buildImportDoneText(res);
         await showToast(res.errors > 0 ? 'warning' : 'success', doneText, 5000);
