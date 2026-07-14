@@ -644,16 +644,27 @@ describe('src/ui/icsImport.js', () => {
         loadIcsImportFresh();
 
         sendPluginMessage(getOnMessageCb, {name: 'importStatus', text: 'Parsing'});
-        sendPluginMessage(getOnMessageCb, {name: 'importDone', added: 1, updated: 2, skipped: 3, errors: 0, issues: 2});
+        sendPluginMessage(getOnMessageCb, {name: 'importStatus', level: 'warning', text: 'Duplicate details'});
+        sendPluginMessage(getOnMessageCb, {
+            name: 'importDone',
+            added: 1,
+            updated: 2,
+            skipped: 3,
+            errors: 0,
+            issues: 2,
+            warnings: [{message: 'Duplicate details'}],
+        });
         sendPluginMessage(getOnMessageCb, {name: 'importError', error: 'boom'});
 
         expectConsoleLogContains(logSpy, '[STATUS]');
         expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('[STATUS]'), 'Parsing');
+        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('[WARNING]'), 'Duplicate details');
         expectConsoleLogContains(logSpy, '[DONE]');
         expect(logSpy).toHaveBeenCalledWith(
             expect.stringContaining('[DONE]'),
             'added=1 updated=2 skipped=3 errors=0 issues=2'
         );
+        expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('[WARNING DETAILS]'), 'Duplicate details');
 
         expectConsoleLogContains(logSpy, '[ERROR]');
         expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('[ERROR]'), 'boom');

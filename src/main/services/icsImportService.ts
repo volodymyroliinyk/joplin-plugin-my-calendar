@@ -26,10 +26,12 @@ type ImportedEventNote = { id: string; parent_id?: string; title: string };
 type ImportedEventNotes = Record<string, ImportedEventNote>;
 type ExistingAlarmsMap = Record<string, ExistingAlarm[]>;
 type NoteIdToKeysMap = Record<string, string[]>;
-type DuplicateOwnershipWarning = {
+export type DuplicateOwnershipWarning = {
+    code: 'duplicate_event_ownership';
     key: string;
     existingNoteId: string;
     duplicateNoteId: string;
+    message: string;
 };
 type ExistingNoteRow = {
     id: string;
@@ -50,6 +52,7 @@ type ImportIcsResult = {
     alarmsDeleted: number;
     alarmsUpdated: number;
     issues: number;
+    warnings?: DuplicateOwnershipWarning[];
 };
 
 type ImportColorPolicy = {
@@ -194,9 +197,11 @@ function indexExistingNotes(allNotes: ExistingNoteRow[]): {
                 const existingOwner = existingByKey[k];
                 if (existingOwner) {
                     duplicateOwnershipWarnings.push({
+                        code: 'duplicate_event_ownership',
                         key: k,
                         existingNoteId: existingOwner.id,
                         duplicateNoteId: n.id,
+                        message: `Duplicate event ownership for ${k}: notes ${existingOwner.id} and ${n.id}; keeping ${existingOwner.id}`,
                     });
                     continue;
                 }
@@ -489,5 +494,6 @@ export async function importIcsIntoNotes(
         alarmsDeleted: alarmRes.alarmsDeleted,
         alarmsUpdated: alarmRes.alarmsUpdated,
         issues: issues + alarmRes.issues,
+        ...(duplicateOwnershipWarnings.length ? {warnings: duplicateOwnershipWarnings} : {}),
     };
 }

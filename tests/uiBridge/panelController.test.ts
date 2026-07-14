@@ -492,6 +492,40 @@ describe('panelController', () => {
         );
     });
 
+    test('icsImport surfaces structured duplicate ownership warnings with note IDs', async () => {
+        const {handler, postMessage} = await setup();
+        const warning = {
+            code: 'duplicate_event_ownership',
+            key: 'uid-1|',
+            existingNoteId: 'note-1',
+            duplicateNoteId: 'note-2',
+            message: 'Duplicate event ownership for uid-1|: notes note-1 and note-2; keeping note-1',
+        };
+        (importIcsIntoNotes as jest.Mock).mockResolvedValue({
+            added: 0,
+            updated: 1,
+            skipped: 0,
+            errors: 0,
+            alarmsCreated: 0,
+            alarmsDeleted: 0,
+            issues: 1,
+            warnings: [warning],
+        });
+
+        await handler({name: 'icsImport', ics: 'X'});
+
+        expect(postMessage).toHaveBeenCalledWith('panel-1', {
+            name: 'importStatus',
+            level: 'warning',
+            text: warning.message,
+        });
+        expect(showToast).toHaveBeenCalledWith('warning', warning.message, 8000);
+        expect(postMessage).toHaveBeenCalledWith('panel-1', expect.objectContaining({
+            name: 'importDone',
+            warnings: [warning],
+        }));
+    });
+
     test('icsImport success -> clears cached expanded ranges before next range request', async () => {
         const {handler, helpers} = await setup();
 

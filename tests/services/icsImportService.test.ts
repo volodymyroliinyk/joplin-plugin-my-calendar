@@ -242,7 +242,7 @@ describe('icsImportService.importIcsIntoNotes', () => {
         expect(res.errors).toBe(0);
     });
 
-    test('keeps the lexicographically smallest note id as owner without surfacing duplicate ownership warning in import status', async () => {
+    test('keeps the lexicographically smallest note id as owner and returns a structured warning', async () => {
         const ics = [
             'BEGIN:VCALENDAR',
             'BEGIN:VEVENT',
@@ -299,6 +299,13 @@ describe('icsImportService.importIcsIntoNotes', () => {
         expect(joplin.data.post).not.toHaveBeenCalled();
         expect(res.updated).toBe(1);
         expect(res.issues).toBe(1);
+        expect(res.warnings).toEqual([{
+            code: 'duplicate_event_ownership',
+            key: 'u-dup-owner|',
+            existingNoteId: 'note-1',
+            duplicateNoteId: 'note-2',
+            message: 'Duplicate event ownership for u-dup-owner|: notes note-1 and note-2; keeping note-1',
+        }]);
     });
 
     test('imports VALARM as valarm: {json} lines inside mycalendar-event block (supports multiple VALARM)', async () => {

@@ -592,7 +592,8 @@
                     applyDebugUI();
                 },
                 [MSG.IMPORT_STATUS]: () => {
-                    uiLogger.log('[STATUS]', msg.text);
+                    if (msg.level === 'warning') uiLogger.warn('[WARNING]', msg.text);
+                    else uiLogger.log('[STATUS]', msg.text);
                 },
                 [MSG.IMPORT_DONE]: () => {
                     const summary = `added=${msg.added} updated=${msg.updated} skipped=${msg.skipped} errors=${msg.errors}`
@@ -601,6 +602,11 @@
                         '[DONE]',
                         summary,
                     );
+                    for (const warning of Array.isArray(msg.warnings) ? msg.warnings : []) {
+                        if (warning && typeof warning.message === 'string') {
+                            uiLogger.warn('[WARNING DETAILS]', warning.message);
+                        }
+                    }
                     setImportState(false);
                 },
                 [MSG.IMPORT_ERROR]: () => {
