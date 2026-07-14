@@ -33,6 +33,14 @@ export type DuplicateOwnershipWarning = {
     duplicateNoteId: string;
     message: string;
 };
+export type DuplicateFeedEventWarning = {
+    code: 'duplicate_feed_event';
+    key: string;
+    keptInputIndex: number;
+    discardedInputIndex: number;
+    message: string;
+};
+type ImportWarning = DuplicateOwnershipWarning | DuplicateFeedEventWarning;
 type ExistingNoteRow = {
     id: string;
     title?: string;
@@ -52,7 +60,7 @@ type ImportIcsResult = {
     alarmsDeleted: number;
     alarmsUpdated: number;
     issues: number;
-    warnings?: DuplicateOwnershipWarning[];
+    warnings?: ImportWarning[];
 };
 
 type ImportColorPolicy = {
@@ -86,6 +94,7 @@ type PreparedImportEvents = {
     events: IcsEvent[];
     cancelledExceptions: CancelledRecurrenceException[];
     masterUidsInImport: Set<string>;
+    warnings: DuplicateFeedEventWarning[];
 };
 
 const CREATE_NOTES_CONCURRENCY = 6;
@@ -105,8 +114,47 @@ function pushUniqueExdate(target: IcsEvent | undefined, exdate: string | undefin
     }
 }
 
+function compareFeedRevisions(candidate: IcsEvent, current: IcsEvent): number {
+    const sequenceDiff = (candidate.sequence ?? 0) - (current.sequence ?? 0);
+    if (sequenceDiff !== 0) return sequenceDiff;
+    return String(candidate.last_modified || '').localeCompare(String(current.last_modified || ''));
+}
+
 function prepareImportedEvents(eventsRaw: IcsEvent[]): PreparedImportEvents {
-    const events = eventsRaw.map(normalizeIcsEvent);
+    const normalized = eventsRaw.map(normalizeIcsEvent);
+    const winnersByKey = new Map<string, { event: IcsEvent; inputIndex: number }>();
+    const unkeyed: IcsEvent[] = [];
+    const warnings: DuplicateFeedEventWarning[] = [];
+
+    normalized.forEach((event, inputIndex) => {
+        const uid = String(event.uid || '').trim();
+        if (!uid) {
+            unkeyed.push(event);
+            return;
+        }
+        const key = makeEventKey(uid, event.recurrence_id);
+        const current = winnersByKey.get(key);
+        if (!current) {
+            winnersByKey.set(key, {event, inputIndex});
+            return;
+        }
+
+        // Higher SEQUENCE wins, then later LAST-MODIFIED. If revision metadata is
+        // equal or absent, the later VEVENT in the input wins deterministically.
+        const candidateWins = compareFeedRevisions(event, current.event) >= 0;
+        const winner = candidateWins ? {event, inputIndex} : current;
+        const discardedInputIndex = candidateWins ? current.inputIndex : inputIndex;
+        winnersByKey.set(key, winner);
+        warnings.push({
+            code: 'duplicate_feed_event',
+            key,
+            keptInputIndex: winner.inputIndex,
+            discardedInputIndex,
+            message: `Duplicate event ${key} in ICS input; kept VEVENT ${winner.inputIndex + 1} and ignored VEVENT ${discardedInputIndex + 1}`,
+        });
+    });
+
+    const events = [...winnersByKey.values()].map(({event}) => event).concat(unkeyed);
 
     const mastersByUid = new Map<string, IcsEvent>();
     const masterUidsInImport = new Set<string>();
@@ -140,7 +188,7 @@ function prepareImportedEvents(eventsRaw: IcsEvent[]): PreparedImportEvents {
         prepared.push(ev);
     }
 
-    return {events: prepared, cancelledExceptions, masterUidsInImport};
+    return {events: prepared, cancelledExceptions, masterUidsInImport, warnings};
 }
 
 function addExdateToEventBlockByKey(
@@ -312,7 +360,12 @@ export async function importIcsIntoNotes(
     };
 
     const eventsRaw = parseImportText(ics);
-    const {events, cancelledExceptions, masterUidsInImport} = prepareImportedEvents(eventsRaw);
+    const {
+        events,
+        cancelledExceptions,
+        masterUidsInImport,
+        warnings: duplicateFeedWarnings
+    } = prepareImportedEvents(eventsRaw);
     await say(`Parsed ${events.length} VEVENT(s)`);
 
     const noteFields = ['id', 'title', 'body', 'parent_id', 'todo_due', 'todo_completed', 'is_todo'];
@@ -326,7 +379,7 @@ export async function importIcsIntoNotes(
         duplicateOwnershipWarnings,
     } = indexExistingNotes(allNotes);
 
-    let issues = 0;
+    let issues = duplicateFeedWarnings.length;
 
     for (const warning of duplicateOwnershipWarnings) {
         issues++;
@@ -494,6 +547,8 @@ export async function importIcsIntoNotes(
         alarmsDeleted: alarmRes.alarmsDeleted,
         alarmsUpdated: alarmRes.alarmsUpdated,
         issues: issues + alarmRes.issues,
-        ...(duplicateOwnershipWarnings.length ? {warnings: duplicateOwnershipWarnings} : {}),
+        ...((duplicateOwnershipWarnings.length || duplicateFeedWarnings.length)
+            ? {warnings: [...duplicateOwnershipWarnings, ...duplicateFeedWarnings]}
+            : {}),
     };
 }

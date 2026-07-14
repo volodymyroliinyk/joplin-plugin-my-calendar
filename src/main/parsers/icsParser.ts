@@ -185,6 +185,10 @@ export function parseMyCalKeyValueText(text: string): IcsEvent[] {
 
         if (k === 'uid') cur.uid = v;
         else if (k === 'recurrence_id') cur.recurrence_id = v;
+        else if (k === 'sequence') {
+            const sequence = Number(v);
+            if (Number.isInteger(sequence) && sequence >= 0) cur.sequence = sequence;
+        } else if (k === 'last_modified') cur.last_modified = v;
         else if (k === 'title' || k === 'summary') cur.title = v;
         else if (k === 'description') cur.description = v;
         else if (k === 'location') cur.location = v;
@@ -282,6 +286,10 @@ export function parseIcs(ics: string): IcsEvent[] {
 
         if (key === 'UID') cur.uid = value.trim();
         else if (key === 'STATUS') cur.status = value.trim().toLowerCase();
+        else if (key === 'SEQUENCE') {
+            const sequence = Number(value.trim());
+            if (Number.isInteger(sequence) && sequence >= 0) cur.sequence = sequence;
+        } else if (key === 'LAST-MODIFIED') cur.last_modified = value.trim();
         else if (key === 'SUMMARY') cur.title = unescapeIcsText(value);
         else if (key === 'DESCRIPTION') cur.description = unescapeIcsText(value);
         else if (key === 'LOCATION') cur.location = unescapeIcsText(value);
