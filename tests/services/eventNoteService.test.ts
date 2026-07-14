@@ -158,7 +158,7 @@ describe('eventNoteService', () => {
             },
         };
 
-        await createCalendarEventNote(joplin as any, {
+        const result = await createCalendarEventNote(joplin as any, {
             targetFolderId: 'folder1',
             title: 'Meeting',
             start: '2026-06-16 10:00',
@@ -168,5 +168,39 @@ describe('eventNoteService', () => {
         expect(joplin.data.post).toHaveBeenCalledTimes(3);
         expect(joplin.data.post).toHaveBeenNthCalledWith(2, ['tags', 'tag-b', 'notes'], null, {id: 'note1'});
         expect(joplin.data.post).toHaveBeenNthCalledWith(3, ['tags', 'tag-a', 'notes'], null, {id: 'note1'});
+        expect(result.warnings).toEqual([]);
+    });
+
+    test.each([
+        ['first', ['reject', 'resolve']],
+        ['later', ['resolve', 'reject']],
+    ])('tag attachment failure on the %s tag returns the created note and continues other tags', async (_position, outcomes) => {
+        const tagPost = jest.fn();
+        for (const outcome of outcomes) {
+            if (outcome === 'reject') tagPost.mockRejectedValueOnce(new Error('tag API unavailable'));
+            else tagPost.mockResolvedValueOnce({});
+        }
+        const post = jest.fn()
+            .mockResolvedValueOnce({id: 'note1', title: 'Meeting', body: 'body', parent_id: 'folder1'})
+            .mockImplementation(tagPost);
+        const joplin = {data: {post}};
+
+        const result = await createCalendarEventNote(joplin as any, {
+            targetFolderId: 'folder1',
+            title: 'Meeting',
+            start: '2026-06-16 10:00',
+            tagIds: ['tag-a', 'tag-b'],
+        });
+
+        expect(result.note.id).toBe('note1');
+        expect(post).toHaveBeenCalledTimes(3);
+        expect(post).toHaveBeenNthCalledWith(2, ['tags', 'tag-a', 'notes'], null, {id: 'note1'});
+        expect(post).toHaveBeenNthCalledWith(3, ['tags', 'tag-b', 'notes'], null, {id: 'note1'});
+        const failedTagId = outcomes[0] === 'reject' ? 'tag-a' : 'tag-b';
+        expect(result.warnings).toEqual([{
+            code: 'tag_attachment_failed',
+            tagId: failedTagId,
+            message: `Event note was created, but tag ${failedTagId} could not be attached: tag API unavailable`,
+        }]);
     });
 });

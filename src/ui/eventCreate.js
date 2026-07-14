@@ -917,7 +917,12 @@
             if (msg.name === MSG.TAGS) populateTags(msg.tags);
             if (msg.name === MSG.CALENDAR_EVENT_CREATE_DONE) {
                 setEventLoading(false);
-                setFormStatus(`Event note created: ${msg.title || ''}`.trim(), 'success');
+                const warningCount = Array.isArray(msg.warnings) ? msg.warnings.length : 0;
+                const successText = `Event note created: ${msg.title || ''}`.trim();
+                const statusText = warningCount
+                    ? `${successText}. ${warningCount} tag${warningCount === 1 ? '' : 's'} could not be attached.`
+                    : successText;
+                setFormStatus(statusText, warningCount ? 'warning' : 'success');
                 titleInput.value = '';
             }
             if (msg.name === MSG.CALENDAR_EVENT_CREATE_ERROR) {

@@ -4,6 +4,7 @@ import {normalizeHexColor} from '../utils/colorUtils';
 import {parseDateTimeToUTC, parseRepeatUntilToUTC} from '../parsers/eventParser';
 import {buildMyCalBlock, sanitizeForMarkdownBlock} from './noteBuilder';
 import {attachTagToNote, createNote, NoteItem} from './joplinNoteService';
+import {getErrorText} from '../utils/errorUtils';
 import {
     canonicalWeekdays,
     normalizeAllDayDateRange,
@@ -43,6 +44,13 @@ export type CreatedCalendarEventNote = {
     note: NoteItem;
     uid: string;
     title: string;
+    warnings: TagAttachmentWarning[];
+};
+
+export type TagAttachmentWarning = {
+    code: 'tag_attachment_failed';
+    tagId: string;
+    message: string;
 };
 
 function asTrimmedString(value: unknown): string {
@@ -200,9 +208,18 @@ export async function createCalendarEventNote(
         body: buildMyCalBlock(normalized.event),
     });
 
+    const warnings: TagAttachmentWarning[] = [];
     if (note.id && normalized.tagIds.length) {
         for (const tagId of normalized.tagIds) {
-            await attachTagToNote(joplin, tagId, note.id);
+            try {
+                await attachTagToNote(joplin, tagId, note.id);
+            } catch (error) {
+                warnings.push({
+                    code: 'tag_attachment_failed',
+                    tagId,
+                    message: `Event note was created, but tag ${tagId} could not be attached: ${getErrorText(error)}`,
+                });
+            }
         }
     }
 
@@ -210,5 +227,6 @@ export async function createCalendarEventNote(
         note,
         uid: normalized.event.uid!,
         title: normalized.noteTitle,
+        warnings,
     };
 }

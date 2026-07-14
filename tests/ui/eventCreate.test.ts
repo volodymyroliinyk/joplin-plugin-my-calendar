@@ -278,6 +278,14 @@ describe('src/ui/eventCreate.js', () => {
         expect(qs('#mc-event-form-status').dataset.kind).toBe('success');
         expect(logSpy).toHaveBeenCalledWith(expect.stringContaining('[MyCalendar Event] Event note created: Planning'));
 
+        sendPluginMessage(getOnMessageCb, {
+            name: 'calendarEventCreateDone',
+            title: 'Planning with tags',
+            warnings: [{code: 'tag_attachment_failed', tagId: 'tag-b', message: 'denied'}],
+        });
+        expect(qs('#mc-event-form-status').textContent).toContain('Event note created: Planning with tags. 1 tag could not be attached.');
+        expect(qs('#mc-event-form-status').dataset.kind).toBe('warning');
+
         sendPluginMessage(getOnMessageCb, {name: 'calendarEventCreateError', error: 'bad date'});
         expect(qs('#mc-event-form-status').textContent).toContain('bad date');
         expect(qs('#mc-event-form-status').dataset.kind).toBe('error');
