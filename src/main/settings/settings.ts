@@ -112,6 +112,15 @@ export const SCHEDULED_ICS_IMPORT_SETTING_KEYS = [
     SETTING_ICS_IMPORT_ALARM_EMOJI,
 ] as const;
 
+function replaceControlCharacters(input: unknown): string {
+    let output = '';
+    for (const character of String(input ?? '')) {
+        const code = character.charCodeAt(0);
+        output += (code <= 0x1f || code === 0x7f) ? ' ' : character;
+    }
+    return output;
+}
+
 export function sanitizeExternalUrl(input: unknown): string {
     const s = String(input ?? '').trim();
     if (!s) return '';
@@ -139,27 +148,11 @@ export function sanitizeSecureExternalUrl(input: unknown): string {
 }
 
 export function sanitizeNotebookTitle(input: unknown): string {
-    const text = String(input ?? '');
-    let out = '';
-
-    for (const ch of text) {
-        const code = ch.charCodeAt(0);
-        out += (code <= 0x1f || code === 0x7f) ? ' ' : ch;
-    }
-
-    return out.trim();
+    return replaceControlCharacters(input).trim();
 }
 
 export function sanitizeAlarmEmoji(input: unknown): string {
-    const text = String(input ?? '');
-    let out = '';
-
-    for (const ch of text) {
-        const code = ch.charCodeAt(0);
-        out += (code <= 0x1f || code === 0x7f) ? ' ' : ch;
-    }
-
-    const compact = out.replace(/\s+/g, ' ').trim();
+    const compact = replaceControlCharacters(input).replace(/\s+/g, ' ').trim();
     if (!compact) return '';
     return compact.length > ALARM_EMOJI_MAX_LEN ? compact.slice(0, ALARM_EMOJI_MAX_LEN) : compact;
 }
@@ -516,41 +509,17 @@ export async function registerSettings(joplin: SettingsRegistrar): Promise<void>
             try {
                 const keys: string[] = event?.keys || [];
 
-                const maybeFixUrl = async (key: string) => {
+                const normalizeStoredSetting = async (
+                    key: string,
+                    normalize: (value: unknown) => unknown,
+                ): Promise<void> => {
                     const raw = await joplin.settings.value(key);
-                    const safe = sanitizeExternalUrl(raw);
-                    if (raw !== safe) await setSettingValue(key, safe);
+                    const normalized = normalize(raw);
+                    if (raw !== normalized) await setSettingValue(key, normalized);
                 };
 
-                const maybeFixTitle = async (key: string) => {
-                    const raw = await joplin.settings.value(key);
-                    const safe = sanitizeTitle(raw);
-                    if (raw !== safe) await setSettingValue(key, safe);
-                };
-
-                const maybeFixScheduledPairs = async (key: string) => {
-                    const raw = await joplin.settings.value(key);
-                    const safe = sanitizeScheduledIcsImportEntries(raw);
-                    if (raw !== safe) await setSettingValue(key, safe);
-                };
-
-                const maybeFixHexColor = async (key: string) => {
-                    const raw = await joplin.settings.value(key);
-                    const safe = sanitizeHexColor(raw);
-                    if (raw !== safe) await setSettingValue(key, safe);
-                };
-
-                const maybeFixAlarmEmoji = async (key: string) => {
-                    const raw = await joplin.settings.value(key);
-                    const safe = sanitizeAlarmEmoji(raw) || ALARM_EMOJI_DEFAULT;
-                    if (raw !== safe) await setSettingValue(key, safe);
-                };
-
-                const maybeFixExportPairs = async (key: string) => {
-                    const raw = await joplin.settings.value(key);
-                    const safe = sanitizeIcsExportLinks(raw);
-                    if (raw !== safe) await setSettingValue(key, safe);
-                };
+                const normalizeAlarmEmoji = (value: unknown): string =>
+                    sanitizeAlarmEmoji(value) || ALARM_EMOJI_DEFAULT;
 
                 const touchedUrl = ICS_EXPORT_URL_KEYS.some((k) => keys.includes(k));
                 const touchedTitle = ICS_EXPORT_TITLE_KEYS.some((k) => keys.includes(k));
@@ -568,23 +537,23 @@ export async function registerSettings(joplin: SettingsRegistrar): Promise<void>
                 const touchedDebug = keys.includes(SETTING_DEBUG);
                 if (!touchedUrl && !touchedTitle && !touchedExportPairs && !touchedScheduledImportPairs && !touchedDefaultEventColor && !touchedTimelineNowLineColor && !touchedAlarmEmoji && !touchedDebug) return;
                 for (const k of ICS_EXPORT_URL_KEYS) {
-                    if (keys.includes(k)) await maybeFixUrl(k);
+                    if (keys.includes(k)) await normalizeStoredSetting(k, sanitizeExternalUrl);
                 }
                 for (const k of ICS_EXPORT_TITLE_KEYS) {
-                    if (keys.includes(k)) await maybeFixTitle(k);
+                    if (keys.includes(k)) await normalizeStoredSetting(k, sanitizeTitle);
                 }
                 if (touchedExportPairs) {
-                    await maybeFixExportPairs(SETTING_ICS_EXPORT_LINK_PAIRS);
+                    await normalizeStoredSetting(SETTING_ICS_EXPORT_LINK_PAIRS, sanitizeIcsExportLinks);
                 }
                 if (touchedScheduledImportPairs) {
-                    await maybeFixScheduledPairs(SETTING_ICS_SCHEDULED_IMPORT_PAIRS);
+                    await normalizeStoredSetting(SETTING_ICS_SCHEDULED_IMPORT_PAIRS, sanitizeScheduledIcsImportEntries);
                 }
                 if (touchedDefaultEventColor) {
                     for (const key of [
                         SETTING_DEFAULT_EVENT_COLOR_LIGHT,
                         SETTING_DEFAULT_EVENT_COLOR_DARK,
                     ]) {
-                        if (keys.includes(key)) await maybeFixHexColor(key);
+                        if (keys.includes(key)) await normalizeStoredSetting(key, sanitizeHexColor);
                     }
                 }
                 if (touchedTimelineNowLineColor) {
@@ -592,11 +561,11 @@ export async function registerSettings(joplin: SettingsRegistrar): Promise<void>
                         SETTING_TIMELINE_NOW_LINE_COLOR_LIGHT,
                         SETTING_TIMELINE_NOW_LINE_COLOR_DARK,
                     ]) {
-                        if (keys.includes(key)) await maybeFixHexColor(key);
+                        if (keys.includes(key)) await normalizeStoredSetting(key, sanitizeHexColor);
                     }
                 }
                 if (touchedAlarmEmoji) {
-                    await maybeFixAlarmEmoji(SETTING_ICS_IMPORT_ALARM_EMOJI);
+                    await normalizeStoredSetting(SETTING_ICS_IMPORT_ALARM_EMOJI, normalizeAlarmEmoji);
                 }
                 if (touchedDebug) {
                     const v = await joplin.settings.value(SETTING_DEBUG);

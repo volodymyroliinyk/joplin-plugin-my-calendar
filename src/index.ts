@@ -1,37 +1,50 @@
 // src/index.ts
 
-// NOT ONE import/require('api').
-// Only take API from a global object that plays Joplin Runner.
+// The runner exposes Joplin through the global scope. Do not import `api` here:
+// loading plugin modules before confirming the runner API is available breaks renderer contexts.
 
-(function bootstrap() {
-    const j: any =
-        (globalThis as any).joplin ||
-        (typeof window !== 'undefined' ? (window as any).joplin : undefined);
+type PluginRegistration = {
+    onStart: () => Promise<void>;
+};
 
-    if (!j) {
-        // We are not in the plugin-wounder (or Runner have not yet thrown Joplin)-we do nothing.
+type RunnerJoplinApi = {
+    plugins: {
+        register: (plugin: PluginRegistration) => void;
+    };
+};
+
+type RunnerGlobal = typeof globalThis & {
+    joplin?: RunnerJoplinApi;
+};
+
+type PluginRunner = (joplin: RunnerJoplinApi) => Promise<void>;
+
+(function bootstrap(): void {
+    const joplinApi = (globalThis as RunnerGlobal).joplin;
+
+    if (!joplinApi) {
+        // Renderer contexts do not provide the plugin runner API.
         console.log('[MyCalendar] no plugin API here (renderer).');
         return;
     }
 
     try {
-        // IMPORTANT: REQUIRE PLUGINMAIN only after we've been convinced that there was a joplin.
-        // This way webpack will not overload the addiction earlier (and will not break RENDER).
+        // Load the plugin only after confirming that the runner API exists.
 
         // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const runPlugin = require('./main/pluginMain').default;
+        const runPlugin = require('./main/pluginMain').default as PluginRunner;
 
-        j.plugins.register({
+        joplinApi.plugins.register({
             onStart: async () => {
                 try {
                     console.log('[MyCalendar] onStart (runner)');
-                    await runPlugin(j);
-                } catch (e) {
-                    console.error('[MyCalendar] onStart error (caught):', e);
+                    await runPlugin(joplinApi);
+                } catch (error) {
+                    console.error('[MyCalendar] onStart error (caught):', error);
                 }
             },
         });
-    } catch (e) {
-        console.error('[MyCalendar] failed to start plugin', e);
+    } catch (error) {
+        console.error('[MyCalendar] failed to start plugin', error);
     }
 })();
