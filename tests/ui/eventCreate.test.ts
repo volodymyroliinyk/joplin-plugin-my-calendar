@@ -265,6 +265,78 @@ describe('src/ui/eventCreate.js', () => {
         expect(qs('#mc-event-title').getAttribute('aria-invalid')).toBe('true');
         expect(document.activeElement).toBe(qs('#mc-event-title'));
         expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('[MyCalendar Event] Title is required.'));
+        expect(postMessage).toHaveBeenCalledWith({name: 'calendarEventValidationFailed'});
+    });
+
+    test('validates weekly recurrence and renders a field-level accessible error', () => {
+        setupDom(true);
+        const {postMessage, getOnMessageCb} = installWebviewApi();
+        loadEventCreateFresh();
+        sendPluginMessage(getOnMessageCb, {
+            name: 'folders',
+            folders: [{id: 'folder1', title: 'Events', depth: 0}],
+        });
+
+        (qs('#mc-event-title') as HTMLInputElement).value = 'Weekly planning';
+        const repeat = qs('#mc-event-repeat') as HTMLSelectElement;
+        repeat.value = 'weekly';
+        repeat.dispatchEvent(new Event('change'));
+        (qs('#mc-event-create-form') as HTMLFormElement).dispatchEvent(new Event('submit', {cancelable: true}));
+
+        expect(postMessage.mock.calls.filter((call) => call[0]?.name === 'calendarEventCreate')).toHaveLength(0);
+        expect(qs('#mc-event-weekday-mo').getAttribute('aria-invalid')).toBe('true');
+        expect(qs('#mc-event-weekday-mo-error').textContent).toContain('Select at least one weekday');
+        expect((qs('#mc-event-weekday-mo-error') as HTMLElement).hidden).toBe(false);
+    });
+
+    test('correlates create responses and maps backend errors to their field', () => {
+        setupDom(true);
+        const {postMessage, getOnMessageCb} = installWebviewApi();
+        loadEventCreateFresh();
+        sendPluginMessage(getOnMessageCb, {
+            name: 'folders',
+            folders: [{id: 'folder1', title: 'Events', depth: 0}],
+        });
+        (qs('#mc-event-title') as HTMLInputElement).value = 'Planning';
+        (qs('#mc-event-create-form') as HTMLFormElement).dispatchEvent(new Event('submit', {cancelable: true}));
+        const request = postMessage.mock.calls.find((call) => call[0]?.name === 'calendarEventCreate')?.[0];
+
+        sendPluginMessage(getOnMessageCb, {
+            name: 'calendarEventCreateError',
+            requestId: request.requestId,
+            field: 'endDate',
+            code: 'end_before_start',
+            error: 'End date/time must not be before start',
+        });
+
+        expect(qs('#mc-event-end-date').getAttribute('aria-invalid')).toBe('true');
+        expect(qs('#mc-event-end-date-error').textContent).toContain('must not be before start');
+        expect(document.activeElement).toBe(qs('#mc-event-end-date'));
+    });
+
+    test('recovers from an unconfirmed create request without automatically retrying', () => {
+        jest.useFakeTimers();
+        try {
+            setupDom(true);
+            const {postMessage, getOnMessageCb} = installWebviewApi();
+            loadEventCreateFresh();
+            sendPluginMessage(getOnMessageCb, {
+                name: 'folders',
+                folders: [{id: 'folder1', title: 'Events', depth: 0}],
+            });
+            (qs('#mc-event-title') as HTMLInputElement).value = 'Planning';
+            const form = qs('#mc-event-create-form') as HTMLFormElement;
+            form.dispatchEvent(new Event('submit', {cancelable: true}));
+
+            jest.advanceTimersByTime(30000);
+
+            expect(form.getAttribute('aria-busy')).toBe('false');
+            expect(qs('#mc-event-form-status').textContent).toContain('did not confirm event creation');
+            expect(postMessage).toHaveBeenCalledWith({name: 'calendarEventCreateTimeout'});
+            expect(postMessage.mock.calls.filter((call) => call[0]?.name === 'calendarEventCreate')).toHaveLength(1);
+        } finally {
+            jest.useRealTimers();
+        }
     });
 
     test('announces backend success and error messages inline', () => {
