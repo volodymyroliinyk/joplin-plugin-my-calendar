@@ -19,6 +19,8 @@ const eventCacheByNote = new Map<string, EventInput[]>();
 let allEventsCache: EventInput[] | null = null;
 let cacheVersion = 0;
 let lastRebuildFailed = false;
+let nextNoteRefreshId = 0;
+const latestNoteRefreshById = new Map<string, number>();
 
 // Guard against concurrent rebuilds
 let rebuildPromise: Promise<void> | null = null;
@@ -28,12 +30,14 @@ export function invalidateAllEventsCache(): void {
     lastRebuildFailed = false;
     allEventsCache = null;
     eventCacheByNote.clear();
+    latestNoteRefreshById.clear();
 }
 
 export function invalidateNote(noteId: string): void {
     cacheVersion++;
     lastRebuildFailed = false;
     eventCacheByNote.delete(noteId);
+    latestNoteRefreshById.delete(noteId);
     allEventsCache = null;
 }
 
@@ -42,6 +46,9 @@ export function getEventsCacheVersion(): number {
 }
 
 export async function refreshNoteCache(joplin: JoplinLike, noteId: string): Promise<void> {
+    const refreshId = ++nextNoteRefreshId;
+    latestNoteRefreshById.set(noteId, refreshId);
+
     // Avoid races with full rebuild.
     if (rebuildPromise) {
         await rebuildPromise;
@@ -53,11 +60,15 @@ export async function refreshNoteCache(joplin: JoplinLike, noteId: string): Prom
         return;
     }
 
+    const refreshVersion = cacheVersion;
+    const isCurrentRefresh = (): boolean =>
+        cacheVersion === refreshVersion && latestNoteRefreshById.get(noteId) === refreshId;
+
     try {
         const res = await joplin.data.get(['notes', noteId], {fields: [...NOTE_FIELDS]});
-        // Cache might be invalidated while awaiting the note fetch. In that case,
-        // abort incremental update and let the next ensureAllEventsCache() rebuild.
-        if (!allEventsCache) return;
+        // Discard a response if a cache generation changed or a newer refresh for
+        // the same note started while this request was in flight.
+        if (!allEventsCache || !isCurrentRefresh()) return;
 
         const extracted = extractEventsFromNote(res);
 
@@ -74,6 +85,8 @@ export async function refreshNoteCache(joplin: JoplinLike, noteId: string): Prom
         cacheVersion++;
         lastRebuildFailed = false;
     } catch (error) {
+        // An obsolete failure must not remove data installed by a newer refresh or rebuild.
+        if (!isCurrentRefresh()) return;
         // Note could be deleted or not accessible; remove its cache entries.
         eventCacheByNote.delete(noteId);
         if (allEventsCache) {
