@@ -91,5 +91,5 @@ export async function showToast(
             });
         }
     }, safeDuration + 500);
-    return
+    return;
 }

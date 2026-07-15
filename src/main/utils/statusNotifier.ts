@@ -1,6 +1,6 @@
 export type AsyncTextHandler = (text: string) => Promise<void> | void;
 
-export function createSafeTextReporter(onStatus?: AsyncTextHandler) {
+export function createSafeTextReporter(onStatus?: AsyncTextHandler): AsyncTextHandler {
     return async (text: string): Promise<void> => {
         try {
             await onStatus?.(text);

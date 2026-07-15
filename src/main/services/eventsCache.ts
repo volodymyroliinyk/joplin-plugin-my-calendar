@@ -6,10 +6,23 @@ import {log, err} from '../utils/logger';
 type JoplinLike = {
     data: {
         get: (
-            path: any[],
+            path: string[],
             query?: { fields?: string[]; limit?: number; page?: number }
-        ) => Promise<{ items?: any[]; has_more?: boolean } | any>;
+        ) => Promise<NoteRow | NotesPage>;
     };
+};
+
+type NoteRow = {
+    id?: unknown;
+    title?: unknown;
+    body?: unknown;
+    is_todo?: unknown;
+    todo_completed?: unknown;
+};
+
+type NotesPage = {
+    items?: NoteRow[];
+    has_more?: boolean;
 };
 
 const NOTE_FIELDS = ['id', 'title', 'body', 'is_todo', 'todo_completed'] as const;
@@ -65,7 +78,7 @@ export async function refreshNoteCache(joplin: JoplinLike, noteId: string): Prom
         cacheVersion === refreshVersion && latestNoteRefreshById.get(noteId) === refreshId;
 
     try {
-        const res = await joplin.data.get(['notes', noteId], {fields: [...NOTE_FIELDS]});
+        const res = await joplin.data.get(['notes', noteId], {fields: [...NOTE_FIELDS]}) as NoteRow;
         // Discard a response if a cache generation changed or a newer refresh for
         // the same note started while this request was in flight.
         if (!allEventsCache || !isCurrentRefresh()) return;
@@ -98,8 +111,8 @@ export async function refreshNoteCache(joplin: JoplinLike, noteId: string): Prom
     }
 }
 
-async function fetchAllNotes(joplin: JoplinLike): Promise<any[]> {
-    const items: any[] = [];
+async function fetchAllNotes(joplin: JoplinLike): Promise<NoteRow[]> {
+    const items: NoteRow[] = [];
     let page = 1;
 
     while (true) {
@@ -107,7 +120,7 @@ async function fetchAllNotes(joplin: JoplinLike): Promise<any[]> {
             fields: [...NOTE_FIELDS],
             limit: PAGE_LIMIT,
             page,
-        });
+        }) as NotesPage;
 
         for (const n of res.items || []) items.push(n);
         if (!res.has_more) break;
@@ -117,7 +130,7 @@ async function fetchAllNotes(joplin: JoplinLike): Promise<any[]> {
     return items;
 }
 
-function extractEventsFromNote(n: any): { noteId: string; events: EventInput[] } | null {
+function extractEventsFromNote(n: NoteRow): { noteId: string; events: EventInput[] } | null {
     const noteId = String(n?.id || '');
     const title = String(n?.title || '');
     const body = typeof n?.body === 'string' ? n.body : '';
@@ -131,13 +144,13 @@ function extractEventsFromNote(n: any): { noteId: string; events: EventInput[] }
     const isTodo = Number(n?.is_todo || 0);
     const todoCompleted = Number(n?.todo_completed || 0);
     const isCompleted = isTodo === 1 && todoCompleted > 0 ? 1 : 0;
-    const withNoteId = evs.map((e) => ({
-        ...(e as any),
+    const withNoteId: EventInput[] = evs.map((e) => ({
+        ...e,
         noteId,
         is_todo: isTodo,
         todo_completed: todoCompleted,
         is_completed: isCompleted,
-    })) as EventInput[];
+    }));
 
     return {noteId, events: withNoteId};
 }

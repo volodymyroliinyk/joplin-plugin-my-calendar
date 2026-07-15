@@ -9,10 +9,10 @@ export type IcsExportLink = { title: string; url: string };
 
 export type UiSettingsMessage = {
     name: typeof UI_SETTINGS_MESSAGE_NAME;
-    weekStart: unknown;
+    weekStart: settings.WeekStart;
     debug: boolean;
     icsExportLinks: IcsExportLink[];
-    dayEventsRefreshMinutes: unknown;
+    dayEventsRefreshMinutes: number;
     showEventTimeline: boolean;
     defaultEventColor: string;
     defaultEventColorLight: string;
@@ -27,6 +27,7 @@ export type UiSettingsMessage = {
 };
 
 type JoplinLike = {
+    settings?: settings.SettingsReader['settings'];
     versionInfo?: () => Promise<{ platform?: string }>;
     views?: {
         panels?: {
@@ -47,10 +48,10 @@ async function isScheduledIcsImportAvailable(joplin: unknown): Promise<boolean> 
 }
 
 type SettingsWithOptionalIcs = typeof settings & {
-    getIcsExportLinks?: (joplin: unknown) => Promise<IcsExportLink[]>;
+    getIcsExportLinks?: (joplin: settings.SettingsReader) => Promise<IcsExportLink[]>;
 };
 
-async function getIcsExportLinksCompat(joplin: unknown): Promise<IcsExportLink[]> {
+async function getIcsExportLinksCompat(joplin: settings.SettingsReader): Promise<IcsExportLink[]> {
     const s = settings as SettingsWithOptionalIcs;
     return typeof s.getIcsExportLinks === 'function' ? await s.getIcsExportLinks(joplin) : [];
 }
@@ -59,7 +60,9 @@ async function getIcsExportLinksCompat(joplin: unknown): Promise<IcsExportLink[]
  * Reads UI-relevant settings from the main process.
  * Separated for easier unit testing and future reuse.
  */
-export async function buildUiSettingsMessage(joplin: unknown): Promise<UiSettingsMessage> {
+export async function buildUiSettingsMessage(joplin: JoplinLike): Promise<UiSettingsMessage> {
+    // Production always provides settings; tests may replace every getter with mocks.
+    const settingsReader = joplin as settings.SettingsReader;
     const [
         weekStart,
         debugRaw,
@@ -77,20 +80,20 @@ export async function buildUiSettingsMessage(joplin: unknown): Promise<UiSetting
         dayEventsViewMode,
         scheduledIcsImportAvailable,
     ] = await Promise.all([
-        settings.getWeekStart(joplin as any),
-        settings.getDebugEnabled(joplin as any),
-        getIcsExportLinksCompat(joplin),
-        settings.getDayEventsRefreshMinutes(joplin as any),
-        settings.getShowEventTimeline(joplin as any),
-        settings.getDefaultEventColor(joplin as any),
-        settings.getDefaultEventColorLight(joplin as any),
-        settings.getDefaultEventColorDark(joplin as any),
-        settings.getTimelineNowLineColor(joplin as any),
-        settings.getTimelineNowLineColorLight(joplin as any),
-        settings.getTimelineNowLineColorDark(joplin as any),
-        settings.getShowWeekNumbers(joplin as any),
-        settings.getTimeFormat(joplin as any),
-        settings.getDayEventsViewMode(joplin as any),
+        settings.getWeekStart(settingsReader),
+        settings.getDebugEnabled(settingsReader),
+        getIcsExportLinksCompat(settingsReader),
+        settings.getDayEventsRefreshMinutes(settingsReader),
+        settings.getShowEventTimeline(settingsReader),
+        settings.getDefaultEventColor(settingsReader),
+        settings.getDefaultEventColorLight(settingsReader),
+        settings.getDefaultEventColorDark(settingsReader),
+        settings.getTimelineNowLineColor(settingsReader),
+        settings.getTimelineNowLineColorLight(settingsReader),
+        settings.getTimelineNowLineColorDark(settingsReader),
+        settings.getShowWeekNumbers(settingsReader),
+        settings.getTimeFormat(settingsReader),
+        settings.getDayEventsViewMode(settingsReader),
         isScheduledIcsImportAvailable(joplin),
     ]);
 

@@ -7,9 +7,9 @@ import {registerCalendarPanelController} from './uiBridge/panelController';
 import {SCHEDULED_ICS_IMPORT_SETTING_KEYS, registerSettings, SETTING_PANEL_VISIBLE} from './settings/settings';
 import {pushUiSettings} from "./uiBridge/uiSettings";
 import {expandAllInRange} from './services/occurrenceService';
-import {Occurrence} from './utils/dateUtils';
 import {Joplin} from './types/joplin.interface';
 import {startScheduledIcsImport} from './services/scheduledIcsImportService';
+import {buildCalendarIcs} from './services/icsExportService';
 
 import {err, info, log, warn} from './utils/logger';
 
@@ -29,91 +29,6 @@ type ToggleState = {
     visible: boolean;
     active?: boolean;
 };
-
-function pad2(n: number) {
-    return String(n).padStart(2, '0');
-}
-
-function fmtICS(tsUtc: number) {
-    const d = new Date(tsUtc);
-    return d.getUTCFullYear().toString() + pad2(d.getUTCMonth() + 1) + pad2(d.getUTCDate()) +
-        'T' + pad2(d.getUTCHours()) + pad2(d.getUTCMinutes()) + pad2(d.getUTCSeconds()) + 'Z';
-}
-
-function fmtIcsDateInZone(tsUtc: number, tz?: string) {
-    if (tz) {
-        try {
-            const parts = new Intl.DateTimeFormat('en-CA', {
-                timeZone: tz,
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-            }).formatToParts(new Date(tsUtc)).reduce<Record<string, string>>((acc, part) => {
-                if (part.type !== 'literal') acc[part.type] = part.value;
-                return acc;
-            }, {});
-            if (parts.year && parts.month && parts.day) {
-                return `${parts.year}${parts.month}${parts.day}`;
-            }
-        } catch {
-            // Fall back to UTC formatting below.
-        }
-    }
-
-    const d = new Date(tsUtc);
-    return d.getUTCFullYear().toString() + pad2(d.getUTCMonth() + 1) + pad2(d.getUTCDate());
-}
-
-function icsEscape(s: string) {
-    return (s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
-}
-
-function foldIcsLine(line: string, limit = 75): string[] {
-    if (line.length <= limit) return [line];
-    const out: string[] = [];
-    let i = 0;
-    while (i < line.length) {
-        const chunk = line.slice(i, i + limit);
-        if (i === 0) out.push(chunk);
-        else out.push(` ${chunk}`);
-        i += limit;
-    }
-    return out;
-}
-
-function buildICS(events: Occurrence[], prodId = '-//MyCalendar//Joplin//EN') {
-    const lines: string[] = [];
-    const push = (line: string) => {
-        for (const l of foldIcsLine(line)) lines.push(l);
-    };
-
-    push('BEGIN:VCALENDAR');
-    push('VERSION:2.0');
-    push(`PRODID:${prodId}`);
-    push('CALSCALE:GREGORIAN');
-
-    for (const ev of events) {
-        const uid = ev.occurrenceId || `${ev.id}@mycalendar`;
-        push('BEGIN:VEVENT');
-        push(`UID:${icsEscape(uid)}`);
-        push(`DTSTAMP:${fmtICS(Date.now())}`);
-        if (ev.allDay) {
-            push(`DTSTART;VALUE=DATE:${fmtIcsDateInZone(ev.startUtc, ev.tz)}`);
-            const exclusiveEndUtc = ev.endUtc != null ? ev.endUtc + 1 : ev.startUtc + 24 * 60 * 60 * 1000;
-            push(`DTEND;VALUE=DATE:${fmtIcsDateInZone(exclusiveEndUtc, ev.tz)}`);
-        } else {
-            push(`DTSTART:${fmtICS(ev.startUtc)}`);
-            if (ev.endUtc) push(`DTEND:${fmtICS(ev.endUtc)}`);
-        }
-        push(`SUMMARY:${icsEscape(ev.title || 'Event')}`);
-        if (ev.location) push(`LOCATION:${icsEscape(ev.location)}`);
-        if (ev.description) push(`DESCRIPTION:${icsEscape(ev.description)}`);
-        if (ev.color) push(`X-COLOR:${icsEscape(ev.color)}`);
-        push('END:VEVENT');
-    }
-    push('END:VCALENDAR');
-    return lines.join('\r\n');
-}
 
 async function safePostMessage(joplin: Joplin, panelId: string, message: unknown): Promise<void> {
     const pm = joplin?.views?.panels?.postMessage;
@@ -159,7 +74,7 @@ async function getPanelVisibleIfSupported(joplin: Joplin, panelId: string): Prom
     try {
         const visible = joplin?.views?.panels?.visible;
         if (typeof visible !== 'function') return undefined;
-        const v = await visible(panelId as any);
+        const v = await visible(panelId);
         return typeof v === 'boolean' ? v : undefined;
     } catch (error) {
         warn('pluginMain', 'Failed to read panel visibility via API (non-fatal):', error);
@@ -184,7 +99,7 @@ async function startPlugin(joplin: Joplin): Promise<void> {
 
     await registerCalendarPanelController(joplin, panel, {
         expandAllInRange,
-        buildICS,
+        buildICS: buildCalendarIcs,
         runScheduledIcsImport: scheduledIcsImport.runNow,
     });
 

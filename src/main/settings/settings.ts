@@ -3,6 +3,24 @@
 import {setDebugEnabled} from '../utils/logger';
 import {normalizeHexColor} from '../utils/colorUtils';
 
+export type SettingsReader = {
+    settings: {
+        value: (key: string) => Promise<unknown>;
+    };
+};
+
+type SettingsChangeEvent = { keys?: string[] };
+
+type SettingsRegistrar = SettingsReader & {
+    settings: SettingsReader['settings'] & {
+        setValue?: (key: string, value: unknown) => Promise<void>;
+        onChange?: (callback: (event: SettingsChangeEvent) => void | Promise<void>) => Promise<void>;
+        registerSection?: (id: string, options: Record<string, unknown>) => Promise<void>;
+        registerSettings?: (items: Record<string, unknown>) => Promise<void>;
+    };
+    versionInfo?: () => Promise<{ platform?: string }>;
+};
+
 // Common
 export const SETTING_DEBUG = 'mycalendar.debug';
 
@@ -223,16 +241,17 @@ export function sanitizeHexColor(input: unknown): string {
     return normalizeHexColor(input, {allowShort: true});
 }
 
-async function isMobile(joplin: any): Promise<boolean> {
+async function isMobile(joplin: SettingsRegistrar): Promise<boolean> {
     try {
-        const v = await joplin.versionInfo();
-        return (v as any)?.platform === 'mobile';
+        if (typeof joplin.versionInfo !== 'function') return false;
+        const version = await joplin.versionInfo();
+        return version?.platform === 'mobile';
     } catch {
         return false; // if the API is old/not available - consider desktop
     }
 }
 
-export async function registerSettings(joplin: any) {
+export async function registerSettings(joplin: SettingsRegistrar): Promise<void> {
     if (!joplin?.settings?.registerSection || !joplin?.settings?.registerSettings) return;
 
     // ---- Calendar ----------------------------------------------------------
@@ -492,44 +511,45 @@ export async function registerSettings(joplin: any) {
 
     // Keep stored URLs safe even if user pastes `javascript:` etc.
     if (typeof joplin?.settings?.onChange === 'function' && typeof joplin?.settings?.setValue === 'function') {
-        await joplin.settings.onChange(async (event: any) => {
+        const setSettingValue = joplin.settings.setValue;
+        await joplin.settings.onChange(async (event: SettingsChangeEvent) => {
             try {
                 const keys: string[] = event?.keys || [];
 
                 const maybeFixUrl = async (key: string) => {
                     const raw = await joplin.settings.value(key);
                     const safe = sanitizeExternalUrl(raw);
-                    if (raw !== safe) await joplin.settings.setValue(key, safe);
+                    if (raw !== safe) await setSettingValue(key, safe);
                 };
 
                 const maybeFixTitle = async (key: string) => {
                     const raw = await joplin.settings.value(key);
                     const safe = sanitizeTitle(raw);
-                    if (raw !== safe) await joplin.settings.setValue(key, safe);
+                    if (raw !== safe) await setSettingValue(key, safe);
                 };
 
                 const maybeFixScheduledPairs = async (key: string) => {
                     const raw = await joplin.settings.value(key);
                     const safe = sanitizeScheduledIcsImportEntries(raw);
-                    if (raw !== safe) await joplin.settings.setValue(key, safe);
+                    if (raw !== safe) await setSettingValue(key, safe);
                 };
 
                 const maybeFixHexColor = async (key: string) => {
                     const raw = await joplin.settings.value(key);
                     const safe = sanitizeHexColor(raw);
-                    if (raw !== safe) await joplin.settings.setValue(key, safe);
+                    if (raw !== safe) await setSettingValue(key, safe);
                 };
 
                 const maybeFixAlarmEmoji = async (key: string) => {
                     const raw = await joplin.settings.value(key);
                     const safe = sanitizeAlarmEmoji(raw) || ALARM_EMOJI_DEFAULT;
-                    if (raw !== safe) await joplin.settings.setValue(key, safe);
+                    if (raw !== safe) await setSettingValue(key, safe);
                 };
 
                 const maybeFixExportPairs = async (key: string) => {
                     const raw = await joplin.settings.value(key);
                     const safe = sanitizeIcsExportLinks(raw);
-                    if (raw !== safe) await joplin.settings.setValue(key, safe);
+                    if (raw !== safe) await setSettingValue(key, safe);
                 };
 
                 const touchedUrl = ICS_EXPORT_URL_KEYS.some((k) => keys.includes(k));
@@ -593,40 +613,40 @@ export async function registerSettings(joplin: any) {
 }
 
 // Common
-export async function getDebugEnabled(joplin: any): Promise<boolean> {
+export async function getDebugEnabled(joplin: SettingsReader): Promise<boolean> {
     return !!(await joplin.settings.value(SETTING_DEBUG));
 }
 
 // Calendar
-export async function getWeekStart(joplin: any): Promise<WeekStart> {
+export async function getWeekStart(joplin: SettingsReader): Promise<WeekStart> {
     const raw = await joplin.settings.value(SETTING_WEEK_START);
     const v = String(raw ?? '').toLowerCase().trim();
     return (v === 'sunday' || v === 'monday') ? (v as WeekStart) : 'monday';
 }
 
-export async function getShowWeekNumbers(joplin: any): Promise<boolean> {
+export async function getShowWeekNumbers(joplin: SettingsReader): Promise<boolean> {
     return !!(await joplin.settings.value(SETTING_SHOW_WEEK_NUMBERS));
 }
 
 // Day events
-export async function getShowEventTimeline(joplin: any): Promise<boolean> {
+export async function getShowEventTimeline(joplin: SettingsReader): Promise<boolean> {
     const raw = await joplin.settings.value(SETTING_SHOW_EVENT_TIMELINE);
     // Default should be true even if the setting is missing/undefined (older installs / migrations)
     if (raw === null || raw === undefined) return true;
     return Boolean(raw);
 }
 
-export async function getTimelineNowLineColor(joplin: any): Promise<string> {
+export async function getTimelineNowLineColor(joplin: SettingsReader): Promise<string> {
     return getTimelineNowLineColorLight(joplin);
 }
 
-async function getThemeColorSetting(joplin: any, key: string, builtInDefault: string): Promise<string> {
+async function getThemeColorSetting(joplin: SettingsReader, key: string, builtInDefault: string): Promise<string> {
     const raw = await joplin.settings.value(key);
     const color = sanitizeHexColor(raw);
     return color || builtInDefault;
 }
 
-export async function getTimelineNowLineColorLight(joplin: any): Promise<string> {
+export async function getTimelineNowLineColorLight(joplin: SettingsReader): Promise<string> {
     return getThemeColorSetting(
         joplin,
         SETTING_TIMELINE_NOW_LINE_COLOR_LIGHT,
@@ -634,7 +654,7 @@ export async function getTimelineNowLineColorLight(joplin: any): Promise<string>
     );
 }
 
-export async function getTimelineNowLineColorDark(joplin: any): Promise<string> {
+export async function getTimelineNowLineColorDark(joplin: SettingsReader): Promise<string> {
     return getThemeColorSetting(
         joplin,
         SETTING_TIMELINE_NOW_LINE_COLOR_DARK,
@@ -642,11 +662,11 @@ export async function getTimelineNowLineColorDark(joplin: any): Promise<string> 
     );
 }
 
-export async function getDefaultEventColor(joplin: any): Promise<string> {
+export async function getDefaultEventColor(joplin: SettingsReader): Promise<string> {
     return getDefaultEventColorLight(joplin);
 }
 
-export async function getDefaultEventColorLight(joplin: any): Promise<string> {
+export async function getDefaultEventColorLight(joplin: SettingsReader): Promise<string> {
     return getThemeColorSetting(
         joplin,
         SETTING_DEFAULT_EVENT_COLOR_LIGHT,
@@ -654,7 +674,7 @@ export async function getDefaultEventColorLight(joplin: any): Promise<string> {
     );
 }
 
-export async function getDefaultEventColorDark(joplin: any): Promise<string> {
+export async function getDefaultEventColorDark(joplin: SettingsReader): Promise<string> {
     return getThemeColorSetting(
         joplin,
         SETTING_DEFAULT_EVENT_COLOR_DARK,
@@ -662,29 +682,29 @@ export async function getDefaultEventColorDark(joplin: any): Promise<string> {
     );
 }
 
-export async function getDayEventsRefreshMinutes(joplin: any): Promise<number> {
+export async function getDayEventsRefreshMinutes(joplin: SettingsReader): Promise<number> {
     const raw = await joplin.settings.value(SETTING_DAY_EVENTS_REFRESH_MINUTES);
     const n = Number(raw);
     if (!Number.isFinite(n)) return 1;
     return Math.min(60, Math.max(1, Math.round(n)));
 }
 
-export async function getTimeFormat(joplin: any): Promise<TimeFormat> {
+export async function getTimeFormat(joplin: SettingsReader): Promise<TimeFormat> {
     const raw = await joplin.settings.value(SETTING_TIME_FORMAT);
     return (raw === '12h' || raw === '24h') ? raw : '24h';
 }
 
-export async function getDayEventsViewMode(joplin: any): Promise<DayEventsViewMode> {
+export async function getDayEventsViewMode(joplin: SettingsReader): Promise<DayEventsViewMode> {
     const raw = await joplin.settings.value(SETTING_DAY_EVENTS_VIEW_MODE);
     return raw === 'grouped' ? 'grouped' : 'single';
 }
 
 // ICS import
-export async function getIcsImportAlarmsEnabled(joplin: any): Promise<boolean> {
+export async function getIcsImportAlarmsEnabled(joplin: SettingsReader): Promise<boolean> {
     return !!(await joplin.settings.value(SETTING_ICS_IMPORT_ALARMS_ENABLED));
 }
 
-export async function getIcsImportAlarmRangeDays(joplin: any): Promise<number> {
+export async function getIcsImportAlarmRangeDays(joplin: SettingsReader): Promise<number> {
     const raw = await joplin.settings.value(SETTING_ICS_IMPORT_ALARM_RANGE_DAYS);
     if (raw === null || raw === undefined) {
         return 30;
@@ -698,12 +718,12 @@ export async function getIcsImportAlarmRangeDays(joplin: any): Promise<number> {
     return Math.min(365, Math.max(1, Math.round(n)));
 }
 
-export async function getIcsImportAlarmEmoji(joplin: any): Promise<string> {
+export async function getIcsImportAlarmEmoji(joplin: SettingsReader): Promise<string> {
     const raw = await joplin.settings.value(SETTING_ICS_IMPORT_ALARM_EMOJI);
     return sanitizeAlarmEmoji(raw) || ALARM_EMOJI_DEFAULT;
 }
 
-export async function getScheduledIcsImportIntervalMinutes(joplin: any): Promise<number> {
+export async function getScheduledIcsImportIntervalMinutes(joplin: SettingsReader): Promise<number> {
     const raw = await joplin.settings.value(SETTING_ICS_SCHEDULED_IMPORT_INTERVAL_MINUTES);
     if (raw === null || raw === undefined) return SCHEDULED_ICS_IMPORT_MINUTES_DEFAULT;
     const n = Number(raw);
@@ -711,12 +731,12 @@ export async function getScheduledIcsImportIntervalMinutes(joplin: any): Promise
     return Math.min(SCHEDULED_ICS_IMPORT_MINUTES_MAX, Math.max(SCHEDULED_ICS_IMPORT_MINUTES_MIN, Math.round(n)));
 }
 
-export async function getScheduledIcsImportEntries(joplin: any): Promise<ScheduledIcsImportEntry[]> {
+export async function getScheduledIcsImportEntries(joplin: SettingsReader): Promise<ScheduledIcsImportEntry[]> {
     const raw = await joplin.settings.value(SETTING_ICS_SCHEDULED_IMPORT_PAIRS);
     return parseScheduledIcsImportEntries(raw);
 }
 
-export async function getIcsExportLinks(joplin: any): Promise<IcsExportLink[]> {
+export async function getIcsExportLinks(joplin: SettingsReader): Promise<IcsExportLink[]> {
     const pairsRaw = await joplin.settings.value(SETTING_ICS_EXPORT_LINK_PAIRS);
     const parsedPairs = parseIcsExportLinks(pairsRaw);
     if (parsedPairs.length > 0) {

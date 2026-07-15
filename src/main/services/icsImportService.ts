@@ -19,6 +19,7 @@ import {getErrorText} from '../utils/errorUtils';
 import {createSafeTextReporter} from '../utils/statusNotifier';
 import {dbg, err, warn} from '../utils/logger';
 import {normalizeIcsEvent, normalizeRecurrenceExceptionDate, normalizeTimeZone} from './calendarEventNormalizer';
+import {runWithConcurrency} from '../utils/asyncUtils';
 
 type ExistingEventNote = { id: string; title: string; body: string; parent_id?: string };
 type ExistingEventNoteMap = Record<string, ExistingEventNote>;
@@ -299,6 +300,18 @@ function indexExistingNotes(allNotes: ExistingNoteRow[]): {
     return {existingByKey, existingAlarms, noteIdToKeys, duplicateOwnershipWarnings};
 }
 
+function publishCommittedNoteState(
+    existing: ExistingEventNoteMap,
+    noteIdToKeys: NoteIdToKeysMap,
+    noteId: string,
+    state: Partial<Pick<ExistingEventNote, 'body' | 'title' | 'parent_id'>>,
+): void {
+    for (const key of noteIdToKeys[noteId] ?? []) {
+        const indexed = existing[key];
+        if (indexed) Object.assign(indexed, state);
+    }
+}
+
 function compareExistingNotesForOwnership(a: ExistingNoteRow, b: ExistingNoteRow): number {
     const byId = String(a.id || '').localeCompare(String(b.id || ''));
     if (byId !== 0) return byId;
@@ -338,26 +351,6 @@ function applyImportColors(
         ev.color = policy.fallbackColor;
     }
     return key;
-}
-
-async function runWithConcurrency<T>(
-    items: readonly T[],
-    concurrency: number,
-    worker: (item: T, index: number) => Promise<void>,
-): Promise<void> {
-    const limit = Math.max(1, Math.trunc(concurrency) || 1);
-    let nextIndex = 0;
-
-    const consume = async (): Promise<void> => {
-        while (true) {
-            const currentIndex = nextIndex++;
-            if (currentIndex >= items.length) return;
-            await worker(items[currentIndex], currentIndex);
-        }
-    };
-
-    const workers = Array.from({length: Math.min(limit, items.length)}, () => consume());
-    await Promise.all(workers);
 }
 
 export async function importIcsIntoNotes(
@@ -451,10 +444,7 @@ export async function importIcsIntoNotes(
             }
 
             await updateNote(joplin, existingMaster.id, {body: newBody});
-            const keysInSameNote = noteIdToKeys[existingMaster.id] ?? [];
-            for (const k of keysInSameNote) {
-                if (existing[k]) existing[k].body = newBody;
-            }
+            publishCommittedNoteState(existing, noteIdToKeys, existingMaster.id, {body: newBody});
             updated++;
         } catch (e) {
             errors++;
@@ -511,14 +501,7 @@ export async function importIcsIntoNotes(
                     updated++;
 
                     // Publish the candidate state only after Joplin confirms the note-level write.
-                    const keysInSameNote = noteIdToKeys[id] ?? [];
-                    for (const k of keysInSameNote) {
-                        const indexed = existing[k];
-                        if (!indexed) continue;
-                        if (bodyChanged) indexed.body = newBody;
-                        if (titleChanged) indexed.title = desiredTitle;
-                        if (parentChanged) indexed.parent_id = options.targetFolderId;
-                    }
+                    publishCommittedNoteState(existing, noteIdToKeys, id, patch);
                 } else {
                     skipped++;
                 }
