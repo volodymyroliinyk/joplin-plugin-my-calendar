@@ -450,12 +450,11 @@ export async function importIcsIntoNotes(
                 continue;
             }
 
-            existingMaster.body = newBody;
+            await updateNote(joplin, existingMaster.id, {body: newBody});
             const keysInSameNote = noteIdToKeys[existingMaster.id] ?? [];
             for (const k of keysInSameNote) {
                 if (existing[k]) existing[k].body = newBody;
             }
-            await updateNote(joplin, existingMaster.id, {body: newBody});
             updated++;
         } catch (e) {
             errors++;
@@ -491,38 +490,37 @@ export async function importIcsIntoNotes(
                 const newBody = replaceEventBlockByKey(currentBody, uid, rid, block);
 
                 const patch: Partial<Pick<NoteItem, 'body' | 'title' | 'parent_id'>> = {};
-                let changedAtAll = false;
+                const bodyChanged = newBody !== currentBody;
+                const titleChanged = desiredTitle !== title;
+                const parentChanged = !!options.targetFolderId && parent_id !== options.targetFolderId;
 
-                if (newBody !== currentBody) {
+                if (bodyChanged) {
                     patch.body = newBody;
-                    // Update our cache immediately so the next event in the same note sees current state
-                    existing[key].body = newBody;
-                    changedAtAll = true;
                 }
 
-                if (desiredTitle !== title) {
+                if (titleChanged) {
                     patch.title = desiredTitle;
-                    existing[key].title = desiredTitle;
-                    changedAtAll = true;
                 }
 
-                if (options.targetFolderId && parent_id !== options.targetFolderId) {
+                if (parentChanged) {
                     patch.parent_id = options.targetFolderId;
-                    existing[key].parent_id = options.targetFolderId;
-                    changedAtAll = true;
                 }
 
-                if (changedAtAll) {
+                if (bodyChanged || titleChanged || parentChanged) {
                     await updateNote(joplin, id, patch);
                     updated++;
+
+                    // Publish the candidate state only after Joplin confirms the note-level write.
+                    const keysInSameNote = noteIdToKeys[id] ?? [];
+                    for (const k of keysInSameNote) {
+                        const indexed = existing[k];
+                        if (!indexed) continue;
+                        if (bodyChanged) indexed.body = newBody;
+                        if (titleChanged) indexed.title = desiredTitle;
+                        if (parentChanged) indexed.parent_id = options.targetFolderId;
+                    }
                 } else {
                     skipped++;
-                }
-
-                // IMPORTANT: update cache for all keys in the same note (O(keysInNote) instead of O(allKeys))
-                const keysInSameNote = noteIdToKeys[id] ?? [];
-                for (const k of keysInSameNote) {
-                    if (existing[k]) existing[k].body = existing[key].body;
                 }
 
                 importedEventNotes[key] = {id, parent_id: (options.targetFolderId || parent_id), title: desiredTitle};
