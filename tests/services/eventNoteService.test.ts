@@ -1,4 +1,5 @@
 import {
+    CalendarEventValidationError,
     createCalendarEventNote,
     generateMyCalendarEventUid,
     normalizeCalendarEventFormPayload,
@@ -88,6 +89,45 @@ describe('eventNoteService', () => {
             tagIds: ['../bad']
         }))
             .toThrow('Selected tags contain an invalid tag id');
+    });
+
+    test('exposes stable field metadata for form validation errors', () => {
+        try {
+            normalizeCalendarEventFormPayload({
+                targetFolderId: 'f1',
+                title: 'Bad range',
+                start: '2026-06-16 10:00',
+                end: '2026-06-16 09:00',
+            });
+            throw new Error('Expected validation to fail');
+        } catch (error) {
+            expect(error).toBeInstanceOf(CalendarEventValidationError);
+            expect(error).toMatchObject({
+                code: 'end_before_start',
+                field: 'endDate',
+                message: 'End date/time must not be before start',
+            });
+        }
+    });
+
+    test('rejects unsafe recurrence limits instead of silently truncating them', () => {
+        expect(() => normalizeCalendarEventFormPayload({
+            targetFolderId: 'f1',
+            title: 'Weekly',
+            start: '2026-06-16 10:00',
+            repeat: 'weekly',
+            repeat_interval: '0',
+            byweekday: 'MO',
+        })).toThrow('Repeat interval must be a whole number from 1 to 999');
+
+        expect(() => normalizeCalendarEventFormPayload({
+            targetFolderId: 'f1',
+            title: 'Weekly',
+            start: '2026-06-16 10:00',
+            repeat: 'weekly',
+            byweekday: 'MO',
+            exdates: Array.from({length: 101}, (_, index) => `2027-01-${String((index % 28) + 1).padStart(2, '0')} 10:${String(index).padStart(2, '0')}`),
+        })).toThrow('Use no more than 100 exclude dates');
     });
 
     test('normalizes all-day event creation to date-only start and exclusive end date', () => {

@@ -786,6 +786,38 @@ describe('panelController', () => {
         expect(invalidateAllEventsCache).not.toHaveBeenCalled();
     });
 
+    test('calendarEventCreate returns structured validation metadata and echoes requestId', async () => {
+        const {handler, postMessage} = await setup();
+        const validationError = Object.assign(new Error('Start date/time is invalid'), {
+            name: 'CalendarEventValidationError',
+            code: 'invalid_start',
+            field: 'startDate',
+        });
+        (createCalendarEventNote as jest.Mock).mockRejectedValue(validationError);
+
+        await handler({
+            name: 'calendarEventCreate',
+            requestId: 'request-1',
+            payload: {targetFolderId: 'folder1', title: 'Bad', start: 'invalid'},
+        });
+
+        expect(postMessage).toHaveBeenCalledWith('panel-1', {
+            name: 'calendarEventCreateError',
+            error: 'Start date/time is invalid',
+            code: 'invalid_start',
+            field: 'startDate',
+            requestId: 'request-1',
+        });
+    });
+
+    test('calendarEventValidationFailed shows one fixed safe toast', async () => {
+        const {handler} = await setup();
+
+        await handler({name: 'calendarEventValidationFailed'});
+
+        expect(showToast).toHaveBeenCalledWith('error', 'Please correct the highlighted event fields', 5000);
+    });
+
     test('clearEventsCache -> invalidates cache, requests redraw and shows toast', async () => {
         const {handler, postMessage} = await setup();
 

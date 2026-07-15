@@ -884,6 +884,22 @@ select::-webkit-scrollbar-thumb:hover {
     font-weight: bold;
 }
 
+.mc-event-field-error {
+    color: var(--joplin-color-error, #c62828);
+    font-size: var(--mc-event-small-font-size);
+    line-height: 1.3;
+}
+
+.mc-event-field-error[hidden] {
+    display: none;
+}
+
+#mc-event-create-form [aria-invalid="true"] {
+    border-color: var(--joplin-color-error, #c62828);
+    outline: 1px solid var(--joplin-color-error, #c62828);
+    outline-offset: 1px;
+}
+
 .mc-event-input,
 .mc-event-grid-2 textarea {
     box-sizing: border-box;
@@ -1191,6 +1207,10 @@ select::-webkit-scrollbar-thumb:hover {
     color: var(--joplin-color-correct, #2e7d32);
 }
 
+.mc-event-form-status[data-kind="warning"] {
+    color: var(--joplin-color-warn, #9a6700);
+}
+
 .mc-event-actions {
     display: flex;
     justify-content: flex-end;
@@ -1333,5 +1353,17 @@ select::-webkit-scrollbar-thumb:hover {
 
     .mc-event-actions .mc-setting-btn {
         flex: 1;
+        min-height: 44px;
+    }
+
+    #mc-event-create-form input,
+    #mc-event-create-form select,
+    #mc-event-create-form button {
+        min-height: 44px;
+    }
+
+    .mc-event-weekday {
+        min-height: 44px;
+        box-sizing: border-box;
     }
 }

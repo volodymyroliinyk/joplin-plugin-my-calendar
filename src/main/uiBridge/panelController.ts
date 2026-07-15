@@ -13,7 +13,10 @@ import {EventInput} from '../parsers/eventParser';
 import {Occurrence} from '../utils/dateUtils';
 import {getErrorText} from '../utils/errorUtils';
 import {normalizeHexColor} from '../utils/colorUtils';
-import {CalendarEventFormPayload, createCalendarEventNote} from '../services/eventNoteService';
+import {
+    CalendarEventFormPayload,
+    createCalendarEventNote,
+} from '../services/eventNoteService';
 import {eventOverlapsRange} from '../services/occurrenceService';
 
 function isoDate(utc: number): string {
@@ -32,6 +35,12 @@ function isRecord(v: unknown): v is Record<string, unknown> {
     return typeof v === 'object' && v !== null;
 }
 
+function getCalendarEventValidationDetails(error: unknown): { code: string; field: string } | undefined {
+    if (!isRecord(error) || error.name !== 'CalendarEventValidationError') return undefined;
+    if (!isString(error.code) || !isString(error.field)) return undefined;
+    return {code: error.code, field: error.field};
+}
+
 const KNOWN_MSG_NAMES = [
     'uiLog',
     'uiReady',
@@ -41,6 +50,8 @@ const KNOWN_MSG_NAMES = [
     'exportRangeIcs',
     'icsImport',
     'calendarEventCreate',
+    'calendarEventValidationFailed',
+    'calendarEventCreateTimeout',
     'clearEventsCache',
     'runScheduledIcsImport',
     'requestFolders',
@@ -75,7 +86,10 @@ type PanelMsg =
     | {
     name: 'calendarEventCreate';
     payload?: CalendarEventFormPayload;
+    requestId?: string;
 }
+    | { name: 'calendarEventValidationFailed' }
+    | { name: 'calendarEventCreateTimeout' }
     | { name: 'clearEventsCache' }
     | { name: 'runScheduledIcsImport' }
     | { name: 'requestFolders' }
@@ -228,6 +242,7 @@ async function handleCalendarEventCreateMessage(
     msg: Extract<PanelMsg, { name: 'calendarEventCreate' }>,
     invalidateCalendarData: () => void,
 ): Promise<void> {
+    const requestId = isString(msg.requestId) && msg.requestId.length <= 64 ? msg.requestId : undefined;
     try {
         if (!isRecord(msg.payload)) {
             await post({name: 'calendarEventCreateError', error: 'Missing event form payload'});
@@ -248,6 +263,7 @@ async function handleCalendarEventCreateMessage(
             uid: result.uid,
             title: result.title,
             ...(warnings.length ? {warnings} : {}),
+            ...(requestId ? {requestId} : {}),
         });
         await post({name: 'redrawMonth'});
         if (warnings.length) {
@@ -258,7 +274,13 @@ async function handleCalendarEventCreateMessage(
         }
     } catch (error) {
         const errorText = getErrorText(error);
-        await post({name: 'calendarEventCreateError', error: errorText});
+        const validation = getCalendarEventValidationDetails(error);
+        await post({
+            name: 'calendarEventCreateError',
+            error: errorText,
+            ...(validation ?? {}),
+            ...(requestId ? {requestId} : {}),
+        });
         await showToast('error', `Event creation failed: ${errorText}`, 5000);
     }
 }
@@ -406,6 +428,16 @@ export async function registerCalendarPanelController(
 
                 case 'calendarEventCreate': {
                     await handleCalendarEventCreateMessage(joplin, post, msg, invalidateCalendarData);
+                    return;
+                }
+
+                case 'calendarEventValidationFailed': {
+                    await showToast('error', 'Please correct the highlighted event fields', 5000);
+                    return;
+                }
+
+                case 'calendarEventCreateTimeout': {
+                    await showToast('warning', 'Joplin did not confirm event creation. Check your notes before trying again.', 8000);
                     return;
                 }
 

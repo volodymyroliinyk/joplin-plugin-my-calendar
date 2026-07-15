@@ -40,6 +40,9 @@
     };
 
     const MAX_VISIBLE_TAG_OPTIONS = 100;
+    const MAX_EXCLUDE_DATES = 100;
+    const MAX_SELECTED_TAGS = 100;
+    const CREATE_TIMEOUT_MS = 30000;
 
     const LS = {
         targetFolderId: 'mycalendar.eventTargetFolderId',
@@ -71,6 +74,8 @@
         CALENDAR_EVENT_CREATE: 'calendarEventCreate',
         CALENDAR_EVENT_CREATE_DONE: 'calendarEventCreateDone',
         CALENDAR_EVENT_CREATE_ERROR: 'calendarEventCreateError',
+        CALENDAR_EVENT_VALIDATION_FAILED: 'calendarEventValidationFailed',
+        CALENDAR_EVENT_CREATE_TIMEOUT: 'calendarEventCreateTimeout',
     });
 
     function postToPlugin(message) {
@@ -357,10 +362,21 @@
         return inputs.filter((input) => input.checked).map((input) => input.value).join(',');
     }
 
-    function createField(labelText, control, className = '') {
+    function createField(labelText, control, className = '', required = false) {
+        const errorId = control.id ? `${control.id}-error` : '';
+        if (errorId) {
+            const describedBy = [control.getAttribute('aria-describedby'), errorId].filter(Boolean).join(' ');
+            control.setAttribute('aria-describedby', describedBy);
+        }
         const label = el('label', {class: ['mc-event-field', className].filter(Boolean).join(' ')}, [
-            el('span', {class: 'mc-event-field-label'}, [labelText]),
+            el('span', {class: 'mc-event-field-label'}, [required ? `${labelText} *` : labelText]),
             control,
+            ...(errorId ? [el('span', {
+                id: errorId,
+                class: 'mc-event-field-error',
+                role: 'alert',
+                hidden: 'hidden',
+            })] : []),
         ]);
         if (control.id) label.htmlFor = control.id;
         return label;
@@ -659,8 +675,10 @@
             id: `mc-event-weekday-${day.toLowerCase()}`,
             name: 'weekdays',
             type: 'checkbox',
-            value: day
+            value: day,
+            'aria-label': `Repeat on ${day}`,
         }));
+        weekdayInputs[0].setAttribute('aria-describedby', `${weekdayInputs[0].id}-error`);
         const recurrenceDetails = el('div', {id: IDS.repeatDetails, class: 'mc-event-recurrence-details'});
         const submitBtn = el('button', {
             type: 'submit',
@@ -684,6 +702,10 @@
         }, [el('div', {class: 'mc-grid-spinner'})]);
         form.appendChild(loader);
 
+        let activeCreateRequestId = '';
+        let createRequestSequence = 0;
+        let createTimeoutId = null;
+
         function setFormStatus(text = '', kind = '') {
             status.textContent = text;
             status.dataset.kind = kind;
@@ -695,13 +717,35 @@
             for (const control of form.querySelectorAll('[aria-invalid="true"]')) {
                 control.removeAttribute('aria-invalid');
             }
+            for (const error of form.querySelectorAll('.mc-event-field-error')) {
+                error.textContent = '';
+                error.hidden = true;
+            }
+        }
+
+        function setFieldError(message, control) {
+            if (!control) return;
+            control.setAttribute('aria-invalid', 'true');
+            const error = control.id ? document.getElementById(`${control.id}-error`) : null;
+            if (error) {
+                error.textContent = message;
+                error.hidden = false;
+            }
+        }
+
+        function reportValidationErrors(errors) {
+            clearValidationState();
+            for (const error of errors) setFieldError(error.message, error.control);
+            const first = errors[0];
+            const summary = errors.length === 1
+                ? first.message
+                : `Please correct ${errors.length} highlighted fields. ${first.message}`;
+            setFormStatus(summary, 'error');
+            first.control?.focus();
         }
 
         function reportValidationError(message, control) {
-            clearValidationState();
-            control?.setAttribute('aria-invalid', 'true');
-            setFormStatus(message, 'error');
-            control?.focus();
+            reportValidationErrors([{message, control}]);
         }
 
         function setEventLoading(isLoading) {
@@ -742,19 +786,84 @@
             }
         }
 
+        function isValidLocalDateTime(value) {
+            const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/);
+            if (!match) return false;
+            const year = Number(match[1]);
+            const month = Number(match[2]);
+            const day = Number(match[3]);
+            const hour = Number(match[4] || 0);
+            const minute = Number(match[5] || 0);
+            const second = Number(match[6] || 0);
+            const date = new Date(Date.UTC(year, month - 1, day, hour, minute, second));
+            return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 &&
+                date.getUTCDate() === day && hour <= 23 && minute <= 59 && second <= 59;
+        }
+
+        function normalizeComparableDateTime(value) {
+            const text = String(value || '').trim().replace('T', ' ');
+            if (!isValidLocalDateTime(text)) return '';
+            return text.length === 10 ? `${text} 00:00:00` : `${text}:00`.slice(0, 19);
+        }
+
+        function parseExcludeDates(value) {
+            return Array.from(new Set(String(value || '').split(/\r?\n|,/).map((item) => item.trim()).filter(Boolean)));
+        }
+
         function validatePayload(payload) {
-            if (!payload.targetFolderId) return {message: 'Select a target notebook.', control: folderSelect};
-            if (!payload.title) return {message: 'Title is required.', control: titleInput};
-            if (!payload.start) return {message: 'Start date is required.', control: startDateInput};
-            if (payload.color && !normalizeHexColor(payload.color)) return {
-                message: 'Color must be a hex value.',
-                control: colorInput
-            };
-            if (payload.end && payload.end < payload.start) return {
-                message: 'End date/time must be after start.',
-                control: endDateInput
-            };
-            return null;
+            const errors = [];
+            const add = (message, control) => errors.push({message, control});
+            if (!payload.targetFolderId) add('Select a target notebook.', folderSelect);
+            if (!payload.title) add('Title is required.', titleInput);
+            if (!payload.start || !isValidLocalDateTime(payload.start)) add('Enter a valid start date and time.', startDateInput);
+            if (payload.end && !isValidLocalDateTime(payload.end)) add('Enter a valid end date and time.', endDateInput);
+            if (payload.color && !normalizeHexColor(payload.color)) add('Color must be a six-digit hex value.', colorInput);
+
+            const comparableStart = normalizeComparableDateTime(payload.start);
+            const comparableEnd = normalizeComparableDateTime(payload.end);
+            if (comparableStart && comparableEnd && comparableEnd < comparableStart) {
+                add('End date/time must not be before start.', endDateInput);
+            }
+
+            if (payload.repeat !== 'none') {
+                const interval = Number(payload.repeat_interval);
+                if (!Number.isInteger(interval) || interval < 1 || interval > 999) {
+                    add('Repeat interval must be a whole number from 1 to 999.', repeatIntervalInput);
+                }
+                if (payload.repeat === 'weekly' && !payload.byweekday) {
+                    add('Select at least one weekday for weekly recurrence.', weekdayInputs[0]);
+                }
+                if (payload.repeat === 'monthly') {
+                    const monthDay = Number(payload.bymonthday);
+                    if (!Number.isInteger(monthDay) || monthDay < 1 || monthDay > 31) {
+                        add('Day of month must be a whole number from 1 to 31.', byMonthDayInput);
+                    }
+                }
+                if (payload.repeat_until) {
+                    if (!isValidLocalDateTime(payload.repeat_until)) {
+                        add('Enter a valid repeat-until date.', repeatUntilInput);
+                    } else if (comparableStart && payload.repeat_until.slice(0, 10) < payload.start.slice(0, 10)) {
+                        add('Repeat-until date must not be before start.', repeatUntilInput);
+                    }
+                }
+
+                const excludeDates = parseExcludeDates(payload.exdates);
+                if (excludeDates.length > MAX_EXCLUDE_DATES) {
+                    add(`Use no more than ${MAX_EXCLUDE_DATES} exclude dates.`, exdatesInput);
+                } else {
+                    const invalidExcludeDate = excludeDates.find((value) => !isValidLocalDateTime(value));
+                    if (invalidExcludeDate) add(`Invalid exclude date: ${invalidExcludeDate}`, exdatesInput);
+                    else if (comparableStart && excludeDates.some((value) => {
+                        if (value.length === 10) return value < payload.start.slice(0, 10);
+                        return normalizeComparableDateTime(value) < comparableStart;
+                    })) {
+                        add('Exclude dates must not be before the event start.', exdatesInput);
+                    }
+                }
+            }
+
+            if (payload.tagIds.length > MAX_SELECTED_TAGS) add(`Select no more than ${MAX_SELECTED_TAGS} tags.`, tagPickerButton);
+            return errors;
         }
 
         function collectPayload() {
@@ -779,7 +888,7 @@
             };
         }
 
-        function resetEventForm() {
+        function resetEventForm({focusTitle = true, clearStatus = true} = {}) {
             titleInput.value = '';
             const nextStartParts = getLocalParts(0);
             const nextEndParts = getLocalParts(60);
@@ -805,8 +914,23 @@
             updateTagSummary();
             updateRecurrenceVisibility();
             clearValidationState();
-            setFormStatus();
-            titleInput.focus();
+            if (clearStatus) setFormStatus();
+            if (focusTitle) titleInput.focus();
+        }
+
+        function clearCreateTimeout() {
+            if (createTimeoutId !== null) window.clearTimeout(createTimeoutId);
+            createTimeoutId = null;
+        }
+
+        function acceptsCreateResponse(message) {
+            return !message.requestId || !activeCreateRequestId || message.requestId === activeCreateRequestId;
+        }
+
+        function finishCreateRequest() {
+            clearCreateTimeout();
+            activeCreateRequestId = '';
+            setEventLoading(false);
         }
 
         allDayInput.addEventListener('change', updateDateInputModes);
@@ -834,25 +958,42 @@
             e.preventDefault();
             e.stopPropagation();
             const payload = collectPayload();
-            const validationError = validatePayload(payload);
-            if (validationError) {
-                reportValidationError(validationError.message, validationError.control);
+            const validationErrors = validatePayload(payload);
+            if (validationErrors.length) {
+                reportValidationErrors(validationErrors);
+                postToPlugin({name: MSG.CALENDAR_EVENT_VALIDATION_FAILED});
                 return;
             }
             clearValidationState();
             setEventLoading(true);
             setFormStatus('Creating event note…', 'info');
-            postToPlugin({name: MSG.CALENDAR_EVENT_CREATE, payload});
+            activeCreateRequestId = `${Date.now().toString(36)}-${(++createRequestSequence).toString(36)}`;
+            postToPlugin({name: MSG.CALENDAR_EVENT_CREATE, requestId: activeCreateRequestId, payload});
+            clearCreateTimeout();
+            createTimeoutId = window.setTimeout(() => {
+                if (!activeCreateRequestId) return;
+                activeCreateRequestId = '';
+                createTimeoutId = null;
+                setEventLoading(false);
+                setFormStatus('Joplin did not confirm event creation. Check your notes before trying again.', 'warning');
+                postToPlugin({name: MSG.CALENDAR_EVENT_CREATE_TIMEOUT});
+            }, CREATE_TIMEOUT_MS);
         });
 
         const folderRow = el('div', {class: 'mc-event-notebook-row'}, [
-            createField('Notebook', folderSelect, 'mc-event-notebook-field'),
+            createField('Notebook', folderSelect, 'mc-event-notebook-field', true),
             reloadBtn,
         ]);
 
         const weekdaysRow = el('div', {class: 'mc-event-weekdays'}, weekdayInputs.map((input) => (
             el('label', {class: 'mc-event-weekday'}, [input, el('span', {}, [input.value])])
         )));
+        const weekdaysError = el('span', {
+            id: `${weekdayInputs[0].id}-error`,
+            class: 'mc-event-field-error',
+            role: 'alert',
+            hidden: 'hidden',
+        });
 
         recurrenceDetails.appendChild(el('div', {class: 'mc-event-grid-2'}, [
             createField('Every', repeatIntervalInput),
@@ -868,11 +1009,11 @@
             class: 'mc-event-weekdays-group',
             role: 'group',
             'aria-label': 'Repeat on weekdays'
-        }, [weekdaysRow]));
+        }, [weekdaysRow, weekdaysError]));
 
         const detailsSection = createSection('Event details', [
             folderRow,
-            createField('Title', titleInput, 'mc-event-field-full'),
+            createField('Title', titleInput, 'mc-event-field-full', true),
             el('div', {class: 'mc-event-grid-2'}, [
                 createField('Location', locationInput),
                 createField('Color', colorInput),
@@ -885,7 +1026,7 @@
                 for: IDS.allDay
             }, [allDayInput, el('span', {}, ['All day'])]),
             el('div', {class: 'mc-event-grid-2'}, [
-                createField('Start date', startDateInput),
+                createField('Start date', startDateInput, '', true),
                 createField('Start time', startTimeSelect),
                 createField('End date', endDateInput),
                 createField('End time', endTimeSelect),
@@ -916,18 +1057,38 @@
             if (msg.name === MSG.FOLDERS) populateFolders(msg.folders);
             if (msg.name === MSG.TAGS) populateTags(msg.tags);
             if (msg.name === MSG.CALENDAR_EVENT_CREATE_DONE) {
-                setEventLoading(false);
+                if (!acceptsCreateResponse(msg)) return;
+                finishCreateRequest();
                 const warningCount = Array.isArray(msg.warnings) ? msg.warnings.length : 0;
                 const successText = `Event note created: ${msg.title || ''}`.trim();
                 const statusText = warningCount
                     ? `${successText}. ${warningCount} tag${warningCount === 1 ? '' : 's'} could not be attached.`
                     : successText;
+                resetEventForm({focusTitle: false, clearStatus: false});
                 setFormStatus(statusText, warningCount ? 'warning' : 'success');
-                titleInput.value = '';
             }
             if (msg.name === MSG.CALENDAR_EVENT_CREATE_ERROR) {
-                setEventLoading(false);
-                setFormStatus(msg.error || 'Event creation failed.', 'error');
+                if (!acceptsCreateResponse(msg)) return;
+                finishCreateRequest();
+                const fieldControls = {
+                    targetFolderId: folderSelect,
+                    title: titleInput,
+                    location: locationInput,
+                    description: descriptionInput,
+                    color: colorInput,
+                    allDay: allDayInput,
+                    startDate: startDateInput,
+                    endDate: endDateInput,
+                    timeZone: tzSelect,
+                    repeatInterval: repeatIntervalInput,
+                    repeat: repeatSelect,
+                    repeatUntil: repeatUntilInput,
+                    weekdays: weekdayInputs[0],
+                    monthDay: byMonthDayInput,
+                    excludeDates: exdatesInput,
+                    tags: tagPickerButton,
+                };
+                reportValidationError(msg.error || 'Event creation failed.', fieldControls[msg.field]);
             }
             if (msg.name === MSG.UI_SETTINGS) {
                 if (typeof msg.debug === 'boolean') uiSettings.debug = msg.debug;
