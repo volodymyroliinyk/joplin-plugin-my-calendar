@@ -459,17 +459,6 @@ describe('settings.ts logic', () => {
         });
     });
 
-    describe('getIcsImportEmptyTrashAfter', () => {
-        const mkJoplin = (val: any) => ({
-            settings: {value: jest.fn().mockResolvedValue(val)},
-        });
-
-        test('coerces to boolean', async () => {
-            await expect(settings.getIcsImportEmptyTrashAfter(mkJoplin(true))).resolves.toBe(true);
-            await expect(settings.getIcsImportEmptyTrashAfter(mkJoplin(false))).resolves.toBe(false);
-        });
-    });
-
     describe('registerSettings onChange sanitization + debug toggle', () => {
         test('sanitizes touched export pairs, alarm emoji, hex colors, and updates logger when debug changes', async () => {
             const onChangeHandlers: Array<(e: any) => Promise<void>> = [];

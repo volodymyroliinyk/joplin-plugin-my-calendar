@@ -31,7 +31,6 @@ describe('alarmService', () => {
     const mockCreateNote = joplinNoteService.createNote as jest.Mock;
     const mockUpdateNote = joplinNoteService.updateNote as jest.Mock;
     const mockGetAlarmRange = settings.getIcsImportAlarmRangeDays as jest.Mock;
-    const mockGetEmptyTrash = settings.getIcsImportEmptyTrashAfter as jest.Mock;
     const mockGetAlarmEmoji = settings.getIcsImportAlarmEmoji as jest.Mock;
 
     beforeEach(() => {
@@ -49,7 +48,6 @@ describe('alarmService', () => {
         } as unknown as Joplin;
 
         mockGetAlarmRange.mockResolvedValue(30);
-        mockGetEmptyTrash.mockResolvedValue(false);
         mockGetAlarmEmoji.mockResolvedValue('🔔');
         // Default mocks for deterministic tests
         (occurrenceService.expandOccurrences as jest.Mock).mockImplementation((_ev, _now, _end) => {
@@ -439,8 +437,7 @@ describe('alarmService', () => {
         }));
     });
 
-    it('should empty trash when alarms were deleted and setting is enabled', async () => {
-        mockGetEmptyTrash.mockResolvedValue(true);
+    it('should never empty unrelated items from trash after deleting alarms', async () => {
         const events: IcsEvent[] = [{uid: 'uid1', recurrence_id: '', start: '2026-01-30 12:00', valarms: []}];
         const key = 'uid1|';
         const importedEventNotes = {[key]: {id: 'note1', title: 'Event 1', parent_id: 'folder1'}};
@@ -458,7 +455,7 @@ describe('alarmService', () => {
         await syncAlarmsForEvents(mockJoplin, events, importedEventNotes, existingAlarms, 'folder1');
 
         expect(mockDeleteNote).toHaveBeenCalledWith(mockJoplin, 'alarm1');
-        expect(mockJoplin.commands.execute).toHaveBeenCalledWith('emptyTrash');
+        expect(mockJoplin.commands.execute).not.toHaveBeenCalledWith('emptyTrash');
     });
 
     it('should skip events without uid / without imported note / without notebook', async () => {

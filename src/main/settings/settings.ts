@@ -28,7 +28,6 @@ export const SETTING_DEFAULT_EVENT_COLOR_DARK = 'mycalendar.defaultEventColorDar
 // ICS Import
 export const SETTING_ICS_IMPORT_ALARMS_ENABLED = 'mycalendar.icsImportAlarmsEnabled';
 export const SETTING_ICS_IMPORT_ALARM_RANGE_DAYS = 'mycalendar.icsImportAlarmRangeDays';
-export const SETTING_ICS_IMPORT_EMPTY_TRASH_AFTER = 'mycalendar.icsImportEmptyTrashAfter';
 export const SETTING_ICS_IMPORT_ALARM_EMOJI = 'mycalendar.icsImportAlarmEmoji';
 export const SETTING_ICS_SCHEDULED_IMPORT_PAIRS = 'mycalendar.icsScheduledImportPairs';
 export const SETTING_ICS_SCHEDULED_IMPORT_INTERVAL_MINUTES = 'mycalendar.icsScheduledImportIntervalMinutes';
@@ -92,7 +91,6 @@ export const SCHEDULED_ICS_IMPORT_SETTING_KEYS = [
     SETTING_ICS_SCHEDULED_IMPORT_INTERVAL_MINUTES,
     SETTING_ICS_IMPORT_ALARMS_ENABLED,
     SETTING_ICS_IMPORT_ALARM_RANGE_DAYS,
-    SETTING_ICS_IMPORT_EMPTY_TRASH_AFTER,
     SETTING_ICS_IMPORT_ALARM_EMOJI,
 ] as const;
 
@@ -376,14 +374,6 @@ export async function registerSettings(joplin: any) {
             public: !mobile,
             label: 'ICS import alarm range (days)',
             description: 'ICS import section: Import events alarms from now up to N days ahead. Default 30. During reimport all alarms will regenerated.',
-        },
-        [SETTING_ICS_IMPORT_EMPTY_TRASH_AFTER]: {
-            value: false,
-            type: SETTING_TYPE_BOOL, // bool
-            section: 'mycalendar',
-            public: !mobile,
-            label: 'Empty trash after alarm cleanup',
-            description: 'ICS import section: If enabled, the plugin will empty the trash after deleting old alarms. WARNING: This deletes ALL items in the trash bin.',
         },
         [SETTING_ICS_IMPORT_ALARM_EMOJI]: {
             value: ALARM_EMOJI_DEFAULT,
@@ -706,10 +696,6 @@ export async function getIcsImportAlarmRangeDays(joplin: any): Promise<number> {
     // Guardrails: keep the import range reasonable.
     // If user entered 0, we clamp to 1.
     return Math.min(365, Math.max(1, Math.round(n)));
-}
-
-export async function getIcsImportEmptyTrashAfter(joplin: any): Promise<boolean> {
-    return !!(await joplin.settings.value(SETTING_ICS_IMPORT_EMPTY_TRASH_AFTER));
 }
 
 export async function getIcsImportAlarmEmoji(joplin: any): Promise<string> {
