@@ -4,7 +4,11 @@
 //
 // TZ=UTC npx jest tests/services/alarmService.test.ts --runInBand --no-cache;
 
-import {syncAlarmsForEvents} from '../../src/main/services/alarmService';
+import {
+    MAX_DESIRED_ALARMS_PER_IMPORT,
+    MAX_VALARMS_PER_EVENT,
+    syncAlarmsForEvents,
+} from '../../src/main/services/alarmService';
 import {Joplin} from '../../src/main/types/joplin.interface';
 import {IcsEvent} from '../../src/main/types/icsTypes';
 import * as joplinNoteService from '../../src/main/services/joplinNoteService';
@@ -662,5 +666,87 @@ describe('alarmService', () => {
 
         expect(mockGetAlarmRange).not.toHaveBeenCalled();
         expect(mockCreateNote).toHaveBeenCalledTimes(1);
+    });
+
+    it('caps excess VALARMs per event and reports the truncation', async () => {
+        const valarms = Array.from({length: MAX_VALARMS_PER_EVENT + 3}, (_, i) => ({
+            action: 'DISPLAY',
+            trigger: `-PT${i + 1}M`,
+            related: 'START' as const,
+        }));
+        const result = await syncAlarmsForEvents(
+            mockJoplin,
+            [{uid: 'limited', start: '2026-01-30 12:00', valarms}],
+            {'limited|': {id: 'note1', title: 'Limited', parent_id: 'folder1'}},
+            {'limited|': []},
+            'folder1',
+            undefined,
+            {now: new Date('2026-01-30T10:00:00.000Z')},
+        );
+
+        expect(mockCreateNote).toHaveBeenCalledTimes(MAX_VALARMS_PER_EVENT);
+        expect(result.issues).toBe(1);
+        expect(result.warnings).toContainEqual(expect.objectContaining({
+            code: 'valarm_limit_exceeded',
+            key: 'limited|',
+            discarded: 3,
+        }));
+    });
+
+    it('reconciles duplicate timestamps in stable VALARM order', async () => {
+        (dateTimeUtils.computeAlarmAt as jest.Mock).mockReturnValue(new Date('2026-01-30T11:45:00.000Z'));
+        (dateTimeUtils.formatTriggerDescription as jest.Mock).mockImplementation((trigger: string) => trigger);
+        (noteBuilder.buildAlarmBody as jest.Mock).mockImplementation((...args: unknown[]) => String(args[args.length - 1]));
+        const due = new Date('2026-01-30T11:45:00.000Z').getTime();
+
+        await syncAlarmsForEvents(
+            mockJoplin,
+            [{
+                uid: 'duplicates',
+                title: 'Duplicates',
+                start: '2026-01-30 12:00',
+                valarms: [
+                    {action: 'DISPLAY', trigger: '-PT10M', related: 'START'},
+                    {action: 'DISPLAY', trigger: '-PT20M', related: 'START'},
+                ],
+            }],
+            {'duplicates|': {id: 'note1', title: 'Duplicates', parent_id: 'folder1'}},
+            {
+                'duplicates|': [
+                    {id: 'first', todo_due: due, body: '', title: '', is_todo: 1, todo_completed: 0},
+                    {id: 'second', todo_due: due, body: '', title: '', is_todo: 1, todo_completed: 0},
+                ]
+            },
+            'folder1',
+            undefined,
+            {now: new Date('2026-01-30T10:00:00.000Z')},
+        );
+
+        expect(mockUpdateNote).toHaveBeenNthCalledWith(1, mockJoplin, 'first', expect.objectContaining({body: '-PT10M'}));
+        expect(mockUpdateNote).toHaveBeenNthCalledWith(2, mockJoplin, 'second', expect.objectContaining({body: '-PT20M'}));
+    });
+
+    it('caps desired alarms for a maximum-size recurrence and reports the import limit', async () => {
+        const occurrenceCount = Math.ceil(MAX_DESIRED_ALARMS_PER_IMPORT / MAX_VALARMS_PER_EVENT) + 1;
+        (occurrenceService.expandOccurrences as jest.Mock).mockReturnValue(Array.from(
+            {length: occurrenceCount},
+            () => ({start: new Date('2026-01-30T12:00:00.000Z')}),
+        ));
+        const valarms = Array.from({length: MAX_VALARMS_PER_EVENT}, (_, i) => ({
+            action: 'DISPLAY', trigger: `-PT${i + 1}M`, related: 'START' as const,
+        }));
+
+        const result = await syncAlarmsForEvents(
+            mockJoplin,
+            [{uid: 'maximum', start: '2026-01-30 12:00', valarms}],
+            {'maximum|': {id: 'note1', title: 'Maximum', parent_id: 'folder1'}},
+            {'maximum|': []},
+            'folder1',
+            undefined,
+            {now: new Date('2026-01-30T10:00:00.000Z')},
+        );
+
+        expect(mockCreateNote).toHaveBeenCalledTimes(MAX_DESIRED_ALARMS_PER_IMPORT);
+        expect(result.warnings).toContainEqual(expect.objectContaining({code: 'desired_alarm_limit_exceeded'}));
     });
 });

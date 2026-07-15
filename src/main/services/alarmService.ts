@@ -28,6 +28,15 @@ export type AlarmSyncResult = {
     alarmsDeleted: number;
     alarmsUpdated: number;
     issues: number;
+    warnings: AlarmSyncWarning[];
+};
+
+export type AlarmSyncWarning = {
+    code: 'valarm_limit_exceeded' | 'desired_alarm_limit_exceeded';
+    key?: string;
+    limit: number;
+    discarded?: number;
+    message: string;
 };
 
 export type ExistingAlarm = {
@@ -72,32 +81,57 @@ export type AlarmSyncOptions = {
 };
 
 const ALARM_OPS_CONCURRENCY = 6;
+export const MAX_VALARMS_PER_EVENT = 16;
+export const MAX_DESIRED_ALARMS_PER_IMPORT = 2_000;
+const ALARM_TIMESTAMP_RESOLUTION_MS = 1_000;
 
 function isNonNegativeFiniteNumber(v: unknown): v is number {
     return typeof v === 'number' && Number.isFinite(v) && v >= 0;
 }
 
-function buildDesiredAlarmsForEvent(ev: IcsEvent, now: Date, windowEnd: Date): DesiredAlarm[] {
+function buildDesiredAlarmsForEvent(
+    ev: IcsEvent,
+    now: Date,
+    windowEnd: Date,
+    limit: number,
+): { desired: DesiredAlarm[]; truncated: boolean } {
     const desired: DesiredAlarm[] = [];
     const nowMs = now.getTime();
     const windowEndMs = windowEnd.getTime();
 
-    if (!ev.valarms || ev.valarms.length === 0) return desired;
+    if (!ev.valarms || ev.valarms.length === 0) return {desired, truncated: false};
+    if (limit <= 0) return {desired, truncated: true};
 
     const occs = expandOccurrences(ev, now, windowEnd);
     for (const occ of occs) {
-        for (const a of ev.valarms) {
+        for (const a of ev.valarms.slice(0, MAX_VALARMS_PER_EVENT)) {
             const alarmAt = computeAlarmAt(a, occ);
             if (!alarmAt) continue;
 
             const alarmAtMs = alarmAt.getTime();
             if (alarmAtMs >= nowMs && alarmAtMs <= windowEndMs) {
+                if (desired.length >= limit) return {desired, truncated: true};
                 desired.push({alarmTime: alarmAtMs, eventTime: occ.start, trigger: a.trigger});
             }
         }
     }
 
-    return desired;
+    return {desired, truncated: false};
+}
+
+function normalizedAlarmTimestamp(timestamp: number): number {
+    return Math.round(timestamp / ALARM_TIMESTAMP_RESOLUTION_MS) * ALARM_TIMESTAMP_RESOLUTION_MS;
+}
+
+function indexDesiredAlarms(desired: DesiredAlarm[]): Map<number, number[]> {
+    const indexed = new Map<number, number[]>();
+    desired.forEach((alarm, index) => {
+        const timestamp = normalizedAlarmTimestamp(alarm.alarmTime);
+        const queue = indexed.get(timestamp);
+        if (queue) queue.push(index);
+        else indexed.set(timestamp, [index]);
+    });
+    return indexed;
 }
 
 function buildAlarmNoteBody(args: {
@@ -187,6 +221,9 @@ export async function syncAlarmsForEvents(
     let alarmsCreated = 0;
     let alarmsUpdated = 0;
     let issues = 0;
+    const warnings: AlarmSyncWarning[] = [];
+    let desiredAlarmCount = 0;
+    let desiredLimitReported = false;
     const pendingOps: Array<() => Promise<void>> = [];
 
     for (const input of events) {
@@ -218,9 +255,40 @@ export async function syncAlarmsForEvents(
         const notebookId = targetFolderId || eventNote.parent_id;
         if (!notebookId) continue;
 
-        const desiredAlarms = buildDesiredAlarmsForEvent(ev, now, windowEnd);
+        const valarmCount = ev.valarms?.length ?? 0;
+        if (valarmCount > MAX_VALARMS_PER_EVENT) {
+            const discarded = valarmCount - MAX_VALARMS_PER_EVENT;
+            issues++;
+            warnings.push({
+                code: 'valarm_limit_exceeded',
+                key,
+                limit: MAX_VALARMS_PER_EVENT,
+                discarded,
+                message: `Event ${key} has too many VALARMs; ignored ${discarded} after the first ${MAX_VALARMS_PER_EVENT}`,
+            });
+        }
+
+        const remainingDesiredCapacity = MAX_DESIRED_ALARMS_PER_IMPORT - desiredAlarmCount;
+        const {desired: desiredAlarms, truncated} = buildDesiredAlarmsForEvent(
+            ev,
+            now,
+            windowEnd,
+            remainingDesiredCapacity,
+        );
+        desiredAlarmCount += desiredAlarms.length;
+        if (truncated && !desiredLimitReported) {
+            desiredLimitReported = true;
+            issues++;
+            warnings.push({
+                code: 'desired_alarm_limit_exceeded',
+                key,
+                limit: MAX_DESIRED_ALARMS_PER_IMPORT,
+                message: `Alarm import limit ${MAX_DESIRED_ALARMS_PER_IMPORT} reached; ignored alarms for event ${key}`,
+            });
+        }
 
         const matchedDesiredIndices = new Set<number>();
+        const desiredByTimestamp = indexDesiredAlarms(desiredAlarms);
 
         for (const alarm of oldAlarms) {
             const isCompleted = alarm.todo_completed > 0;
@@ -246,15 +314,8 @@ export async function syncAlarmsForEvents(
                 continue;
             }
 
-            let matchIndex = -1;
-            for (let i = 0; i < desiredAlarms.length; i++) {
-                if (!matchedDesiredIndices.has(i)) {
-                    if (Math.abs(desiredAlarms[i].alarmTime - alarm.todo_due) < 1000) {
-                        matchIndex = i;
-                        break;
-                    }
-                }
-            }
+            const queue = desiredByTimestamp.get(normalizedAlarmTimestamp(alarm.todo_due));
+            const matchIndex = queue?.shift() ?? -1;
 
             if (matchIndex !== -1) {
                 matchedDesiredIndices.add(matchIndex);
@@ -296,7 +357,7 @@ export async function syncAlarmsForEvents(
                         }
                     });
                 }
-            } else {
+            } else if (!truncated) {
                 pendingOps.push(async () => {
                     try {
                         await deleteNote(joplin, alarm.id);
@@ -373,5 +434,5 @@ export async function syncAlarmsForEvents(
         await say(`Alarms sync summary: deleted ${alarmsDeleted}, created ${alarmsCreated}, updated ${alarmsUpdated} (next ${alarmRangeDays} days)`);
     }
 
-    return {alarmsCreated, alarmsDeleted, alarmsUpdated, issues};
+    return {alarmsCreated, alarmsDeleted, alarmsUpdated, issues, warnings};
 }
