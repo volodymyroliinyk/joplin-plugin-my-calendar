@@ -361,6 +361,9 @@ describe('src/ui/calendar.js', () => {
 
         const msg = calls[calls.length - 1][0];
         expect(typeof msg.dateUtc).toBe('number');
+        const clicked = new Date(msg.fromUtc);
+        const nextMidnight = new Date(clicked.getFullYear(), clicked.getMonth(), clicked.getDate() + 1).getTime();
+        expect(msg.toUtc).toBe(nextMidnight);
 
         // selection moved
         const sel = findSelectedCell();
@@ -746,6 +749,32 @@ describe('src/ui/calendar.js', () => {
         expect((line as HTMLElement).style.display).toBe('none');
 
         (Date.now as any).mockRestore?.();
+    });
+
+    test('day slicing uses half-open boundaries for midnight and instant events', () => {
+        loadCalendarJsFresh();
+        const hooks = (window as any).__mcTest;
+        const dayStart = Date.UTC(2025, 0, 2);
+        const nextDay = dayStart + 24 * 60 * 60 * 1000;
+
+        expect(hooks.sliceEventForDay({startUtc: dayStart - 60_000, endUtc: dayStart}, dayStart)).toBeNull();
+        expect(hooks.sliceEventForDay({startUtc: nextDay, endUtc: nextDay + 60_000}, dayStart)).toBeNull();
+        expect(hooks.sliceEventForDay({startUtc: dayStart, endUtc: dayStart}, dayStart)).toEqual({
+            startUtc: dayStart,
+            endUtc: dayStart,
+        });
+    });
+
+    test('calendar grid range ends at exclusive local midnight after 42 days', () => {
+        loadCalendarJsFresh();
+        const hooks = (window as any).__mcTest;
+        const current = new Date(2025, 0, 15);
+        const end = hooks.endOfCalendarGridLocal(current) as Date;
+
+        expect(end.getHours()).toBe(0);
+        expect(end.getMinutes()).toBe(0);
+        expect(end.getSeconds()).toBe(0);
+        expect(end.getMilliseconds()).toBe(0);
     });
 
     test('focus event does not trigger a full redraw', () => {

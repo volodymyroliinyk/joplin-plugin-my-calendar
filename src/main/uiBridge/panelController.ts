@@ -14,6 +14,7 @@ import {Occurrence} from '../utils/dateUtils';
 import {getErrorText} from '../utils/errorUtils';
 import {normalizeHexColor} from '../utils/colorUtils';
 import {CalendarEventFormPayload, createCalendarEventNote} from '../services/eventNoteService';
+import {eventOverlapsRange} from '../services/occurrenceService';
 
 function isoDate(utc: number): string {
     return new Date(utc).toISOString().slice(0, 10);
@@ -144,13 +145,13 @@ function restoreUiLogArg(arg: unknown): unknown {
 }
 
 function isValidUtcRange(fromUtc: unknown, toUtc: unknown): boolean {
-    return isNumber(fromUtc) && isNumber(toUtc) && fromUtc <= toUtc;
+    return isNumber(fromUtc) && isNumber(toUtc) && fromUtc < toUtc;
 }
 
 function getDayRange(dateUtc: number): UtcRange {
     return {
         fromUtc: dateUtc,
-        toUtc: dateUtc + 24 * 60 * 60 * 1000 - 1,
+        toUtc: dateUtc + 24 * 60 * 60 * 1000,
     };
 }
 
@@ -365,8 +366,8 @@ export async function registerCalendarPanelController(
                     const list = (await getRangeEvents(dayStart, dayEnd))
                         .filter((e) => {
                             if (!isNumber(e.startUtc)) return false;
-                            const endUtc = isNumber(e.endUtc) ? e.endUtc : e.startUtc;
-                            return endUtc >= dayStart && e.startUtc <= dayEnd;
+                            const endUtc = isNumber(e.endUtc) ? e.endUtc : undefined;
+                            return eventOverlapsRange(e.startUtc, endUtc, dayStart, dayEnd);
                         });
 
                     await post({

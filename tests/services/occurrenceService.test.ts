@@ -7,6 +7,7 @@
 import {
     expandAllInRange,
     expandOccurrences,
+    eventOverlapsRange,
     MAX_OCCURRENCES_PER_EVENT,
     MAX_OCCURRENCES_PER_REQUEST,
 } from '../../src/main/services/occurrenceService';
@@ -17,6 +18,23 @@ function isoLocal(d: Date): string {
     // for debugging/readability in asserts
     return d.toISOString();
 }
+
+describe('eventOverlapsRange', () => {
+    const from = Date.UTC(2025, 0, 2);
+    const to = Date.UTC(2025, 0, 3);
+
+    test('uses half-open boundaries for duration events', () => {
+        expect(eventOverlapsRange(from - 1000, from, from, to)).toBe(false);
+        expect(eventOverlapsRange(to, to + 1000, from, to)).toBe(false);
+        expect(eventOverlapsRange(from, to, from, to)).toBe(true);
+    });
+
+    test('assigns an instant at a shared boundary to exactly one adjacent range', () => {
+        expect(eventOverlapsRange(from, undefined, from - 1000, from)).toBe(false);
+        expect(eventOverlapsRange(from, undefined, from, to)).toBe(true);
+        expect(eventOverlapsRange(to, to, from, to)).toBe(false);
+    });
+});
 
 describe('occurrenceService.expandOccurrences', () => {
     afterEach(() => {
@@ -33,6 +51,52 @@ describe('occurrenceService.expandOccurrences', () => {
         expect(occs).toHaveLength(1);
         expect(isoLocal(occs[0].start)).toBe('2025-01-10T10:00:00.000Z');
         expect(isoLocal(occs[0].end)).toBe('2025-01-10T11:00:00.000Z');
+    });
+
+    test('adjacent ranges do not duplicate non-recurring boundary events', () => {
+        const boundary = Date.UTC(2025, 0, 2);
+        const events: EventInput[] = [
+            {
+                id: 'ending',
+                title: 'Ending',
+                startUtc: boundary - 60_000,
+                endUtc: boundary,
+                startText: '',
+                repeat: 'none',
+                repeatInterval: 1
+            },
+            {
+                id: 'starting',
+                title: 'Starting',
+                startUtc: boundary,
+                endUtc: boundary + 60_000,
+                startText: '',
+                repeat: 'none',
+                repeatInterval: 1
+            },
+            {id: 'instant', title: 'Instant', startUtc: boundary, startText: '', repeat: 'none', repeatInterval: 1},
+        ];
+
+        expect(expandAllInRange(events, boundary - 60_000, boundary).map((e) => e.id)).toEqual(['ending']);
+        expect(expandAllInRange(events, boundary, boundary + 60_000).map((e) => e.id)).toEqual(['instant', 'starting']);
+    });
+
+    test('a recurring occurrence at toUtc belongs only to the next range', () => {
+        const boundary = Date.UTC(2025, 0, 2, 10);
+        const event: EventInput = {
+            id: 'daily',
+            title: 'Daily',
+            startUtc: Date.UTC(2025, 0, 1, 10),
+            startText: '2025-01-01 10:00:00',
+            tz: 'UTC',
+            repeat: 'daily',
+            repeatInterval: 1,
+        };
+
+        expect(expandAllInRange([event], Date.UTC(2025, 0, 1, 10), boundary).map((e) => e.startUtc))
+            .toEqual([Date.UTC(2025, 0, 1, 10)]);
+        expect(expandAllInRange([event], boundary, Date.UTC(2025, 0, 3, 10)).map((e) => e.startUtc))
+            .toEqual([boundary]);
     });
 
     test('all-day event treats DTEND as exclusive and returns inclusive display end', () => {

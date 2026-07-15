@@ -25,6 +25,15 @@ export const MAX_OCCURRENCES_PER_EVENT = 2_000;
 export const MAX_OCCURRENCES_PER_REQUEST = 10_000;
 const MAX_RECURRENCE_ITERATIONS_PER_EVENT = 10_000;
 
+/** Tests whether an event overlaps a half-open [fromUtc, toUtc) range. */
+export function eventOverlapsRange(startUtc: number, endUtc: number | undefined, fromUtc: number, toUtc: number): boolean {
+    const effectiveEnd = endUtc ?? startUtc;
+    if (effectiveEnd <= startUtc) {
+        return startUtc >= fromUtc && startUtc < toUtc;
+    }
+    return startUtc < toUtc && effectiveEnd > fromUtc;
+}
+
 function pad2(n: number): string {
     return String(n).padStart(2, '0');
 }
@@ -179,9 +188,9 @@ function expandOccurrencesInRange(
         return false;
     };
     const push = (start: number, out: UiOccurrence[]) => {
-        if (start > toUtc) return false;
+        if (start >= toUtc) return false;
         const end = dur ? start + dur : start;
-        if (end < fromUtc) return true;
+        if (!eventOverlapsRange(start, end, fromUtc, toUtc)) return true;
         if (excludedStarts.has(start)) return true;
         if (out.length >= effectiveOccurrenceLimit) {
             warnLimit('per-event occurrence limit');
@@ -192,8 +201,7 @@ function expandOccurrencesInRange(
     };
 
     if (ev.repeat === 'none') {
-        const end = ev.endUtc ?? ev.startUtc;
-        if (end < fromUtc || ev.startUtc > toUtc) return [];
+        if (!eventOverlapsRange(ev.startUtc, ev.endUtc, fromUtc, toUtc)) return [];
         if (effectiveOccurrenceLimit === 0) return [];
         return [{...ev, occurrenceId: `${ev.id}#${ev.startUtc}`}];
     }

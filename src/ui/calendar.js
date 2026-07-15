@@ -344,7 +344,7 @@
             // End of the grid (42 cells)
             function endOfCalendarGridLocal(current) {
                 const s = startOfCalendarGridLocal(current);
-                return new Date(s.getTime() + 42 * DAY - 1);
+                return new Date(s.getFullYear(), s.getMonth(), s.getDate() + 42);
             }
 
 
@@ -740,6 +740,8 @@
                         ensureBackendReady,
                         getDayEventsRefreshMs,
                         updateDayNowTimelineDot,
+                        sliceEventForDay,
+                        endOfCalendarGridLocal,
                     };
                 }
             } catch (_e) {
@@ -1202,7 +1204,7 @@
                             name: 'dateClick',
                             dateUtc: selectedDayUtc,
                             fromUtc: selectedDayUtc,
-                            toUtc: nextLocalMidnightTs(selectedDayUtc) - 1,
+                            toUtc: nextLocalMidnightTs(selectedDayUtc),
                         });
                         renderDayEvents(selectedDayUtc);
                         paintSelection();
@@ -1250,12 +1252,16 @@
             // dayStartTs is epoch ms for local midnight of the day cell.
             // Returns null if the event does not intersect the day.
             function sliceEventForDay(ev, dayStartTs) {
-                const dayEndTs = nextLocalMidnightTs(dayStartTs) - 1;
+                const dayEndTs = nextLocalMidnightTs(dayStartTs);
                 const evStart = ev.startUtc;
                 const evEnd = (ev.endUtc ?? ev.startUtc);
+                const isInstant = evEnd <= evStart;
+                const overlaps = isInstant
+                    ? evStart >= dayStartTs && evStart < dayEndTs
+                    : evStart < dayEndTs && evEnd > dayStartTs;
+                if (!overlaps) return null;
                 const segStart = Math.max(evStart, dayStartTs);
                 const segEnd = Math.min(evEnd, dayEndTs);
-                if (segEnd < segStart) return null;
                 return {startUtc: segStart, endUtc: segEnd};
             }
 
