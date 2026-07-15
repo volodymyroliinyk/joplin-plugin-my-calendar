@@ -412,6 +412,88 @@ describe('alarmService', () => {
         });
     });
 
+    it('treats creation as committed when follow-up alarm normalization fails and does not duplicate it on retry', async () => {
+        const now = new Date('2026-01-30T10:00:00.000Z');
+        const due = new Date('2026-01-30T11:45:00.000Z').getTime();
+        const events: IcsEvent[] = [{
+            uid: 'uid1',
+            title: 'Test Event',
+            start: '2026-01-30 12:00',
+            valarms: [{action: 'DISPLAY', trigger: '-PT15M', related: 'START'}],
+        }];
+        const importedEventNotes = {'uid1|': {id: 'note1', title: 'Test Event', parent_id: 'folder1'}};
+
+        mockCreateNote.mockResolvedValue({id: 'created-alarm'});
+        mockUpdateNote.mockRejectedValueOnce(new Error('temporary PUT failure'));
+
+        const first = await syncAlarmsForEvents(
+            mockJoplin,
+            events,
+            importedEventNotes,
+            {'uid1|': []},
+            'folder1',
+            undefined,
+            {now},
+        );
+
+        expect(first.alarmsCreated).toBe(1);
+        expect(first.issues).toBe(1);
+        expect(first.warnings).toContainEqual({
+            code: 'alarm_normalization_failed',
+            key: 'uid1|',
+            noteId: 'created-alarm',
+            message: expect.stringContaining('temporary PUT failure'),
+        });
+
+        await syncAlarmsForEvents(
+            mockJoplin,
+            events,
+            importedEventNotes,
+            {
+                'uid1|': [{
+                    id: 'created-alarm',
+                    todo_due: due,
+                    body: 'BODY_V1',
+                    is_todo: 1,
+                    todo_completed: 0,
+                    title: '🔔 Test Event - 12:00 (15 minutes before)',
+                }]
+            },
+            'folder1',
+            undefined,
+            {now},
+        );
+
+        expect(mockCreateNote).toHaveBeenCalledTimes(1);
+    });
+
+    it('reports a committed alarm creation when Joplin returns no note id', async () => {
+        mockCreateNote.mockResolvedValue({});
+
+        const result = await syncAlarmsForEvents(
+            mockJoplin,
+            [{
+                uid: 'uid1',
+                title: 'Test Event',
+                start: '2026-01-30 12:00',
+                valarms: [{action: 'DISPLAY', trigger: '-PT15M', related: 'START'}],
+            }],
+            {'uid1|': {id: 'note1', title: 'Test Event', parent_id: 'folder1'}},
+            {'uid1|': []},
+            'folder1',
+            undefined,
+            {now: new Date('2026-01-30T10:00:00.000Z')},
+        );
+
+        expect(result.alarmsCreated).toBe(1);
+        expect(result.issues).toBe(1);
+        expect(result.warnings).toContainEqual(expect.objectContaining({
+            code: 'alarm_created_without_id',
+            key: 'uid1|',
+        }));
+        expect(mockUpdateNote).not.toHaveBeenCalled();
+    });
+
     it('should use custom reminder emoji from settings in alarm titles', async () => {
         jest.useFakeTimers();
         jest.setSystemTime(new Date('2026-01-30T10:00:00.000Z'));
