@@ -347,6 +347,98 @@ describe('eventsCache.ts', () => {
         expect(get).toHaveBeenCalledTimes(3);
     });
 
+    test('an incremental response cannot overwrite a newer full-cache rebuild', async () => {
+        const parseEventsFromBody = jest.fn().mockImplementation((_id, _title, body: string) => [{
+            id: 'note-1',
+            title: body,
+            startText: '2025-01-01T00:00:00Z',
+            startUtc: 1,
+        }]);
+        const mod = await loadModuleWithMockedParser({parseEventsFromBody});
+        let resolveOldRefresh!: (value: any) => void;
+        const oldRefresh = new Promise((resolve) => {
+            resolveOldRefresh = resolve;
+        });
+        const get = jest.fn()
+            .mockResolvedValueOnce({items: [{id: 'note-1', title: 'Note', body: 'initial'}], has_more: false})
+            .mockReturnValueOnce(oldRefresh)
+            .mockResolvedValueOnce({items: [{id: 'note-1', title: 'Note', body: 'rebuilt'}], has_more: false});
+        const joplin = mkJoplin(get);
+
+        await mod.ensureAllEventsCache(joplin);
+        const pendingRefresh = mod.refreshNoteCache(joplin, 'note-1');
+        mod.invalidateAllEventsCache();
+        const rebuilt = await mod.ensureAllEventsCache(joplin);
+        expect(rebuilt[0].title).toBe('rebuilt');
+
+        resolveOldRefresh({id: 'note-1', title: 'Note', body: 'stale'});
+        await pendingRefresh;
+
+        expect((await mod.ensureAllEventsCache(joplin))[0].title).toBe('rebuilt');
+    });
+
+    test('an obsolete incremental error cannot remove data from a newer rebuild', async () => {
+        const parseEventsFromBody = jest.fn().mockImplementation((_id, _title, body: string) => [{
+            id: 'note-1',
+            title: body,
+            startText: '2025-01-01T00:00:00Z',
+            startUtc: 1,
+        }]);
+        const mod = await loadModuleWithMockedParser({parseEventsFromBody});
+        let rejectOldRefresh!: (error: Error) => void;
+        const oldRefresh = new Promise((_resolve, reject) => {
+            rejectOldRefresh = reject;
+        });
+        const get = jest.fn()
+            .mockResolvedValueOnce({items: [{id: 'note-1', title: 'Note', body: 'initial'}], has_more: false})
+            .mockReturnValueOnce(oldRefresh)
+            .mockResolvedValueOnce({items: [{id: 'note-1', title: 'Note', body: 'rebuilt'}], has_more: false});
+        const joplin = mkJoplin(get);
+
+        await mod.ensureAllEventsCache(joplin);
+        const pendingRefresh = mod.refreshNoteCache(joplin, 'note-1');
+        mod.invalidateAllEventsCache();
+        await mod.ensureAllEventsCache(joplin);
+
+        rejectOldRefresh(new Error('obsolete not found'));
+        await pendingRefresh;
+
+        expect((await mod.ensureAllEventsCache(joplin))[0].title).toBe('rebuilt');
+    });
+
+    test('concurrent incremental refreshes converge to the newest request', async () => {
+        const parseEventsFromBody = jest.fn().mockImplementation((_id, _title, body: string) => [{
+            id: 'note-1',
+            title: body,
+            startText: '2025-01-01T00:00:00Z',
+            startUtc: 1,
+        }]);
+        const mod = await loadModuleWithMockedParser({parseEventsFromBody});
+        let resolveFirst!: (value: any) => void;
+        let resolveSecond!: (value: any) => void;
+        const first = new Promise((resolve) => {
+            resolveFirst = resolve;
+        });
+        const second = new Promise((resolve) => {
+            resolveSecond = resolve;
+        });
+        const get = jest.fn()
+            .mockResolvedValueOnce({items: [{id: 'note-1', title: 'Note', body: 'initial'}], has_more: false})
+            .mockReturnValueOnce(first)
+            .mockReturnValueOnce(second);
+        const joplin = mkJoplin(get);
+
+        await mod.ensureAllEventsCache(joplin);
+        const firstRefresh = mod.refreshNoteCache(joplin, 'note-1');
+        const secondRefresh = mod.refreshNoteCache(joplin, 'note-1');
+        resolveFirst({id: 'note-1', title: 'Note', body: 'older response'});
+        await firstRefresh;
+        resolveSecond({id: 'note-1', title: 'Note', body: 'newest response'});
+        await secondRefresh;
+
+        expect((await mod.ensureAllEventsCache(joplin))[0].title).toBe('newest response');
+    });
+
     test('on error: rebuild catches, keeps cache usable, releases rebuild flag, and next ensure retries', async () => {
         // 1) arrange
         const parseEventsFromBody = jest.fn().mockReturnValue([]);
