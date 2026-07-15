@@ -30,13 +30,22 @@ export type AlarmSyncResult = {
     warnings: AlarmSyncWarning[];
 };
 
-export type AlarmSyncWarning = {
+type AlarmLimitWarning = {
     code: 'valarm_limit_exceeded' | 'desired_alarm_limit_exceeded';
     key?: string;
     limit: number;
     discarded?: number;
     message: string;
 };
+
+type AlarmCreationWarning = {
+    code: 'alarm_normalization_failed' | 'alarm_created_without_id';
+    key: string;
+    noteId?: string;
+    message: string;
+};
+
+export type AlarmSyncWarning = AlarmLimitWarning | AlarmCreationWarning;
 
 export type ExistingAlarm = {
     id: string;
@@ -393,16 +402,35 @@ export async function syncAlarmsForEvents(
                     };
 
                     const created = await createNote(joplin, noteBody);
-                    if (created?.id) {
-                        // NOTE: Keeping this as a safety measure in case Joplin doesn't persist todo_due on create reliably.
+                    alarmsCreated++;
+
+                    if (!created?.id) {
+                        issues++;
+                        warnings.push({
+                            code: 'alarm_created_without_id',
+                            key,
+                            message: `Created alarm for ${key}, but Joplin returned no note ID; follow-up normalization was skipped`,
+                        });
+                    } else {
+                        // Keep this as a safety measure in case Joplin does not persist todo_due on create reliably.
                         const patch: AlarmUpdatePatch = {
                             todo_due: alarmTime,
                             todo_completed: 0,
                             is_todo: 1,
                         };
-                        await updateNote(joplin, created.id, patch);
+                        try {
+                            await updateNote(joplin, created.id, patch);
+                        } catch (e) {
+                            issues++;
+                            warnings.push({
+                                code: 'alarm_normalization_failed',
+                                key,
+                                noteId: created.id,
+                                message: `Alarm ${created.id} was created for ${key}, but its Todo fields could not be normalized: ${getErrorText(e)}`,
+                            });
+                            err('alarmService', `ERROR normalizing created alarm ${created.id}: ${key} - ${getErrorText(e)}`);
+                        }
                     }
-                    alarmsCreated++;
                     log('alarmService', `Created alarm: ${todoTitle} due ${new Date(alarmTime).toISOString()}`);
                 } catch (e) {
                     issues++;
