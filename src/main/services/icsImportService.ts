@@ -10,7 +10,7 @@ import {
     extractAllAlarmKeysFromBody,
     replaceEventBlockByKey
 } from '../utils/joplinUtils';
-import {syncAlarmsForEvents, ExistingAlarm} from './alarmService';
+import {syncAlarmsForEvents, ExistingAlarm, AlarmSyncWarning} from './alarmService';
 import {buildMyCalBlock} from './noteBuilder';
 import {Joplin} from '../types/joplin.interface';
 import {createNote, getAllNotesPaged, NoteItem, updateNote} from './joplinNoteService';
@@ -48,7 +48,7 @@ export type InvalidTimezoneWarning = {
     message: string;
 };
 type PreparedImportWarning = DuplicateFeedEventWarning | InvalidTimezoneWarning;
-type ImportWarning = DuplicateOwnershipWarning | PreparedImportWarning;
+type ImportWarning = DuplicateOwnershipWarning | PreparedImportWarning | AlarmSyncWarning;
 type ExistingNoteRow = {
     id: string;
     title?: string;
@@ -571,8 +571,8 @@ export async function importIcsIntoNotes(
         alarmsDeleted: alarmRes.alarmsDeleted,
         alarmsUpdated: alarmRes.alarmsUpdated,
         issues: issues + alarmRes.issues,
-        ...((duplicateOwnershipWarnings.length || preparationWarnings.length)
-            ? {warnings: [...duplicateOwnershipWarnings, ...preparationWarnings]}
+        ...((duplicateOwnershipWarnings.length || preparationWarnings.length || alarmRes.warnings.length)
+            ? {warnings: [...duplicateOwnershipWarnings, ...preparationWarnings, ...alarmRes.warnings]}
             : {}),
     };
 }
