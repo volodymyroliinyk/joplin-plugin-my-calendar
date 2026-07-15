@@ -5,10 +5,14 @@ export type RepeatFrequency = typeof REPEAT_FREQUENCIES[number];
 
 const WEEKDAYS = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'] as const;
 const DAY_MS = 24 * 60 * 60 * 1000;
+export const TIME_ZONE_ALIASES: Readonly<Record<string, string>> = Object.freeze({
+    'Eastern Standard Time': 'America/New_York',
+});
 
 export function normalizeTimeZone(value?: string): string | undefined {
-    const timeZone = String(value || '').trim();
-    if (!timeZone) return undefined;
+    const input = String(value || '').trim();
+    if (!input) return undefined;
+    const timeZone = TIME_ZONE_ALIASES[input] || input;
     try {
         new Intl.DateTimeFormat('en-US', {timeZone}).format(new Date());
         return timeZone;

@@ -592,6 +592,61 @@ describe('icsImportService.importIcsIntoNotes', () => {
         expect(noteBody.body).toContain('end: 2025-01-15 10:00:00');
     });
 
+    test('unsupported TZID skips the event and reports only its UID and timezone', async () => {
+        const ics = [
+            'BEGIN:VCALENDAR',
+            'BEGIN:VEVENT',
+            'UID:u-invalid-timezone',
+            'SUMMARY:Must not become floating',
+            'DESCRIPTION:private details must not appear in warning',
+            'DTSTART;TZID=Mars/Base:20250115T100000',
+            'DTEND;TZID=Mars/Base:20250115T110000',
+            'END:VEVENT',
+            'END:VCALENDAR',
+        ].join('\n');
+        const joplin = mkJoplin({
+            get: jest.fn().mockResolvedValue({items: [], has_more: false}),
+            post: jest.fn(),
+        });
+
+        const result = await importIcsIntoNotes(joplin as any, ics);
+
+        expect(joplin.data.post).not.toHaveBeenCalled();
+        expect(result).toMatchObject({added: 0, updated: 0, issues: 1});
+        expect(result.warnings).toEqual([{
+            code: 'invalid_event_timezone',
+            uid: 'u-invalid-timezone',
+            tzid: 'Mars/Base',
+            inputIndex: 0,
+            message: 'Skipped event u-invalid-timezone: unsupported timezone identifier Mars/Base',
+        }]);
+        expect(JSON.stringify(result.warnings)).not.toContain('private details');
+    });
+
+    test('known Windows timezone alias is stored as its deterministic IANA timezone', async () => {
+        const ics = [
+            'BEGIN:VCALENDAR',
+            'BEGIN:VEVENT',
+            'UID:u-timezone-alias',
+            'SUMMARY:Alias event',
+            'DTSTART;TZID=Eastern Standard Time:20250115T100000',
+            'DTEND;TZID=Eastern Standard Time:20250115T110000',
+            'END:VEVENT',
+            'END:VCALENDAR',
+        ].join('\n');
+        const joplin = mkJoplin({
+            get: jest.fn().mockResolvedValue({items: [], has_more: false}),
+            post: jest.fn().mockResolvedValue({id: 'alias-note'}),
+        });
+
+        const result = await importIcsIntoNotes(joplin as any, ics);
+
+        expect(result.issues).toBe(0);
+        expect(joplin.data.post).toHaveBeenCalledWith(['notes'], null, expect.objectContaining({
+            body: expect.stringContaining('tz: America/New_York'),
+        }));
+    });
+
     test('VALUE=DATE or YYYYMMDD sets all_day: true and normalizes to 00:00:00', async () => {
         const ics = [
             'BEGIN:VCALENDAR',
