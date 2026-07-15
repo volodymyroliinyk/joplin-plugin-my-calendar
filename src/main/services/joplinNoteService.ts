@@ -1,7 +1,5 @@
 // src/main/services/joplinNoteService.ts
 
-import {Joplin} from '../types/joplin.interface';
-
 export interface NoteItem {
     id: string;
     title: string;
@@ -22,11 +20,20 @@ interface PagedResponse<T> {
     has_more?: boolean;
 }
 
+export type JoplinNoteDataClient = {
+    data: {
+        get: (path: string[], query?: unknown) => Promise<unknown>;
+        post: (path: string[], query: unknown, body: unknown) => Promise<unknown>;
+        put: (path: string[], query: unknown, body: unknown) => Promise<unknown>;
+        delete: (path: string[]) => Promise<void>;
+    };
+};
+
 const DEFAULT_PAGE_LIMIT = 100;
 const DEFAULT_MAX_PAGES = 1000;
 
 async function getPagedItems<T>(
-    joplin: Joplin,
+    joplin: JoplinNoteDataClient,
     path: string[],
     fields: string[],
     options: { limit?: number; maxPages?: number } = {},
@@ -50,7 +57,7 @@ async function getPagedItems<T>(
 }
 
 async function getPagedNotes(
-    joplin: Joplin,
+    joplin: JoplinNoteDataClient,
     path: string[],
     fields: string[] = ['id', 'title', 'body', 'parent_id'],
     options: { limit?: number; maxPages?: number } = {}
@@ -59,7 +66,7 @@ async function getPagedNotes(
 }
 
 export async function getAllNotesPaged(
-    joplin: Joplin,
+    joplin: JoplinNoteDataClient,
     fields: string[] = ['id', 'title', 'body', 'parent_id'],
     options: { limit?: number; maxPages?: number } = {}
 ): Promise<NoteItem[]> {
@@ -67,7 +74,7 @@ export async function getAllNotesPaged(
 }
 
 export async function getFolderNotesPaged(
-    joplin: Joplin,
+    joplin: JoplinNoteDataClient,
     folderId: string,
     fields: string[] = ['id', 'title', 'body', 'parent_id'],
     options: { limit?: number; maxPages?: number } = {}
@@ -75,26 +82,26 @@ export async function getFolderNotesPaged(
     return getPagedNotes(joplin, ['folders', folderId, 'notes'], fields, options);
 }
 
-export async function createNote(joplin: Joplin, note: Partial<NoteItem>): Promise<NoteItem> {
-    return joplin.data.post(['notes'], null, note);
+export async function createNote(joplin: JoplinNoteDataClient, note: Partial<NoteItem>): Promise<NoteItem> {
+    return await joplin.data.post(['notes'], null, note) as NoteItem;
 }
 
 export async function getAllTagsPaged(
-    joplin: Joplin,
+    joplin: JoplinNoteDataClient,
     fields: string[] = ['id', 'title'],
     options: { limit?: number; maxPages?: number } = {}
 ): Promise<TagItem[]> {
     return getPagedItems<TagItem>(joplin, ['tags'], fields, options);
 }
 
-export async function attachTagToNote(joplin: Joplin, tagId: string, noteId: string): Promise<void> {
+export async function attachTagToNote(joplin: JoplinNoteDataClient, tagId: string, noteId: string): Promise<void> {
     await joplin.data.post(['tags', tagId, 'notes'], null, {id: noteId});
 }
 
-export async function updateNote(joplin: Joplin, id: string, patch: Partial<NoteItem>): Promise<void> {
+export async function updateNote(joplin: JoplinNoteDataClient, id: string, patch: Partial<NoteItem>): Promise<void> {
     await joplin.data.put(['notes', id], null, patch);
 }
 
-export async function deleteNote(joplin: Joplin, id: string): Promise<void> {
+export async function deleteNote(joplin: JoplinNoteDataClient, id: string): Promise<void> {
     await joplin.data.delete(['notes', id]);
 }

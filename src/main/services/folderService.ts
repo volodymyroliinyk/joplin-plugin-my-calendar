@@ -1,7 +1,5 @@
 // src/main/services/folderService.ts
 
-import {Joplin} from '../types/joplin.interface';
-
 export type FolderRow = { id: string; title: string; parent_id?: string | null };
 type FolderNode = { id: string; title: string; parent_id: string | null; children: FolderNode[] };
 export type FolderOption = { id: string; title: string; parent_id: string | null; depth: number };
@@ -9,7 +7,18 @@ export type FolderPathOption = FolderOption & { pathTitle: string };
 
 const FOLDERS_PAGE_LIMIT = 100;
 
-export async function getAllFolders(joplin: Joplin): Promise<FolderRow[]> {
+type FolderDataClient = {
+    data: {
+        get: (path: string[], query?: unknown) => Promise<unknown>;
+    };
+};
+
+type FolderPage = {
+    items?: FolderRow[];
+    has_more?: boolean;
+};
+
+export async function getAllFolders(joplin: FolderDataClient): Promise<FolderRow[]> {
     const out: FolderRow[] = [];
     let page = 1;
 
@@ -18,12 +27,12 @@ export async function getAllFolders(joplin: Joplin): Promise<FolderRow[]> {
             page,
             limit: FOLDERS_PAGE_LIMIT,
             fields: ['id', 'title', 'parent_id'],
-        });
+        }) as FolderPage;
 
-        const items = (res?.items ?? []) as FolderRow[];
+        const items = res.items ?? [];
         if (items.length) out.push(...items);
 
-        if (!res?.has_more) break;
+        if (!res.has_more) break;
         page += 1;
     }
 

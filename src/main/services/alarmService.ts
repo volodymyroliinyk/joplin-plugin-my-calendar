@@ -21,6 +21,7 @@ import {err, log} from '../utils/logger';
 import {getErrorText} from '../utils/errorUtils';
 import {createSafeTextReporter} from '../utils/statusNotifier';
 import {normalizeIcsEvent} from './calendarEventNormalizer';
+import {runWithConcurrency} from '../utils/asyncUtils';
 
 export type AlarmSyncResult = {
     alarmsCreated: number;
@@ -168,25 +169,6 @@ function buildAlarmTodoTitle(alarmEmoji: string, eventTitle: string, eventTime: 
     return prefix
         ? `${prefix} ${eventTitle} - ${formatAlarmTitleTime(eventTime)} (${triggerDesc})`
         : `${eventTitle} - ${formatAlarmTitleTime(eventTime)} (${triggerDesc})`;
-}
-
-async function runWithConcurrency(
-    tasks: Array<() => Promise<void>>,
-    concurrency: number,
-): Promise<void> {
-    const limit = Math.max(1, Math.trunc(concurrency) || 1);
-    let nextIndex = 0;
-
-    const consume = async (): Promise<void> => {
-        while (true) {
-            const currentIndex = nextIndex++;
-            if (currentIndex >= tasks.length) return;
-            await tasks[currentIndex]();
-        }
-    };
-
-    const workers = Array.from({length: Math.min(limit, tasks.length)}, () => consume());
-    await Promise.all(workers);
 }
 
 export async function syncAlarmsForEvents(
@@ -440,7 +422,7 @@ export async function syncAlarmsForEvents(
         }
     }
 
-    await runWithConcurrency(pendingOps, ALARM_OPS_CONCURRENCY);
+    await runWithConcurrency(pendingOps, ALARM_OPS_CONCURRENCY, async (operation) => operation());
 
     if (alarmsDeleted || alarmsCreated || alarmsUpdated) {
         await say(`Alarms sync summary: deleted ${alarmsDeleted}, created ${alarmsCreated}, updated ${alarmsUpdated} (next ${alarmRangeDays} days)`);

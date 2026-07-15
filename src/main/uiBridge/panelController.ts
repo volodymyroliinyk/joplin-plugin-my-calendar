@@ -263,7 +263,7 @@ async function handleCalendarEventCreateMessage(
     }
 }
 
-function handleUiLog(msg: Extract<PanelMsg, { name: 'uiLog' }>) {
+function handleUiLog(msg: Extract<PanelMsg, { name: 'uiLog' }>): void {
     const source = msg.source ? `[UI:${msg.source}]` : '[UI]';
     const level = msg.level || 'log';
     const args = Array.isArray(msg.args) ? msg.args : [];
