@@ -269,19 +269,19 @@ describe('panelController', () => {
         expect(helpers.expandAllInRange).not.toHaveBeenCalled();
         expect(postMessage).not.toHaveBeenCalled();
     });
-    test('dateClick -> expands day range and filters by startUtc inside [dayStart..dayEnd]', async () => {
+    test('dateClick -> expands and filters the half-open day range [dayStart..dayEnd)', async () => {
         const {handler, postMessage, helpers} = await setup();
 
         const dayStart = Date.UTC(2025, 0, 10, 0, 0, 0, 0);
-        const dayEnd = dayStart + 24 * 60 * 60 * 1000 - 1;
+        const dayEnd = dayStart + 24 * 60 * 60 * 1000;
 
         (ensureAllEventsCache as jest.Mock).mockResolvedValue([{any: 'all'}]);
 
         helpers.expandAllInRange.mockReturnValue([
             {id: 'in1', startUtc: dayStart},
-            {id: 'in2', startUtc: dayEnd},
+            {id: 'in2', startUtc: dayEnd - 1},
             {id: 'out1', startUtc: dayStart - 1},
-            {id: 'out2', startUtc: dayEnd + 1},
+            {id: 'out2', startUtc: dayEnd},
         ]);
 
         await handler({name: 'dateClick', dateUtc: dayStart});
@@ -293,7 +293,7 @@ describe('panelController', () => {
             dateUtc: dayStart,
             events: [
                 {id: 'in1', startUtc: dayStart},
-                {id: 'in2', startUtc: dayEnd},
+                {id: 'in2', startUtc: dayEnd - 1},
             ],
         });
     });
