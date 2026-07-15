@@ -1261,6 +1261,97 @@ describe('icsImportService.importIcsIntoNotes', () => {
         expect(finalBody).toContain('start: 2025-01-15 15:00:00+00:00');
     });
 
+    test('a failed same-note update is not published into a later successful event patch', async () => {
+        const ics = [
+            'BEGIN:VCALENDAR',
+            'BEGIN:VEVENT',
+            'UID:u1',
+            'SUMMARY:Updated Event 1',
+            'DTSTART:20250115T110000Z',
+            'END:VEVENT',
+            'BEGIN:VEVENT',
+            'UID:u2',
+            'SUMMARY:Updated Event 2',
+            'DTSTART:20250115T150000Z',
+            'END:VEVENT',
+            'END:VCALENDAR',
+        ].join('\n');
+        const existingBody = [
+            block(['title: Old Event 1', 'start: 2025-01-15 10:00:00+00:00', '', 'uid: u1'].join('\n')),
+            block(['title: Old Event 2', 'start: 2025-01-15 14:00:00+00:00', '', 'uid: u2'].join('\n')),
+        ].join('\n\n');
+        const put = jest.fn()
+            .mockRejectedValueOnce(new Error('first update failed'))
+            .mockResolvedValueOnce({});
+        const joplin = mkJoplin({
+            get: jest.fn().mockResolvedValue({
+                items: [{id: 'shared-note', title: 'Shared', body: existingBody}],
+                has_more: false,
+            }),
+            put,
+        });
+
+        const result = await importIcsIntoNotes(joplin as any, ics);
+
+        expect(result.updated).toBe(1);
+        expect(result.errors).toBe(1);
+        expect(result.issues).toBe(1);
+        expect(put).toHaveBeenCalledTimes(2);
+        const persistedBody = put.mock.calls[1][2].body as string;
+        expect(persistedBody).toContain('title: Old Event 1');
+        expect(persistedBody).toContain('start: 2025-01-15 10:00:00+00:00');
+        expect(persistedBody).toContain('title: Updated Event 2');
+        expect(persistedBody).toContain('start: 2025-01-15 15:00:00+00:00');
+    });
+
+    test('a failed cancelled-exception update is not leaked into a later same-note patch', async () => {
+        const ics = [
+            'BEGIN:VCALENDAR',
+            'BEGIN:VEVENT',
+            'UID:u1',
+            'RECURRENCE-ID:20250116T100000Z',
+            'DTSTART:20250116T100000Z',
+            'STATUS:CANCELLED',
+            'END:VEVENT',
+            'BEGIN:VEVENT',
+            'UID:u2',
+            'SUMMARY:Updated Event 2',
+            'DTSTART:20250115T150000Z',
+            'END:VEVENT',
+            'END:VCALENDAR',
+        ].join('\n');
+        const existingBody = [
+            block([
+                'title: Recurring Event',
+                'start: 2025-01-15 10:00:00+00:00',
+                'repeat: daily',
+                '',
+                'uid: u1',
+            ].join('\n')),
+            block(['title: Old Event 2', 'start: 2025-01-15 14:00:00+00:00', '', 'uid: u2'].join('\n')),
+        ].join('\n\n');
+        const put = jest.fn()
+            .mockRejectedValueOnce(new Error('exception update failed'))
+            .mockResolvedValueOnce({});
+        const joplin = mkJoplin({
+            get: jest.fn().mockResolvedValue({
+                items: [{id: 'shared-note', title: 'Shared', body: existingBody}],
+                has_more: false,
+            }),
+            put,
+        });
+
+        const result = await importIcsIntoNotes(joplin as any, ics);
+
+        expect(result.updated).toBe(1);
+        expect(result.errors).toBe(1);
+        expect(result.issues).toBe(1);
+        expect(put).toHaveBeenCalledTimes(2);
+        const persistedBody = put.mock.calls[1][2].body as string;
+        expect(persistedBody).not.toContain('exdate:');
+        expect(persistedBody).toContain('title: Updated Event 2');
+    });
+
     test('defaultColor is applied only when event has no color after preserveLocalColor step', async () => {
         const ics = [
             'BEGIN:VCALENDAR',
