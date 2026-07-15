@@ -13,12 +13,11 @@ import {buildAlarmBody} from './noteBuilder';
 import {makeEventKey} from '../utils/joplinUtils';
 import {
     getIcsImportAlarmEmoji,
-    getIcsImportAlarmRangeDays,
-    getIcsImportEmptyTrashAfter
+    getIcsImportAlarmRangeDays
 } from '../settings/settings';
 import {Joplin} from '../types/joplin.interface';
 import {createNote, deleteNote, NoteItem, updateNote} from './joplinNoteService';
-import {err, log, warn} from '../utils/logger';
+import {err, log} from '../utils/logger';
 import {getErrorText} from '../utils/errorUtils';
 import {createSafeTextReporter} from '../utils/statusNotifier';
 import {normalizeIcsEvent} from './calendarEventNormalizer';
@@ -65,10 +64,6 @@ export type AlarmSyncOptions = {
      * Overrides settings.getIcsImportAlarmRangeDays().
      */
     alarmRangeDays?: number;
-    /**
-     * Overrides settings.getIcsImportEmptyTrashAfter().
-     */
-    emptyTrashAfter?: boolean;
     /**
      * If false, no new alarms will be created, and existing ones will be deleted.
      * Defaults to true.
@@ -210,7 +205,6 @@ export async function syncAlarmsForEvents(
     const alarmRangeDays = isNonNegativeFiniteNumber(resolvedOptions.alarmRangeDays) ? Math.trunc(resolvedOptions.alarmRangeDays) : await getIcsImportAlarmRangeDays(joplin);
 
 
-    const emptyTrashAfter = typeof resolvedOptions.emptyTrashAfter === 'boolean' ? resolvedOptions.emptyTrashAfter : await getIcsImportEmptyTrashAfter(joplin);
     const alarmEmoji = typeof resolvedOptions.alarmEmoji === 'string' ? resolvedOptions.alarmEmoji.trim() : await getIcsImportAlarmEmoji(joplin);
 
     const alarmsEnabled = resolvedOptions.alarmsEnabled !== false; // Default true
@@ -419,16 +413,6 @@ export async function syncAlarmsForEvents(
     }
 
     await runWithConcurrency(pendingOps, ALARM_OPS_CONCURRENCY);
-
-    if (alarmsDeleted > 0 && emptyTrashAfter) {
-        try {
-            await joplin.commands.execute('emptyTrash');
-            await say('Trash emptied.');
-        } catch (e) {
-            issues++;
-            warn('alarmService', `Failed to empty trash: ${getErrorText(e)}`);
-        }
-    }
 
     if (alarmsDeleted || alarmsCreated || alarmsUpdated) {
         await say(`Alarms sync summary: deleted ${alarmsDeleted}, created ${alarmsCreated}, updated ${alarmsUpdated} (next ${alarmRangeDays} days)`);

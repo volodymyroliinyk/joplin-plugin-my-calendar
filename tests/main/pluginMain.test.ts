@@ -27,7 +27,6 @@ jest.mock('../../src/main/settings/settings', () => ({
         'mycalendar.icsScheduledImportIntervalMinutes',
         'mycalendar.icsImportAlarmsEnabled',
         'mycalendar.icsImportAlarmRangeDays',
-        'mycalendar.icsImportEmptyTrashAfter',
     ],
     SETTING_PANEL_VISIBLE: 'mycalendar.panelVisible',
     registerSettings: jest.fn(),

@@ -7,7 +7,6 @@ jest.mock('../../src/main/settings/settings', () => {
         ...original,
         getIcsImportAlarmsEnabled: jest.fn(),
         getIcsImportAlarmRangeDays: jest.fn(),
-        getIcsImportEmptyTrashAfter: jest.fn(),
     };
 });
 
@@ -30,7 +29,6 @@ describe('Alarm Deletion Safety', () => {
     beforeEach(() => {
         (settings.getIcsImportAlarmsEnabled as jest.Mock).mockResolvedValue(true);
         (settings.getIcsImportAlarmRangeDays as jest.Mock).mockResolvedValue(30);
-        (settings.getIcsImportEmptyTrashAfter as jest.Mock).mockResolvedValue(false);
     });
 
     test('should NOT delete unrelated notes or alarms of other events during sync', async () => {
