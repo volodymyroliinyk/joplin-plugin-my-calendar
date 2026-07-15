@@ -97,6 +97,9 @@ type ImportResultLike = {
         duplicateNoteId?: string;
         keptInputIndex?: number;
         discardedInputIndex?: number;
+        uid?: string;
+        tzid?: string;
+        inputIndex?: number;
     }>;
 };
 

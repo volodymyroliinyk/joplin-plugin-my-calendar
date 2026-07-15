@@ -15,6 +15,7 @@ import {
 describe('calendarEventNormalizer', () => {
     test('normalizes timezone, repeat, interval, weekday, and month-day rules', () => {
         expect(normalizeTimeZone(' America/Toronto ')).toBe('America/Toronto');
+        expect(normalizeTimeZone('Eastern Standard Time')).toBe('America/New_York');
         expect(normalizeTimeZone('Mars/Base')).toBeUndefined();
         expect(normalizeRepeatFrequency(' WEEKLY ')).toBe('weekly');
         expect(normalizeRepeatFrequency('sometimes')).toBe('none');

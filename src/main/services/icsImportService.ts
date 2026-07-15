@@ -18,7 +18,7 @@ import {getIcsImportAlarmsEnabled} from '../settings/settings';
 import {getErrorText} from '../utils/errorUtils';
 import {createSafeTextReporter} from '../utils/statusNotifier';
 import {dbg, err, warn} from '../utils/logger';
-import {normalizeIcsEvent, normalizeRecurrenceExceptionDate} from './calendarEventNormalizer';
+import {normalizeIcsEvent, normalizeRecurrenceExceptionDate, normalizeTimeZone} from './calendarEventNormalizer';
 
 type ExistingEventNote = { id: string; title: string; body: string; parent_id?: string };
 type ExistingEventNoteMap = Record<string, ExistingEventNote>;
@@ -40,7 +40,15 @@ export type DuplicateFeedEventWarning = {
     discardedInputIndex: number;
     message: string;
 };
-type ImportWarning = DuplicateOwnershipWarning | DuplicateFeedEventWarning;
+export type InvalidTimezoneWarning = {
+    code: 'invalid_event_timezone';
+    uid: string;
+    tzid: string;
+    inputIndex: number;
+    message: string;
+};
+type PreparedImportWarning = DuplicateFeedEventWarning | InvalidTimezoneWarning;
+type ImportWarning = DuplicateOwnershipWarning | PreparedImportWarning;
 type ExistingNoteRow = {
     id: string;
     title?: string;
@@ -94,7 +102,7 @@ type PreparedImportEvents = {
     events: IcsEvent[];
     cancelledExceptions: CancelledRecurrenceException[];
     masterUidsInImport: Set<string>;
-    warnings: DuplicateFeedEventWarning[];
+    warnings: PreparedImportWarning[];
 };
 
 const CREATE_NOTES_CONCURRENCY = 6;
@@ -121,12 +129,28 @@ function compareFeedRevisions(candidate: IcsEvent, current: IcsEvent): number {
 }
 
 function prepareImportedEvents(eventsRaw: IcsEvent[]): PreparedImportEvents {
-    const normalized = eventsRaw.map(normalizeIcsEvent);
+    const warnings: PreparedImportWarning[] = [];
+    const normalized: Array<{ event: IcsEvent; inputIndex: number }> = [];
+    eventsRaw.forEach((input, inputIndex) => {
+        const rawTimezone = String(input.tz || '').trim();
+        const timezone = normalizeTimeZone(rawTimezone);
+        if (rawTimezone && !timezone) {
+            const uid = String(input.uid || '').trim() || '(missing UID)';
+            warnings.push({
+                code: 'invalid_event_timezone',
+                uid,
+                tzid: rawTimezone,
+                inputIndex,
+                message: `Skipped event ${uid}: unsupported timezone identifier ${rawTimezone}`,
+            });
+            return;
+        }
+        normalized.push({event: normalizeIcsEvent({...input, tz: timezone}), inputIndex});
+    });
     const winnersByKey = new Map<string, { event: IcsEvent; inputIndex: number }>();
     const unkeyed: IcsEvent[] = [];
-    const warnings: DuplicateFeedEventWarning[] = [];
 
-    normalized.forEach((event, inputIndex) => {
+    normalized.forEach(({event, inputIndex}) => {
         const uid = String(event.uid || '').trim();
         if (!uid) {
             unkeyed.push(event);
@@ -364,7 +388,7 @@ export async function importIcsIntoNotes(
         events,
         cancelledExceptions,
         masterUidsInImport,
-        warnings: duplicateFeedWarnings
+        warnings: preparationWarnings
     } = prepareImportedEvents(eventsRaw);
     await say(`Parsed ${events.length} VEVENT(s)`);
 
@@ -379,7 +403,7 @@ export async function importIcsIntoNotes(
         duplicateOwnershipWarnings,
     } = indexExistingNotes(allNotes);
 
-    let issues = duplicateFeedWarnings.length;
+    let issues = preparationWarnings.length;
 
     for (const warning of duplicateOwnershipWarnings) {
         issues++;
@@ -547,8 +571,8 @@ export async function importIcsIntoNotes(
         alarmsDeleted: alarmRes.alarmsDeleted,
         alarmsUpdated: alarmRes.alarmsUpdated,
         issues: issues + alarmRes.issues,
-        ...((duplicateOwnershipWarnings.length || duplicateFeedWarnings.length)
-            ? {warnings: [...duplicateOwnershipWarnings, ...duplicateFeedWarnings]}
+        ...((duplicateOwnershipWarnings.length || preparationWarnings.length)
+            ? {warnings: [...duplicateOwnershipWarnings, ...preparationWarnings]}
             : {}),
     };
 }
