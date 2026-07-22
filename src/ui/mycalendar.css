@@ -9,34 +9,40 @@ body {
 
 /* TODO:[1]: parent --scrollbar-size is invisible inside of iframe, and size is 7px always. How to solve that? */
 body::-webkit-scrollbar,
-select::-webkit-scrollbar {
+select::-webkit-scrollbar,
+.mc-event-tags-options::-webkit-scrollbar {
     width: var(--scrollbar-size, 7px);
     height: var(--scrollbar-size, 7px);
 }
 
 body::-webkit-scrollbar-corner,
-select::-webkit-scrollbar-corner {
+select::-webkit-scrollbar-corner,
+.mc-event-tags-options::-webkit-scrollbar-corner {
     background: none;
 }
 
 body::-webkit-scrollbar-track,
-select::-webkit-scrollbar-track {
+select::-webkit-scrollbar-track,
+.mc-event-tags-options::-webkit-scrollbar-track {
     border: none;
 }
 
 body::-webkit-scrollbar-thumb,
-select::-webkit-scrollbar-thumb {
+select::-webkit-scrollbar-thumb,
+.mc-event-tags-options::-webkit-scrollbar-thumb {
     background: var(--scrollbar-thumb-color);
     border-radius: calc(var(--scrollbar-size, 7px) * 0.7);
 }
 
 body::-webkit-scrollbar-track:hover,
-select::-webkit-scrollbar-track:hover {
+select::-webkit-scrollbar-track:hover,
+.mc-event-tags-options::-webkit-scrollbar-track:hover {
     background: rgba(0, 0, 0, 0.1);
 }
 
-body::-webkit-scrollbar-thumb:hover,
-select::-webkit-scrollbar-thumb:hover {
+body::-webkit-y-thumb:hover,
+select::-webkit-scrollbar-thumb:hover,
+.mc-event-tags-options::-webkit-scrollbar-thumb:hover {
     background: var(--scrollbar-thumb-color-hover);
 }
 
@@ -835,6 +841,17 @@ select::-webkit-scrollbar-thumb:hover {
     padding: 0;
 }
 
+#mc-ics-import-form input,
+#mc-ics-import-form select,
+#mc-ics-import-form button {
+    height: 26px;
+}
+
+#mc-ics-import-form select > option {
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
 #mc-event-create,
 #mc-event-form-root {
     --mc-event-font-size: var(--joplin-font-size, 13px);
@@ -860,6 +877,23 @@ select::-webkit-scrollbar-thumb:hover {
     font-family: inherit;
     font-size: 12px;
     line-height: 1.4;
+}
+
+#mc-event-create-form button,
+#mc-event-create-form input,
+#mc-event-create-form select {
+    height: 26px;
+}
+
+#mc-event-create-form button,
+#mc-event-create-form input:not([type="checkbox"]):not([type="color"]),
+#mc-event-create-form select,
+#mc-event-create-form textarea {
+    padding: 4px 6px;
+}
+
+.mc-event-tag-badge > .mc-event-tag-remove {
+    height: 24px !important;
 }
 
 .mc-event-grid-2 {
@@ -910,7 +944,7 @@ select::-webkit-scrollbar-thumb:hover {
     background-color: var(--joplin-background-color);
     border: 1px solid var(--joplin-border-color4);
     border-radius: 3px;
-    padding: 4px 6px;
+    /*padding: 4px 6px;*/
 }
 
 .mc-event-section {
@@ -919,6 +953,11 @@ select::-webkit-scrollbar-thumb:hover {
     padding: 6px;
     border: 0;
     border-bottom: 1px solid var(--joplin-divider-color);
+    margin-bottom: 8px;
+}
+
+.mc-event-section:last-child {
+    margin-bottom: 0 !important;
 }
 
 .mc-event-section-title {
@@ -937,6 +976,18 @@ select::-webkit-scrollbar-thumb:hover {
     margin-bottom: 8px;
 }
 
+.mc-event-title-row {
+    align-items: flex-end;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.mc-event-location-n-color-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: flex-end !important;
+    gap: 8px;
+    margin-bottom: 8px;
+}
 .mc-event-notebook-field {
     flex: 1;
 }
@@ -993,8 +1044,7 @@ select::-webkit-scrollbar-thumb:hover {
     align-items: center;
     justify-content: space-between;
     width: 100%;
-    min-height: 36px;
-    padding: 6px 10px;
+    padding: 4px 6px;
     color: var(--joplin-color);
     font: inherit;
     text-align: left;
@@ -1020,6 +1070,10 @@ select::-webkit-scrollbar-thumb:hover {
     opacity: 0.65;
 }
 
+.mc-event-tags-placeholder {
+    /*padding-left: 2px;*/
+}
+
 .mc-event-tags-chevron {
     margin-left: 8px;
     transition: transform 120ms ease;
@@ -1041,11 +1095,11 @@ select::-webkit-scrollbar-thumb:hover {
 }
 
 .mc-event-tag-badge {
-    display: inline-flex;
+    /*display: inline-flex;*/
     align-items: center;
     gap: 3px;
     max-width: 100%;
-    padding: 3px 4px 3px 8px;
+    padding: 0 6px;
     font-size: 12px;
     font-weight: normal;
     background: color-mix(in srgb, var(--joplin-color) 13%, var(--joplin-background-color));
@@ -1058,6 +1112,7 @@ select::-webkit-scrollbar-thumb:hover {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
 
 .mc-event-tag-remove {
     width: 20px;
@@ -1094,7 +1149,7 @@ select::-webkit-scrollbar-thumb:hover {
 .mc-event-tags-search {
     box-sizing: border-box;
     width: 100%;
-    padding: 7px 9px;
+    padding: 4px 6px;
     color: var(--joplin-color);
     font: inherit;
     background: var(--joplin-background-color);
@@ -1117,7 +1172,7 @@ select::-webkit-scrollbar-thumb:hover {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 7px 8px;
+    padding: 0;
     font-weight: 400;
     border-radius: 4px;
     cursor: pointer;
@@ -1133,7 +1188,6 @@ select::-webkit-scrollbar-thumb:hover {
 
 .mc-event-tags-empty,
 .mc-event-tags-limit {
-    padding: 10px 8px;
     color: color-mix(in srgb, var(--joplin-color) 65%, transparent);
     font-size: 12px;
     font-weight: normal;
@@ -1179,13 +1233,19 @@ select::-webkit-scrollbar-thumb:hover {
 }
 
 .mc-event-weekday {
+    box-sizing: border-box;
     display: inline-flex;
     align-items: center;
+    height: 26px;
     gap: 4px;
     padding: 3px 6px;
     font-size: 1em;
     border: 1px solid var(--joplin-divider-color);
     border-radius: 4px;
+}
+
+#mc-event-create-form .mc-event-weekday input {
+    height: auto;
 }
 
 .mc-event-form-status {
@@ -1220,6 +1280,21 @@ select::-webkit-scrollbar-thumb:hover {
 
 .mc-event-submit {
     font-weight: 600;
+}
+
+#mc-event-create-form input[type="date"]::-webkit-datetime-edit {
+    padding: 0;
+    margin-left: -1px;
+}
+
+#mc-event-create-form select {
+    padding-left: 2px;
+}
+
+#mc-event-create-form .mc-event-tags-search {
+    width: calc(100% + 14px);
+    margin-right: -7px;
+    margin-left: -7px;
 }
 
 .mc-hidden {
@@ -1311,7 +1386,7 @@ select::-webkit-scrollbar-thumb:hover {
     .mc-grid-head-cell {
         font-size: 11px;
         font-weight: Bold;
-        padding: 6px 4px;
+        padding: 4px 6px;
 
         /* Avoid "M..." / "W..." on mobile when it mostly fits */
         text-overflow: clip;
@@ -1347,23 +1422,35 @@ select::-webkit-scrollbar-thumb:hover {
         flex-direction: column;
     }
 
+    .mc-event-title-row {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
     .mc-event-actions {
         justify-content: stretch;
     }
 
     .mc-event-actions .mc-setting-btn {
         flex: 1;
-        min-height: 44px;
+        min-height: 26px;
     }
 
     #mc-event-create-form input,
     #mc-event-create-form select,
     #mc-event-create-form button {
-        min-height: 44px;
+        min-height: 26px;
     }
 
     .mc-event-weekday {
-        min-height: 44px;
+        min-height: 26px;
         box-sizing: border-box;
     }
+
+    #mc-event-create-form button,
+    #mc-event-create-form input,
+    #mc-event-create-form select {
+        /*height: auto;*/
+    }
+
 }

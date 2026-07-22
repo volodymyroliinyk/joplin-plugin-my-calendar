@@ -1011,10 +1011,14 @@
             'aria-label': 'Repeat on weekdays'
         }, [weekdaysRow, weekdaysError]));
 
+        const titleRow = el('div', {class: 'mc-event-title-row'}, [
+            createField('Title', titleInput, 'mc-event-field-full', true),
+        ]);
+
         const detailsSection = createSection('Event details', [
             folderRow,
-            createField('Title', titleInput, 'mc-event-field-full', true),
-            el('div', {class: 'mc-event-grid-2'}, [
+            titleRow,
+            el('div', {class: 'mc-event-grid-2 mc-event-location-n-color-row'}, [
                 createField('Location', locationInput),
                 createField('Color', colorInput),
             ]),
