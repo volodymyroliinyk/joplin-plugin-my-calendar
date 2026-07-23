@@ -892,10 +892,6 @@ select::-webkit-scrollbar-thumb:hover,
     padding: 4px 6px;
 }
 
-.mc-event-tag-badge > .mc-event-tag-remove {
-    height: 24px !important;
-}
-
 .mc-event-grid-2 {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1040,6 +1036,7 @@ select::-webkit-scrollbar-thumb:hover,
 }
 
 .mc-event-tags-toggle {
+    box-sizing: border-box;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -1095,13 +1092,16 @@ select::-webkit-scrollbar-thumb:hover,
 }
 
 .mc-event-tag-badge {
-    /*display: inline-flex;*/
+    box-sizing: border-box;
+    display: inline-flex;
     align-items: center;
     gap: 3px;
+    height: 26px;
     max-width: 100%;
     padding: 0 6px;
     font-size: 12px;
     font-weight: normal;
+    line-height: normal;
     background: color-mix(in srgb, var(--joplin-color) 13%, var(--joplin-background-color));
     border: 1px solid color-mix(in srgb, var(--joplin-color) 22%, transparent);
     border-radius: 3px;
@@ -1115,12 +1115,17 @@ select::-webkit-scrollbar-thumb:hover,
 
 
 .mc-event-tag-remove {
-    width: 20px;
-    height: 20px;
+    box-sizing: border-box;
+    display: inline-flex;
+    flex: 0 0 14px;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 100%;
     padding: 0;
     color: inherit;
     font: inherit;
-    line-height: 18px;
+    line-height: 1;
     background: transparent;
     border: 0;
     border-radius: 50%;
@@ -1422,6 +1427,10 @@ select::-webkit-scrollbar-thumb:hover,
         flex-direction: column;
     }
 
+    .mc-event-notebook-field .mc-setting-select-control {
+        flex: 0 0 auto;
+    }
+
     .mc-event-title-row {
         align-items: stretch;
         flex-direction: column;
@@ -1436,10 +1445,43 @@ select::-webkit-scrollbar-thumb:hover,
         min-height: 26px;
     }
 
-    #mc-event-create-form input,
+    #mc-event-create-form input:not([type="checkbox"]):not([type="color"]),
     #mc-event-create-form select,
-    #mc-event-create-form button {
-        min-height: 26px;
+    #mc-event-create-form button:not(.mc-event-tag-remove) {
+        box-sizing: border-box;
+        height: 30px;
+        min-height: 30px;
+        line-height: normal;
+    }
+
+    #mc-event-create-form .mc-setting-btn {
+        max-height: 30px;
+    }
+
+    #mc-event-create-form input[type="date"] {
+        padding-left: 2px;
+    }
+
+    #mc-event-create-form input[type="date"]::-webkit-datetime-edit {
+        margin-left: -4px;
+    }
+
+    #mc-event-create-form input[type="date"]::-webkit-date-and-time-value {
+        margin-left: 0;
+        text-align: left;
+    }
+
+    #mc-event-create-form select {
+        padding-top: 4px;
+        padding-bottom: 4px;
+    }
+
+    #mc-event-create-form .mc-event-tag-badge {
+        box-sizing: border-box;
+        display: inline-flex;
+        align-items: center;
+        height: 30px;
+        line-height: normal;
     }
 
     .mc-event-weekday {
