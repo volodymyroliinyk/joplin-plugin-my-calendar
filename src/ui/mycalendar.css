@@ -678,13 +678,17 @@ select::-webkit-scrollbar-thumb:hover,
 }
 
 /* Container to be scrolled */
-#mc-import-body,
 #mc-event-create-body {
     margin: 0;
     /*max-height: 260px;*/
     /* choose the height that suits you */
     padding: 8px 6px;
     /* so that the scroll does not "stick" to the content */
+}
+
+#mc-import-body {
+    margin: 0;
+    padding: 8px 6px;
 }
 
 /* Very important for <input type="file"> in flex-line: otherwise it can inflate the width */
@@ -783,6 +787,13 @@ select::-webkit-scrollbar-thumb:hover,
 }
 
 /* --- ICS Import Styles --- */
+#mc-import,
+#mc-ics-import-form {
+    font-family: var(--joplin-font-family, sans-serif);
+    font-size: 12px;
+    line-height: 1.4;
+}
+
 #mc-imp-log {
     margin-top: 8px;
     padding: 6px;
@@ -794,27 +805,41 @@ select::-webkit-scrollbar-thumb:hover,
 
 .mc-import-section-header {
     font-weight: 600;
-    margin-top: 10px;
+    margin-top: 8px;
     margin-bottom: 6px;
+    padding: 0 6px;
 }
 
 .mc-import-row {
-    display: flex;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: 88px minmax(0, 1fr) auto;
+    gap: 6px;
     align-items: center;
     margin: 8px 0;
+    padding: 0 6px;
+}
+
+#mc-ics-import-form > .mc-grid-loader + .mc-import-row {
+    margin-top: 0;
 }
 
 .mc-import-row-label {
     font-weight: bold;
     font-size: 12px;
+    white-space: nowrap;
 }
 
 .mc-import-options {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    margin: 8px 0;
+    gap: 4px;
+    margin: 10px 0 0;
+    padding: 6px;
+    border-top: 1px solid var(--joplin-divider-color);
+}
+
+.mc-import-options > .mc-import-section-header {
+    margin: 0 0 4px;
 }
 
 .mc-import-option-label {
@@ -828,7 +853,6 @@ select::-webkit-scrollbar-thumb:hover,
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-left: 24px;
 }
 
 .mc-import-color-picker-label {
@@ -844,7 +868,21 @@ select::-webkit-scrollbar-thumb:hover,
 #mc-ics-import-form input,
 #mc-ics-import-form select,
 #mc-ics-import-form button {
+    box-sizing: border-box;
+    min-width: 0;
     height: 26px;
+    font-family: inherit;
+    font-size: inherit;
+}
+
+#mc-ics-import-form input[type="file"] {
+    width: 100%;
+}
+
+#mc-ics-import-form input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    margin: 0;
 }
 
 #mc-ics-import-form select > option {
@@ -1308,6 +1346,7 @@ select::-webkit-scrollbar-thumb:hover,
 
 #mc-ics-export-link {
     margin-top: 10px;
+    padding: 0 6px;
 }
 
 .mc-export-link-row {
