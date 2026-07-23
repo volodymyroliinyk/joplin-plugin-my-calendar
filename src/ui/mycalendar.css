@@ -691,12 +691,6 @@ select::-webkit-scrollbar-thumb:hover,
     padding: 8px 6px;
 }
 
-/* Very important for <input type="file"> in flex-line: otherwise it can inflate the width */
-#mc-import-body input[type="file"] {
-    max-width: 100%;
-    min-width: 0;
-}
-
 .mc-setting-select-control {
     display: inline-block;
     color: var(--joplin-color);
@@ -875,8 +869,37 @@ select::-webkit-scrollbar-thumb:hover,
     font-size: inherit;
 }
 
-#mc-ics-import-form input[type="file"] {
-    width: 100%;
+.mc-import-file-control {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+#mc-ics-import-form .mc-import-file-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.mc-import-file-picker-btn {
+    flex: 0 0 auto;
+    min-width: 70px;
+    padding: 0 10px;
+}
+
+.mc-import-file-name {
+    min-width: 0;
+    overflow: hidden;
+    color: color-mix(in srgb, var(--joplin-color) 72%, transparent);
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 #mc-ics-import-form input[type="checkbox"] {
