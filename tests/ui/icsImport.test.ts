@@ -118,6 +118,28 @@ describe('src/ui/icsImport.js', () => {
         expect(postMessage).toHaveBeenCalledWith({name: 'requestFolders'});
     });
 
+    test('custom file picker shows and updates the selected file name', () => {
+        setupDom(true);
+        installWebviewApi();
+        loadIcsImportFresh();
+
+        const fileInput = qs('#ics-file') as HTMLInputElement;
+        const pickerButton = qs('.mc-import-file-picker-btn') as HTMLButtonElement;
+        const fileName = qs('.mc-import-file-name');
+
+        expect(pickerButton.textContent).toBe('Choose…');
+        expect(fileName.textContent).toBe('No file selected');
+        expect(fileName.title).toBe('No file selected');
+
+        const fileObj: any = {name: 'very-long-calendar-export.ics', size: 12};
+        Object.defineProperty(fileInput, 'files', {value: [fileObj], configurable: true});
+        fileInput.dispatchEvent(new Event('change'));
+
+        expect(pickerButton.textContent).toBe('Change…');
+        expect(fileName.textContent).toBe('very-long-calendar-export.ics');
+        expect(fileName.title).toBe('very-long-calendar-export.ics');
+    });
+
     test('renders safe ICS export link buttons above Debug log and blocks javascript: URLs', () => {
         setupDom(true);
         const {getOnMessageCb} = installWebviewApi();

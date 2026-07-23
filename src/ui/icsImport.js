@@ -418,7 +418,33 @@
             id: IDS.fileInput,
             type: 'file',
             accept: '.ics,text/calendar',
-            class: 'mc-flex-1',
+            class: 'mc-import-file-input',
+        });
+        const filePickerButton = el(
+            'button',
+            {
+                type: 'button',
+                class: 'mc-setting-btn mc-import-file-picker-btn',
+                onclick: () => fileInput.click(),
+            },
+            ['Choose…'],
+        );
+        const fileName = el(
+            'span',
+            {
+                class: 'mc-import-file-name',
+                title: 'No file selected',
+                'aria-live': 'polite',
+            },
+            ['No file selected'],
+        );
+
+        fileInput.addEventListener('change', () => {
+            const selectedFile = fileInput.files && fileInput.files[0];
+            const selectedName = selectedFile?.name || 'No file selected';
+            filePickerButton.textContent = selectedFile ? 'Change…' : 'Choose…';
+            fileName.textContent = selectedName;
+            fileName.title = selectedName;
         });
 
         let preserveLocalColor = safeGetLS(LS.preserveLocalColor, '1') !== '0';
@@ -470,6 +496,7 @@
             importInProgress = !!isInProgress;
             btnImportFile.disabled = importInProgress;
             fileInput.disabled = importInProgress;
+            filePickerButton.disabled = importInProgress;
             folderSelect.disabled = importInProgress;
             setImportLoading(importInProgress);
         }
@@ -531,7 +558,11 @@
 
         const rowFile = el('div', {class: 'mc-import-row'}, [
             el('div', {class: 'mc-import-row-label'}, ['.ics file']),
-            fileInput,
+            el('div', {class: 'mc-import-file-control'}, [
+                fileInput,
+                filePickerButton,
+                fileName,
+            ]),
             btnImportFile,
         ]);
 
