@@ -2,6 +2,50 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [1.8.0](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.7.2...v1.8.0) (2026-07-24)
+
+
+### ✨ Features
+
+* add in-panel event creation form ([651a4f6](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/651a4f6fd9ae7556e555a4e1d0621b5ca53e5c9d))
+* add manual scheduled ICS import button ([f3afefb](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/f3afefb9e1daab8e1c935780a59fcdb9869b30dc))
+* dim completed todo events and show checked icon ([a57dd03](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/a57dd03f4c3bd0d5d1499f05193465a350afc0cc))
+* improve add event validation and UX ([b762bff](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/b762bff96ceef7646c43f15a53b0b56eb2c8cfde))
+* individual colors for lighg and dark modes ([e49075d](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/e49075d0b81abc0673d729ac5543612681381943))
+
+
+### 🐛 Bug Fixes
+
+* apply cancelled recurrence exceptions to existing masters ([cf6626e](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/cf6626ef7637ec42a2c0527d693a208afaa2f9b4))
+* automate Joplin restart and DevTools opening ([3a3601c](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/3a3601c7b8e632843168a70b3a20b02a9f15d4a6))
+* automate Joplin restart and DevTools opening 2 ([3fa92ab](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/3fa92ab06a23290ee2e1d42ba5b23983a2672195))
+* bound and index alarm reconciliation ([2c55e3f](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/2c55e3fa1b7b6d46a729ab38cfba79858453e70a))
+* cap recurrence expansion for large ranges ([aee0424](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/aee0424bfce8639fc1acf44dd3c9da53af32b7ce))
+* clear range cache after calendar data changes ([e7093bb](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/e7093bb4c912c50dc8af1bbd8719bd82a13bfe0f))
+* commit ICS import state only after successful writes ([de9246c](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/de9246cc14d1d036259bd9b709457a903f3a668a))
+* dedupe imported events across notebooks ([f8ce782](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/f8ce782b0d098bd1cb6b1b9ec46a496e7d89f41a))
+* dedupe imported events across notebooks ([813a0a9](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/813a0a9c0c2fa1528bb731fe48343fbcadb0d70a))
+* deduplicate event keys before concurrent import ([8fce9be](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/8fce9be373a7a3f45fd721f993b1dcc9810291e1))
+* delete imported alarms when ICS alarms are disabled ([28e5c71](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/28e5c717ec163b58ae40b268e580284d4cd7cf11))
+* finalize scheduled import cache invalidation ([9532e0d](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/9532e0d51d0889c24a68520c2b06b25fdb26cfbb))
+* make release workflow resumable and authentication-aware ([c0169d0](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/c0169d0d9f237ab52e52b5a62a46881dbd450aa6))
+* normalize all-day event semantics ([80fb46c](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/80fb46c1bf143f37777c2624b3c08fe1755fdcdb))
+* preserve alarm creation after normalization failure ([0751f63](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/0751f630980d6fa98f9d599721a66254fa9f69e7))
+* preserve ICS metadata after note parsing ([4a5c18e](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/4a5c18e3e5e6c694bb03b144dd35393b7c3fc5a9))
+* prevent alarm cleanup from emptying Joplin trash ([b4a18ee](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/b4a18ee69d98f071209fe57adc47e117997307d8))
+* prevent stale note refresh from overwriting cache ([8f8a701](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/8f8a7015a98838ab365f13c0ce24d43dc4da59eb))
+* refine ICS import form styling and file picker ([277bcfd](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/277bcfd45f817b702d13ff7a0854b9a16df85d8c))
+* reject normalized invalid calendar dates ([b602c49](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/b602c492f09d1bbd3bf419eed153a9b503407dfe))
+* reject unsupported ICS timezone identifiers ([6681795](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/6681795afe439c0ef8a27af2b1d8a9098d26aa1d))
+* report tag attachment failures as partial success ([10246f6](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/10246f64021431671663a5f6a1d27d4c216298c5))
+* skip recurrence instances in DST gaps ([384020f](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/384020f07b85fd7080c870a0651f0dcc805821e5))
+* stabilize events cache invalidation ([87777e9](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/87777e9f019ee7c9dee00344e7d5d88ee207b19f))
+* surface duplicate event ownership warnings ([5e061b8](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/5e061b84b78cc9067641f1b8238db1421018135a))
+* unify event form control padding ([3f96326](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/3f96326761c6e603e94a64af44e63886317cce83))
+* unify event form control padding 2 ([0bf97ea](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/0bf97ea01edd6d5d9d68a6aff74bc744bbf5f535))
+* unify event form control padding 3 ([212f08f](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/212f08f0079cba87d05e9f6775aeae8a57182f2f))
+* use half-open boundaries for calendar ranges ([ebbaf3b](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/ebbaf3b633f9806e9a08bec54045ba58a38c1ce3))
+
 ### [1.7.2](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.7.1...v1.7.2) (2026-06-13)
 
 
