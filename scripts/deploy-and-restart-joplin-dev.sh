@@ -23,7 +23,7 @@ restart_joplin() {
     joplin_snap_process='^/snap/joplin-desktop/[0-9]+/opt/joplin-desktop/'
     joplin_renderer_process='^/proc/self/exe .*--user-data-dir=.*/snap/joplin-desktop/'
 
-    echo "Завершення Joplin..."
+    echo "Stopping Joplin..."
 
     pkill -TERM -u "$current_uid" -x joplin 2>/dev/null || true
     pkill -TERM -u "$current_uid" -f "$joplin_snap_process" 2>/dev/null || true
@@ -41,7 +41,7 @@ restart_joplin() {
     if pgrep -u "$current_uid" -x joplin >/dev/null \
         || pgrep -u "$current_uid" -f "$joplin_snap_process" >/dev/null \
         || pgrep -u "$current_uid" -f "$joplin_renderer_process" >/dev/null; then
-        echo "Не всі процеси Joplin відповіли на SIGTERM; надсилаю SIGKILL..."
+        echo "Not all Joplin processes responded to SIGTERM; sending SIGKILL..."
         pkill -KILL -u "$current_uid" -x joplin 2>/dev/null || true
         pkill -KILL -u "$current_uid" -f "$joplin_snap_process" 2>/dev/null || true
         pkill -KILL -u "$current_uid" -f "$joplin_renderer_process" 2>/dev/null || true
@@ -51,34 +51,34 @@ restart_joplin() {
     if pgrep -u "$current_uid" -x joplin >/dev/null \
         || pgrep -u "$current_uid" -f "$joplin_snap_process" >/dev/null \
         || pgrep -u "$current_uid" -f "$joplin_renderer_process" >/dev/null; then
-        echo "Не вдалося завершити всі процеси Joplin/Electron"
+        echo "Failed to stop all Joplin/Electron processes"
         return 1
     fi
 
     sleep 3
 
-    echo "Запуск Joplin через snap..."
+    echo "Starting Joplin via snap..."
 
     setsid -f snap run joplin-desktop \
         </dev/null \
         >/tmp/joplin-desktop-dev.log 2>&1
 
-    echo "Очікую головне вікно Joplin..."
+    echo "Waiting for the main Joplin window..."
 
     joplin_window=""
 
-    # У поточній snap-збірці перший запуск іноді зависає до створення
-    # BrowserWindow. Один повторний запуск активує single-instance handler і
-    # доводить уже запущений Joplin до показу головного вікна.
+    # In the current snap build, the first launch sometimes stalls before
+    # creating the BrowserWindow. One repeated launch activates the
+    # single-instance handler and makes the running Joplin show its main window.
     sleep 5
-    echo "Повторно активую single-instance Joplin..."
+    echo "Activating the single Joplin instance again..."
     setsid -f snap run joplin-desktop \
         </dev/null \
         >>/tmp/joplin-desktop-dev.log 2>&1
 
-    # _NET_CLIENT_LIST_STACKING містить лише top-level вікна window manager.
-    # WM_CLASS у snap-збірці нестабільний, тому звіряємо PID вікна з реальним
-    # командним рядком Joplin/Electron.
+    # _NET_CLIENT_LIST_STACKING contains only top-level window-manager windows.
+    # WM_CLASS is unstable in the snap build, so match the window PID against
+    # the actual Joplin/Electron process command line.
     for _i in $(seq 1 100); do
         for candidate_window in $(
             xprop -root _NET_CLIENT_LIST_STACKING 2>/dev/null |
@@ -124,21 +124,21 @@ restart_joplin() {
     done
 
     if [ -z "$joplin_window" ]; then
-        echo "Головне вікно Joplin не з’явилося протягом 20 секунд"
-        echo "Останні повідомлення snap launcher:"
+        echo "The main Joplin window did not appear within 20 seconds"
+        echo "Latest snap launcher messages:"
         tail -n 50 /tmp/joplin-desktop-dev.log
-        echo "Останні повідомлення Joplin:"
+        echo "Latest Joplin messages:"
         tail -n 50 "$HOME/snap/joplin-desktop/current/.config/joplin-desktop/log.txt"
         return 1
     fi
 
-    echo "Знайдено top-level вікно desktop Joplin: $joplin_window"
-    echo "Показую, активую вікно та відкриваю Developer Tools..."
+    echo "Found the top-level Joplin desktop window: $joplin_window"
+    echo "Showing and focusing the window, then opening Developer Tools..."
 
     xdotool windowmap "$joplin_window" 2>/dev/null || true
     xdotool windowraise "$joplin_window" 2>/dev/null || true
     if ! xdotool windowfocus --sync "$joplin_window"; then
-        echo "Не вдалося активувати головне вікно Joplin"
+        echo "Failed to focus the main Joplin window"
         return 1
     fi
 
@@ -154,20 +154,20 @@ restart_joplin() {
 
     if [ -z "$active_window" ] \
         || [ "$((active_window))" -ne "$((joplin_window))" ]; then
-        echo "Фокус не перейшов до Joplin; Developer Tools не викликаю"
+        echo "Focus did not move to Joplin; Developer Tools will not be opened"
         return 1
     fi
 
-    # BrowserWindow з'являється раніше, ніж Joplin завершує побудову меню та
-    # створення стартових renderer/zygote процесів. Чекаємо стабільного UI,
-    # інакше клік потрапляє в ще неготове меню, а стартовий zygote дає хибне
-    # підтвердження відкриття DevTools.
-    echo "Очікую завершення завантаження інтерфейсу Joplin..."
+    # BrowserWindow appears before Joplin finishes building its menus and
+    # creating the initial renderer/zygote processes. Wait for a stable UI;
+    # otherwise the click reaches an unready menu and a startup zygote produces
+    # a false confirmation that DevTools opened.
+    echo "Waiting for the Joplin interface to finish loading..."
     sleep 8
 
     xdotool windowraise "$joplin_window" 2>/dev/null || true
     if ! xdotool windowfocus --sync "$joplin_window"; then
-        echo "Не вдалося повторно сфокусувати Joplin перед відкриттям DevTools"
+        echo "Failed to refocus Joplin before opening DevTools"
         return 1
     fi
 
@@ -178,8 +178,8 @@ restart_joplin() {
             tr -d ' '
     )"
 
-    # Координати отримані з реального вікна Joplin 3.6.15 на цьому laptop:
-    # спочатку Help, потім Toggle development tools у відкритому popup-меню.
+    # Coordinates captured from the actual Joplin 3.6.15 window on this laptop:
+    # first Help, then Toggle development tools in the open popup menu.
     xdotool keyup ctrl keyup shift keyup alt 2>/dev/null || true
     xdotool mousemove --window "$joplin_window" 348 15 click 1
     sleep 0.5
@@ -198,21 +198,34 @@ restart_joplin() {
     done
 
     if [ "$zygote_count_after" -le "$zygote_count_before" ]; then
-        echo "Developer Tools не підтверджено: новий zygote-процес не з’явився"
+        echo "Developer Tools not confirmed: no new zygote process appeared"
         return 1
     fi
 
-    echo "Desktop Joplin перезапущений, DevTools відкрито й підтверджено процесом"
+    echo "Joplin Desktop restarted; DevTools opened and confirmed by a process"
+    echo "Opening a new Chromium window at chrome://inspect/#devices..."
+
+    nohup chromium --new-window 'chrome://inspect/#devices' \
+        </dev/null \
+        >/tmp/joplin-mobile-devtools.log 2>&1 &
+    disown "$!" 2>/dev/null || true
+
+    echo "Chromium launched directly at chrome://inspect/#devices"
     return 0
 }
 
 if ! command -v xdotool >/dev/null 2>&1; then
-    echo "Не знайдено xdotool. Встанови його командою: sudo apt install xdotool"
+    echo "xdotool not found. Install it with: sudo apt install xdotool"
     exit 1
 fi
 
 if ! command -v snap >/dev/null 2>&1; then
-    echo "Не знайдено snap, потрібний для запуску Joplin"
+    echo "snap not found; it is required to start Joplin"
+    exit 1
+fi
+
+if ! command -v chromium >/dev/null 2>&1; then
+    echo "Chromium not found; it is required for chrome://inspect/#devices"
     exit 1
 fi
 
