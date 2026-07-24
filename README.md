@@ -5,101 +5,76 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Support via PayPal](https://img.shields.io/badge/Support-PayPal-00457C?style=flat-square&logo=paypal)](https://www.paypal.me/volodymyroliinykca)
 
-**My Calendar** is a powerful, flexible, and privacy-focused calendar plugin for [Joplin](https://joplinapp.org/). It
-turns your notes into calendar events, providing a unified view of your schedule directly within your favorite
-note-taking app.
+My Calendar adds a calendar panel to Joplin. Events are stored as regular Joplin notes, so they stay with your notes and
+use your normal Joplin sync.
 
-|                     Light Mode                     |                    Dark Mode                     |
+|                     Light mode                     |                    Dark mode                     |
 |:--------------------------------------------------:|:------------------------------------------------:|
 | ![Light View](./assets/screenshots/light_view.png) | ![Dark View](./assets/screenshots/dark_view.png) |
 
----
+## Features
 
-## 🌟 Key Features
+- Month calendar with colored events, alarm markers, quick month and year selection, week numbers, and Monday or Sunday
+  as the first day of the week.
+- Day list with current, future, and past events. Completed Joplin Todo events are dimmed and marked with a check.
+- Event timeline and 12-hour or 24-hour time display.
+- Click an event to open its Joplin note.
+- Create events from a form in the calendar panel, with field checks and searchable Joplin tags.
+- Create events by adding a `mycalendar-event` block to any note.
+- Store more than one event in the same note.
+- Daily, weekly, monthly, and yearly repeats.
+- All-day events, timezones, locations, descriptions, colors, and excluded repeat dates.
+- Manual ICS file import on desktop.
+- Scheduled ICS import from HTTPS links on desktop.
+- Optional Joplin Todo reminders from ICS alarms.
+- Toolbar buttons to clear the event cache and run scheduled imports now.
+- Light and dark theme support.
+- Desktop and mobile support for the calendar and event form.
 
-- **Integrated Monthly Calendar**:
-    - **Visual Grid**: View your schedule with event bars and alarm indicators.
-    - **Navigation**: Quick jump to any date via the month/year picker.
-  - **Quick Recovery**: Use `⟳` in the toolbar to clear cached events and instantly refresh the month.
-    - **Customization**: Toggle week numbers and choose Monday or Sunday start.
-- **Smart Day View**:
-    - **Detailed Timeline**: See a chronological list of the day's events with a current time indicator.
-  - **Grouped Mode**: Optional grouping into **Ongoing / Feature / Past** with dynamic reclassification.
-    - **Interactive**: Click events to open the corresponding note.
-- **Notes as Events**:
-    - **Simple Syntax**: Turn any note into an event by adding a metadata block.
-    - **Rich Details**: Support for timezones, locations, custom colors, and recurrence.
-- **In-Panel Event Creation**:
-    - **Guided Form**: Create event notes directly from the My Calendar panel without writing the event block by hand.
-    - **Full Event Details**: Set notebook, title, date/time, timezone, all-day mode, color, location, description,
-      recurrence, excluded dates, and Joplin tags.
-- **Robust ICS Import**:
-    - **Broad Compatibility**: Import `.ics` files from Google Calendar, Outlook, Apple, etc.
-  - **Preserved calendar metadata**: Keeps recurring rules, excluded and modified occurrences, all-day dates,
-    IANA timezones, alarms, and source event identity.
-    - **Smart Sync**: Deduplicates events and preserves local changes like custom colors.
-- **Native Alarms**:
-    - **System Notifications**: Automatically converts calendar alarms into Joplin "Todo" notes, triggering native
-      reminders on Desktop and Mobile.
-- **Security & Privacy**:
-    - **Sanitized**: Protection against malicious Markdown/CSS.
-    - **Local**: Works with Joplin's existing sync; no external servers required.
+### Platform support
 
-### 📱 Platform Availability
+| Feature                               | Desktop | Mobile |
+|:--------------------------------------|:-------:|:------:|
+| Calendar and day list                 |   ✅    |   ✅   |
+| Create events                         |   ✅    |   ✅   |
+| Plugin settings                       |   ✅    |   ✅   |
+| Manual ICS file import                |   ✅    |   ❌   |
+| Scheduled ICS import from HTTPS URLs  |   ✅    |   ❌   |
+| External ICS export links             |   ✅    |   ❌   |
+| Create Todo reminders from ICS alarms |   ✅    |   ❌   |
 
-While we strive for parity, some features are specific to the Desktop version due to platform-specific APIs.
+Reminder notes created on desktop can sync to mobile and use Joplin's normal mobile notifications.
 
-| Feature                            | Desktop | Mobile |
-|:-----------------------------------|:-------:|:------:|
-| Monthly Calendar Grid              |    ✅    |   ✅    |
-| Smart Day View                     |    ✅    |   ✅    |
-| In-panel Event Creation            |    ✅    |   ✅    |
-| Native Joplin Settings             |    ✅    |   ✅    |
-| ICS File Import                    |    ✅    |   ❌    |
-| Scheduled ICS Import from URLs     |    ✅    |   ❌    |
-| Quick ICS Export Links             |    ✅    |   ❌    |
-| Markdown Sanitization              |    ✅    |   ✅    |
-| Automatic Alarms (Todo generation) |    ✅    |   ✅*   |
+## Install
 
-*\*Note: Alarms are generated/synced during the import process on Desktop. Once created as "Todo" notes, they will sync
-and trigger notifications on Mobile automatically.*
+My Calendar requires Joplin 3.3 or later.
 
----
+1. Open Joplin.
+2. Go to **Tools > Options > Plugins** on Windows/Linux or **Joplin > Settings > Plugins** on macOS.
+3. Search for **My Calendar**.
+4. Select **Install**, then restart Joplin.
 
-## 🚀 Getting Started
+On desktop, use **Toggle My Calendar** from the View or Tools menu to show or hide the panel. The default shortcut is
+`Ctrl+Alt+C`. On mobile, open the plugin from Joplin's plugin menu.
 
-### 1. Installation
+## Create an event
 
-1. Open **Joplin Desktop**.
-2. Go to `Tools` > `Options` (Windows/Linux) or `Joplin` > `Settings` (macOS).
-3. Select `Plugins` and search for `My Calendar`.
-4. Click **Install** and restart Joplin.
-
-### 2. Create an Event from the Calendar Panel
-
-The fastest way to add an event is the **Add event note** form in the **My Calendar** panel:
+### Use the form
 
 1. Open the **My Calendar** panel.
-2. In **Add event note**, choose the target notebook.
-3. Fill in the event details: title, date/time, timezone, color, location, description, recurrence, and optional tags.
-4. Click **Create**.
+2. Find **Add event note**.
+3. Choose a notebook.
+4. Enter the event details.
+5. Select **Create**.
 
-The plugin creates a regular Joplin note containing a `mycalendar-event` block, attaches the selected Joplin tags, opens
-the new note, and refreshes the calendar view.
+The plugin creates a Joplin note, adds the selected tags, opens the note, and refreshes the calendar.
 
-The form supports:
+The form supports timed and all-day events, timezones, colors, locations, descriptions, searchable tags, repeats, repeat
+end dates, weekdays, month days, and excluded dates. It highlights invalid fields before creating the note.
 
-- **All-day and timed events** with separate date and time controls.
-- **IANA timezones**, auto-populated from your device when available.
-- **12h/24h time labels** based on the plugin time-format setting.
-- **Recurring events**: daily, weekly, monthly, and yearly, with interval, repeat-until date, weekday selection, monthly
-  day, and excluded dates.
-- **Searchable tag selection** for attaching existing Joplin tags to the created note.
-- **Inline validation** before the note is created.
+### Add an event block to a note
 
-### 3. Manual Event Creation
-
-You can also create or edit event notes manually. Simply add the following block to any note:
+Add a fenced block like this to any note:
 
 ~~~markdown
 ```mycalendar-event
@@ -111,261 +86,210 @@ location: Conference Room B
 ```
 ~~~
 
-The note will immediately appear on your calendar!
+Only `start` is required. If `title` is missing, the note title is used.
 
-> 💡 **Looking for more?** Check the [examples](./examples) folder for more templates, including recurring events and
-> all-day appointments.
+You can keep normal text before and after the block. You can also add several event blocks to one note. See the
+[examples](./examples) folder for all-day, recurring, timezone, and multi-event notes.
 
----
+## Event fields
 
-## 📥 ICS Import System
+| Field             | What it does                                      | Example                   |
+|:------------------|:--------------------------------------------------|:--------------------------|
+| `start`           | Event start. Required.                            | `2026-02-04 10:00+02:00`  |
+| `end`             | Event end.                                        | `2026-02-04 11:30+02:00`  |
+| `title`           | Event name. Uses the note title when empty.       | `Team meeting`            |
+| `description`     | Extra text shown in the day list.                 | `Review the current work` |
+| `location`        | Event location.                                   | `Conference Room B`       |
+| `color`           | Event color in `#RGB` or `#RRGGBB` form.          | `#3498db`                 |
+| `tz`              | IANA timezone for a time without an offset.       | `America/Toronto`         |
+| `all_day`         | Marks an event as all-day.                        | `true`                    |
+| `repeat`          | Repeat rule: daily, weekly, monthly, or yearly.   | `weekly`                  |
+| `repeat_interval` | Repeat every N days, weeks, months, or years.     | `2`                       |
+| `repeat_until`    | Last date or time in the repeat series.           | `2026-12-31`              |
+| `byweekday`       | Days for a weekly repeat.                         | `MO,WE,FR`                |
+| `bymonthday`      | Day of the month for a monthly repeat.            | `15`                      |
+| `exdate`          | Excludes one date from a repeat. Can be repeated. | `2026-03-04`              |
+| `valarm`          | Alarm data imported from ICS.                     | `{"trigger":"-PT15M"}`    |
+| `uid`             | Stable source ID. Usually managed by the plugin.  | `event-123`               |
+| `recurrence_id`   | ID of one changed repeat occurrence.              | `20260304T100000Z`        |
 
-The plugin features a robust import system designed for performance and reliability.
+`uid`, `recurrence_id`, and `valarm` are mainly used by ICS import. You normally do not need to add them by hand.
 
-### How to Import:
+### Dates and timezones
+
+Use one of these forms:
+
+```text
+start: 2026-02-04 10:00+02:00
+```
+
+The UTC offset makes the time clear on every device.
+
+```text
+start: 2026-02-04 10:00
+tz: America/Toronto
+```
+
+The IANA timezone applies the correct daylight-saving rules.
+
+```text
+start: 2026-02-04 10:00
+```
+
+Without an offset or `tz`, the value is a local floating time and is shown as written.
+
+## Import ICS calendars
+
+ICS import is available on desktop.
 
 1. Open the **My Calendar** panel.
-2. Select the **Target Notebook** where you want your events to be stored.
-3. Choose your `*.ics` file and click **Import**.
+2. In **ICS import**, choose the target notebook.
+3. Choose an `.ics` file.
+4. Select **Import**.
 
-### Smart Features:
+The importer supports common files from Google Calendar, Outlook, Apple Calendar, and other calendar apps. It handles
+all-day events, timezones, repeats, excluded dates, changed or cancelled occurrences, descriptions, colors, and alarms.
 
-- **Deduplication**: The plugin uses `UID`s from the ICS file. If you import the same file again, it will only update
-  changed events or skip unchanged ones.
-- **Scheduled URL Import (Desktop)**: You can configure one or more HTTPS ICS + notebook pairs and let the plugin
-  re-import them automatically on a fixed interval. The recommended format is
-  `https://...ics | Notebook Title ;; https://...ics | Another Notebook`: `;;` separates pairs, and `|` separates the
-  URL from the notebook title.
-- **Local Color Preservation**: By default, if you manually change the color of an imported event in Joplin, subsequent
-  imports will preserve your custom color.
-- **Optimized Automatic Alarms**: If an ICS event has a reminder, the plugin creates a linked "Todo" note in Joplin.
-  These todos
-  appear in your standard Joplin tasks and trigger native notifications. The sync process is smart: it only deletes
-  outdated alarms and creates new ones, minimizing sync traffic.
-- **Improved Format Compatibility**: Handles folded ICS lines, multiline descriptions, and escaped values more
-  reliably.
+When you import the same calendar again, the plugin uses event IDs to update existing notes instead of creating copies.
+Text outside the managed event block is kept. You can also choose whether a local event color should be kept.
 
----
+### Scheduled import
 
-## 🛠️ Advanced Syntax
+On desktop, the plugin can download and import ICS files from HTTPS URLs. Add pairs in **My Calendar settings**:
 
-Below is the full list of properties supported inside the ` ```mycalendar-event ` block:
+```text
+https://example.com/calendar.ics | Work ;; https://example.com/home.ics | Personal
+```
 
-| Property          | Status       | Description                                                                          | Example                  |
-|:------------------|:-------------|:-------------------------------------------------------------------------------------|:-------------------------|
-| `start`           | **Required** | Start date and time. Mandatory for the event to appear.                              | `2025-12-18 10:00+02:00` |
-| `title`           | Optional     | Display name. If omitted, the **Joplin note title** will be used.                    | `Meeting`                |
-| `end`             | Optional     | End date and time. If omitted, the event is treated as a point in time (0 duration). | `2025-12-18 11:30+02:00` |
-| `tz`              | Optional     | Timezone (IANA).                                                                     | `America/Toronto`        |
-| `color`           | Optional     | Hex color for the event bar.                                                         | `#e74c3c`                |
-| `location`        | Optional     | Location string.                                                                     | `Home Office`            |
-| `description`     | Optional     | Extra details (auto-sanitized).                                                      | `Check project status.`  |
-| `repeat`          | Optional     | `daily`, `weekly`, `monthly`, `yearly`                                               | `weekly`                 |
-| `repeat_interval` | Optional     | Frequency (e.g., every 2 weeks).                                                     | `2`                      |
-| `repeat_until`    | Optional     | End date for recurrence (e.g., wrap up series).                                      | `2026-12-31`             |
-| `byweekday`       | Optional     | Specific days for weekly repeat.                                                     | `MO,WE,FR`               |
-| `bymonthday`      | Optional     | Day of the month for monthly repeat.                                                 | `15`                     |
-| `all_day`         | Optional     | Set to `true` for all-day events.                                                    | `true`                   |
+`;;` separates entries. `|` separates the URL from the exact notebook title. The interval can be set from 5 to 1440
+minutes. Use the download button in the calendar toolbar to run all scheduled imports now.
 
-### 🕒 Supported Time & Timezone Formats
+### ICS alarm reminders
 
-The calendar supports several ways to specify the time and timezone of your events:
+ICS alarms can be turned into Joplin Todo notes on desktop. You can set:
 
-1. **With UTC Offset (Recommended)**
-   Explicitly define the time and its relation to UTC. This time will be automatically converted to your current
-   device's timezone.
-   ```text
-   start: 2026-02-04 10:00+02:00
-   ```
+- whether alarm import is enabled;
+- how many days ahead to create reminders;
+- the emoji or short prefix used in reminder titles.
 
-2. **With `tz` Property (IANA)**
-   Specify the time and the exact IANA Timezone name. The plugin will handle the conversion based on daylight saving
-   rules.
-   ```text
-   start: 2026-02-04 10:00
-   tz: America/Toronto
-   ```
+Re-importing the calendar updates its reminder notes. Reminder notes from other imported calendars are not changed.
 
-3. **Floating Local Time**
-   If no offset or `tz` is provided, the time is considered "floating" and will be shown exactly as written, regardless
-   of the device's timezone settings.
-   ```text
-   start: 2026-02-04 10:00
-   ```
+### External export links
 
----
+The desktop settings can add buttons that open external calendar export pages:
 
-## ⚙️ Settings
+```text
+Google Calendar | https://example.com/export ;; Work Calendar | https://example.com/work
+```
 
-Customize your experience in the Joplin Settings (`Tools` > `Options` > `My Calendar`):
+These are shortcuts to websites. The plugin does not upload your notes or calendar data to them.
 
-### Calendar
+## Settings
 
-- **Week starts on**: Choose between **Monday** (default) or **Sunday** for the calendar grid.
-- **Show week numbers**: Toggle the display of week numbers alongside the calendar grid. (Default: Disabled).
+Open **Tools > Options > My Calendar** on Windows/Linux or **Joplin > Settings > My Calendar** on macOS.
 
-### Day events
+- **Calendar:** first day of the week and week numbers.
+- **Day events:** single or grouped list, completed Todo markers, 12/24-hour time, refresh interval, and timeline
+  visibility.
+- **Colors:** default event colors and current-time line colors for light and dark themes.
+- **ICS import (desktop):** alarms, reminder range, reminder prefix, scheduled imports, and external export links.
+- **Developer:** extra logs in the panel and console.
 
-- **Day events view mode**: Show events as one list, or grouped into **Ongoing / Feature / Past** with auto-moves as
-  time changes. (Default: Single list).
-- **Time format**: Choose between **24h** (default) or **12h** (AM/PM) format for event times.
-- **Day events auto-refresh**: Set the interval (in minutes) for how often the day's event list updates. (Default: 1
-  min).
-- **Completed Joplin todos**: If a note-backed event is a completed Joplin todo, it is dimmed like a past event and
-  shows a gray checked checkbox icon.
-- **Show event timeline**: Show a visual timeline bar under each event in the day list. Disabling this also stops
-  related UI update timers. (Default: Enabled).
-- **Current timeline line color - light mode (hex)** and **Current timeline line color - dark mode (hex)**: Optional
-  custom colors for the current-time line in the day event timeline. Leave empty to use the built-in contrast defaults:
-  `#e65100` for light mode and `#ffd166` for dark mode.
-- **Default event color - light mode (hex)** and **Default event color - dark mode (hex)**: Optional default colors for
-  imported events without `X-COLOR`, the event creation form, and "Day events" section events without a color. Leave
-  empty to use the built-in contrast defaults: `#007c7c` for light mode and `#00e5e5` for dark mode.
-- Color settings accept `#RGB` or `#RRGGBB` values and are normalized to lowercase.
+Color settings accept `#RGB` and `#RRGGBB`.
 
-### ICS Import (Desktop only)
-
-- **Enable ICS import alarms**: If enabled, alarms from ICS files will be imported as Todo notes. If disabled, existing
-  alarms will be deleted on re-import. (Default: Disabled).
-- **ICS import alarm range**: Define how many days into the future (up to 365) the plugin should scan and generate
-  native Joplin reminders from your ICS files. (Default: 30 days).
-- **ICS reminder emoji**: Choose the emoji or short prefix shown at the start of imported reminder note titles.
-  (Default: `🔔`).
-- **Scheduled ICS import pairs**: Add pairs in the form
-  `https://...ics | Notebook Title ;; https://...ics | Another Notebook`. Each valid HTTPS ICS link is imported into
-  its own existing notebook. If the notebook title is missing, invalid, not found, or ambiguous, that pair is skipped.
-- **Scheduled ICS import interval**: Choose how often scheduled URL imports run in the background. Allowed range:
-  **5-1440 minutes**. (Default: 60 minutes). The first automatic import waits for one complete interval after startup
-  to avoid unnecessary requests during plugin or Joplin restarts.
-- **Run scheduled import manually**: On desktop, use the `⇩` toolbar button beside **Clear events cache** to import all
-  configured scheduled ICS pairs immediately. The button is disabled while the import cycle is running.
-- **ICS export links**: Add as many quick-access links as you need to your favorite calendar exporters (e.g., Google
-  Calendar Export URL). These will appear as convenient buttons in the import panel.
-
-### Developer
-
-- **Enable debug logging**: Activates a visible log box and extra console output to help troubleshoot any issues.
-
-#### Settings Interface
-
-|                           Light Theme                           |                          Dark Theme                           |
+|                           Light theme                           |                          Dark theme                           |
 |:---------------------------------------------------------------:|:-------------------------------------------------------------:|
 | ![Light Settings](./assets/screenshots/light_settings_view.png) | ![Dark Settings](./assets/screenshots/dark_settings_view.png) |
 
----
+## Privacy and safety
 
-## 👨‍💻 Development
+- Events stay in Joplin notes.
+- The plugin uses Joplin sync and does not need its own server.
+- Scheduled ICS import connects only to the HTTPS URLs you add.
+- Event text is cleaned before it is shown in the panel.
+- External links are limited to HTTP and HTTPS addresses.
+
+## Development
+
+### Project structure
+
+- `src/main/`: plugin backend, parsers, services, settings, views, and the UI bridge.
+- `src/ui/`: JavaScript and CSS for the calendar panel.
+- `src/index.ts`: plugin entry point.
+- `tests/`: Jest tests arranged to match the source folders.
+- `examples/`: sample event notes and ICS files.
+- `dist/` and `publish/`: generated build output. Do not edit them by hand.
 
 ### Commands
 
-- `npm run build`: Compile the project.
-- `npm pack`: Create the `.jpl` distribution file.
-- `npm run pre-pack`: Run the pre-pack validation flow using the stable single-process Jest command before packaging.
-- `npm test`: Run the extensive test suite (350+ cases). This now performs Jest process cleanup first and retries once
-  in `--runInBand` if a worker crashes with `SIGSEGV`.
-- `npm run test:stable`: Run Jest in a single process from the start, with cleanup first. Use this for the most stable
-  pre-release check.
-- `npm run lint`: Check code style and common patterns.
-- `bash ./scripts/cleanup-jest.sh`: Kill stale Jest worker processes for this repository before rerunning tests.
+```bash
+npm install
+npm run build
+npm run build:jpl
+npm test
+npm run test:stable
+npm run test:watch
+npm run lint
+```
 
-### Automation Scripts
+- `npm run build` builds `dist/index.js`.
+- `npm run build:jpl` creates the `.jpl` package in `publish/`.
+- `npm test` cleans old Jest workers, runs the test suite, and retries once in serial mode after a worker `SIGSEGV`.
+- `npm run test:stable` runs Jest serially from the start.
+- `npm run test:watch` runs Jest in watch mode.
+- `npm run lint` checks source and test files.
 
-The project includes helper scripts in the `scripts/` directory to streamline development and release processes.
+### Automation scripts
 
 #### `scripts/pre-pack.sh`
 
-Ensures code quality before packaging. By default it runs the linter (failing on warnings), the full test suite, and
-then creates the package. The test step uses `npm run test:stable` so packaging does not depend on parallel Jest
-workers. Security fixes via `npm audit fix --force` are optional and must be enabled explicitly.
+Runs lint with no warnings allowed, runs the stable test suite, and builds the package. It also creates the npm tarball.
+Security fixes are opt-in.
 
 ```bash
 npm run pre-pack
-```
-
-To include forced audit fixes before validation:
-
-```bash
 npm run pre-pack -- --audit-fix
 ```
 
-#### `scripts/cleanup-jest.sh`
+#### `scripts/deploy-and-restart-joplin-dev.sh`
 
-Finds and terminates stale `jest`, `jest-worker`, and `processChild.js` processes whose working directory belongs to
-this repository. This is useful when a previous Jest run leaves worker processes behind after a crash.
-
-```bash
-bash ./scripts/cleanup-jest.sh
-```
-
-#### `scripts/run-tests.sh`
-
-Wrapper used by `npm test`. It runs `scripts/cleanup-jest.sh`, starts the normal parallel Jest run, and if Jest reports
-that a worker died with `signal=SIGSEGV`, it performs cleanup again and retries once with `--runInBand`.
-
-For a fully serial run without the initial parallel attempt, use:
+Builds the plugin, copies the `.jpl` file to the local snap installation, restarts Joplin, opens Joplin DevTools, and
+opens Chromium at `chrome://inspect/#devices`.
 
 ```bash
-npm run test:stable
+bash ./scripts/deploy-and-restart-joplin-dev.sh
 ```
 
-#### `scripts/release.sh`
+This script is specific to the Linux/X11 workstation where its menu coordinates were captured. It requires snap Joplin,
+`xdotool`, `xprop`, and Chromium. It closes the current Joplin session and replaces the installed development copy of
+the plugin.
 
-Automates the entire release workflow: bumps version, syncs manifest, tags, pushes, and publishes to NPM.
+#### Test helpers
 
-```bash
-bash ./scripts/release.sh [patch|minor|major];
-```
+- `scripts/run-tests.sh` cleans stale Jest processes and retries a crashed parallel run once with `--runInBand`.
+- `scripts/cleanup-jest.sh` removes stale Jest workers for this repository.
+- `scripts/check-tests.sh` checks that the latest successful test run is no more than one hour old.
 
-#### `scripts/update-demo-ics.py`
+#### Release helpers
 
-Automatically shifts dates in the demo ICS file to start from today. Useful for refreshing screenshots.
+- `scripts/release.sh [patch|minor|major]` validates GitHub and npm access, versions the package, builds it, creates the
+  GitHub release, and publishes the npm tarball.
+- `scripts/preview-changelog.sh [patch|minor|major]` previews generated release notes without changing files.
+- `scripts/update-demo-ics.py` moves dates in the demo ICS file forward for screenshots and testing.
 
-```bash
-./scripts/update-demo-ics.py;
-```
+See the [Development Workflow Guide](./docs/WORKFLOW.md) for branch names, commit messages, and releases.
 
-#### `scripts/check-tests.sh`
+## Support
 
-Verifies that tests have passed recently (within the last hour) before allowing critical operations.
+If My Calendar is useful to you, you
+can [support its development with PayPal](https://www.paypal.me/volodymyroliinykca).
 
-```bash
-bash ./scripts/check-tests.sh;
-```
+## Changelog
 
-#### `scripts/preview-changelog.sh`
+See [CHANGELOG.md](./CHANGELOG.md) for release notes.
 
-Previews the changelog generation in dry-run mode without modifying files.
-
-```bash
-bash ./scripts/preview-changelog.sh [patch|minor|major];
-```
-
-### Development Workflow
-
-For a detailed guide on branch naming, commit message formats, and the release process, please see the *
-*[Development Workflow Guide](./docs/WORKFLOW.md)**.
-
-### Security First:
-
-The code implements strict sanitization to ensure that imported calendar data cannot execute arbitrary Markdown or break
-the Joplin interface.
-
-## ❤️ Support
-
-If you find this plugin useful, please consider supporting its development. Your donations help me dedicate more time to
-maintaining the project and adding new features.
-
-- **[Donate via PayPal](https://www.paypal.me/volodymyroliinykca)** - support the development of **My Calendar**.
-
-Every coffee counts. Thank you! ☕
-
----
-
-## 📜 Changelog
-
-Detailed changes for each release are documented in the [CHANGELOG](./CHANGELOG.md).
-
-## 📄 License
+## License
 
 Copyright (c) 2024-2026 Volodymyr Oliinyk.
-Licensed under the **MIT License**. See the [LICENSE](LICENSE) file for details.
+
+Licensed under the [MIT License](LICENSE).
