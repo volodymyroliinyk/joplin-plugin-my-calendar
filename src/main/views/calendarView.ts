@@ -36,19 +36,19 @@ export const CALENDAR_PANEL_HTML = `
     <ul id="mc-events-list"></ul>
   </div>
   <!-- CREATE EVENT NOTE -->
-  <div id="mc-event-create">
-    <div class="mc-event-create-header">Add event note</div>
+  <details id="mc-event-create">
+    <summary class="mc-event-create-header">Add event note</summary>
     <div id="mc-event-create-body">
       <div id="mc-event-form-root"></div>
     </div>
-  </div>
+  </details>
   <!-- IMPORT (SEPARATE BLOCK BELOW) -->
-  <div id="mc-import">
-    <div class="mc-import-header">ICS import</div>
+  <details id="mc-import">
+    <summary class="mc-import-header">ICS import</summary>
     <div id="mc-import-body">
       <div id="ics-root"></div>
     </div>
-  </div>
+  </details>
   <!-- LOG -->
   <div id="mc-log"></div>
 </div>

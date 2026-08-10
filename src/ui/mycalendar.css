@@ -665,16 +665,10 @@ select::-webkit-scrollbar-thumb:hover,
     animation: mc-spin 900ms linear infinite;
 }
 
+#mc-event-create > summary,
 #mc-import > summary {
     cursor: pointer;
-    font-weight: 600;
     user-select: none;
-    list-style: none;
-}
-
-/* Removes the standard summary marker in some browsers (optional) */
-#mc-import > summary::-webkit-details-marker {
-    display: none;
 }
 
 /* Container to be scrolled */
