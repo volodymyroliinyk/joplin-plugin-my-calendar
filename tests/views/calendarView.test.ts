@@ -1,3 +1,5 @@
+/** @jest-environment jsdom */
+
 // tests/views/calendarView.test.ts
 //
 // src/main/views/calendarView.ts
@@ -47,6 +49,22 @@ describe('calendarView.createCalendarPanel', () => {
 
     afterEach(() => {
         jest.clearAllMocks();
+    });
+
+    test('renders event creation and ICS import as collapsed details sections', () => {
+        const container = document.createElement('div');
+        container.innerHTML = CALENDAR_PANEL_HTML;
+
+        const eventCreate = container.querySelector('#mc-event-create');
+        const icsImport = container.querySelector('#mc-import');
+
+        expect(eventCreate?.tagName).toBe('DETAILS');
+        expect(eventCreate?.querySelector(':scope > summary')?.textContent).toBe('Add event note');
+        expect(eventCreate?.hasAttribute('open')).toBe(false);
+
+        expect(icsImport?.tagName).toBe('DETAILS');
+        expect(icsImport?.querySelector(':scope > summary')?.textContent).toBe('ICS import');
+        expect(icsImport?.hasAttribute('open')).toBe(false);
     });
 
     test('fails if panels.create rejects; no other calls', async () => {

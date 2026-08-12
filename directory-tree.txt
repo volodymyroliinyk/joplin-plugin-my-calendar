@@ -14,15 +14,19 @@ joplin-plugin-my-calendar/
 │   ├── custom-content.md
 │   ├── demo_import.ics
 │   ├── full-featured.md
+│   ├── ics-imported-exception.md
 │   ├── minimal.md
 │   ├── multi-block.md
+│   ├── recurring-daily-with-exceptions.md
 │   ├── recurring-monthly.md
 │   ├── recurring-weekly.md
+│   ├── recurring-yearly.md
 │   └── timezone-handling.md
 ├── publish/
 ├── scripts/
 │   ├── check-tests.sh
 │   ├── cleanup-jest.sh
+│   ├── deploy-and-restart-joplin-dev.sh
 │   ├── pre-pack.sh
 │   ├── preview-changelog.sh
 │   ├── release.sh
@@ -35,9 +39,11 @@ joplin-plugin-my-calendar/
 │   │   │   └── icsParser.ts
 │   │   ├── services/
 │   │   │   ├── alarmService.ts
+│   │   │   ├── calendarEventNormalizer.ts
 │   │   │   ├── eventNoteService.ts
 │   │   │   ├── eventsCache.ts
 │   │   │   ├── folderService.ts
+│   │   │   ├── icsExportService.ts
 │   │   │   ├── icsImportService.ts
 │   │   │   ├── joplinNoteService.ts
 │   │   │   ├── noteBuilder.ts
@@ -52,6 +58,7 @@ joplin-plugin-my-calendar/
 │   │   │   ├── panelController.ts
 │   │   │   └── uiSettings.ts
 │   │   ├── utils/
+│   │   │   ├── asyncUtils.ts
 │   │   │   ├── colorUtils.ts
 │   │   │   ├── dateTimeUtils.ts
 │   │   │   ├── dateUtils.ts
@@ -83,6 +90,7 @@ joplin-plugin-my-calendar/
 │   ├── services/
 │   │   ├── alarmSafety.test.ts
 │   │   ├── alarmService.test.ts
+│   │   ├── calendarEventNormalizer.test.ts
 │   │   ├── eventNoteService.test.ts
 │   │   ├── eventsCache.test.ts
 │   │   ├── folderService.test.ts
@@ -118,6 +126,7 @@ joplin-plugin-my-calendar/
 │   │   └── toast.test.ts
 │   ├── views/
 │   │   └── calendarView.test.ts
+│   ├── examples.test.ts
 │   └── index.test.ts
 ├── CHANGELOG.md
 ├── LICENSE

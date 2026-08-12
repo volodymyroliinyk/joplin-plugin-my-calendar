@@ -11,7 +11,8 @@ The development process is divided into several key stages:
 
 ### 1. Start of Work
 
-- **Create a Branch**: Always start new work on a dedicated branch. Never commit directly to `main`.
+- **Create a Branch** from `develop` branch allways: Always start new work on a dedicated branch. Never commit directly
+  to `main` and `develop` branches.
   ```bash
   # For a new feature
   git checkout -b feature/new-calendar-view;
@@ -42,10 +43,12 @@ The development process is divided into several key stages:
 
 ### 4. Merging
 
-- **Pull Request (PR)**: Create a Pull Request from your branch into `main`. This is the preferred way to merge changes,
+- **Pull Request (PR)**: Create a Pull Request from your branch into `develop`. This is the preferred way to merge
+  changes,
   even if you are the only developer.
 - **Pre-Push Hook**: When you push to `main`, a pre-push hook will verify that tests have passed recently, preventing
   broken code from being merged.
+- Merge `develop` into `main` just before release.
 
 ### 5. Preview Changelog
 

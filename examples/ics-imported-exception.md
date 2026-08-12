@@ -4,8 +4,8 @@ This is how metadata managed by ICS import can look for one changed occurrence o
 
 ```mycalendar-event
 title: Project Sync — Rescheduled
-start: 2026-07-29 11:00
-end: 2026-07-29 12:00
+start: 2026-08-12 11:00
+end: 2026-08-12 12:00
 tz: America/Toronto
 location: Conference Room C
 description: This occurrence was moved from its regular time by the calendar organizer.
@@ -14,7 +14,7 @@ valarm: {"trigger":"-PT15M","related":"START","action":"DISPLAY","description":"
 valarm: {"trigger":"-PT1H","related":"START","action":"DISPLAY"}
 
 uid: project-sync-2026@example.com
-recurrence_id: America/Toronto:20260729T100000
+recurrence_id: America/Toronto:20260812T100000
 ```
 
 `uid`, `recurrence_id`, and `valarm` are normally written and maintained by ICS import rather than by hand.

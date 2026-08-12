@@ -4,8 +4,8 @@ This is an all-day event. It will be shown in the top section of the day or as a
 
 ```mycalendar-event
 title: Family Vacation
-start: 2026-07-30
-end: 2026-08-09
+start: 2026-08-12
+end: 2026-08-22
 all_day: true
 color: #f1c40f
 ```
