@@ -4,8 +4,8 @@ This event repeats every Tuesday and Thursday.
 
 ```mycalendar-event
 title: Gym Session
-start: 2026-07-28 08:00
-end: 2026-07-28 09:30
+start: 2026-08-18 08:00
+end: 2026-08-18 09:30
 repeat: weekly
 repeat_interval: 1
 byweekday: TU,TH

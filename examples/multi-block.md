@@ -6,8 +6,8 @@ calendar.
 ### Morning Task
 ```mycalendar-event
 title: Review Emails
-start: 2026-07-27 09:00
-end: 2026-07-27 10:00
+start: 2026-08-12 09:00
+end: 2026-08-12 10:00
 color: #95a5a6
 ```
 
@@ -16,8 +16,8 @@ Any text between the blocks will be preserved.
 ### Afternoon Task
 ```mycalendar-event
 title: Client Call
-start: 2026-07-27 14:00
-end: 2026-07-27 15:00
+start: 2026-08-12 14:00
+end: 2026-08-12 15:00
 color: #e74c3c
 ```
 

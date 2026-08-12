@@ -13,8 +13,8 @@ This is my personal introduction to this meeting. I can add a [link](https://jop
 
 ```mycalendar-event
 title: Project Sync
-start: 2026-07-25 14:00
-end: 2026-07-25 15:00
+start: 2026-08-12 14:00
+end: 2026-08-12 15:00
 color: #3498db
 ```
 
