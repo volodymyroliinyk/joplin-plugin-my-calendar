@@ -667,8 +667,38 @@ select::-webkit-scrollbar-thumb:hover,
 
 #mc-event-create > summary,
 #mc-import > summary {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 26px;
+    padding-top: 0;
+    padding-bottom: 0;
     cursor: pointer;
     user-select: none;
+    list-style: none;
+}
+
+#mc-event-create > summary::-webkit-details-marker,
+#mc-import > summary::-webkit-details-marker {
+    display: none;
+}
+
+#mc-event-create > summary::before,
+#mc-import > summary::before {
+    width: 0;
+    height: 0;
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+    border-left: 7px solid currentColor;
+    content: '';
+    flex: 0 0 auto;
+    transition: transform 120ms ease;
+}
+
+#mc-event-create[open] > summary::before,
+#mc-import[open] > summary::before {
+    transform: rotate(90deg);
 }
 
 /* Container to be scrolled */
