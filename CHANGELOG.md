@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [1.8.1](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.8.0...v1.8.1) (2026-08-12)
+
+
+### 🐛 Bug Fixes
+
+* collapsible section styles ([a2f21bd](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/a2f21bdc4908a6e0e6b659745c57241419982fef))
+
+
+### ✨ Features
+
+* make ICS import collapsible and collapsed by default ([cc12187](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/cc12187c929934582b1e187ea475fcb2c3217b18))
+
 ## [1.8.0](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.7.2...v1.8.0) (2026-07-24)
 
 
