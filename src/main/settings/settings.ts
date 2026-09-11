@@ -278,7 +278,7 @@ export async function registerSettings(joplin: SettingsRegistrar): Promise<void>
             section: 'mycalendar',
             public: true,
             label: 'Show week numbers',
-            description: 'Calendar section: Show week numbers in the calendar grid.',
+            description: 'Calendar section: Show week numbers in the calendar grid. Monday-start calendars use ISO 8601 numbering; Sunday-start calendars use week 1 for the week containing January 1.',
         },
 
         // Hidden internal setting: remembers whether the calendar panel was visible
