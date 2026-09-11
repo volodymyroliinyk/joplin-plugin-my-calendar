@@ -1,7 +1,7 @@
 {
   "types": [
     {"type": "feat", "section": "✨ Features"},
-    {"type": "fix", "section": "🐛 Bug Fixes"},
+    {"type": "fix", "section": "👾 Bug Fixes"},
     {"type": "chore", "hidden": true},
     {"type": "docs", "hidden": true},
     {"type": "style", "hidden": true},
@@ -12,6 +12,10 @@
   "bumpFiles": [
     {
       "filename": "package.json",
+      "type": "json"
+    },
+    {
+      "filename": "package-lock.json",
       "type": "json"
     },
     {

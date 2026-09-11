@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file. See [standa
 ### [1.8.1](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.8.0...v1.8.1) (2026-08-12)
 
 
-### 🐛 Bug Fixes
+### 👾 Bug Fixes
 
 * collapsible section styles ([a2f21bd](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/a2f21bdc4908a6e0e6b659745c57241419982fef))
 
@@ -26,7 +26,7 @@ All notable changes to this project will be documented in this file. See [standa
 * individual colors for lighg and dark modes ([e49075d](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/e49075d0b81abc0673d729ac5543612681381943))
 
 
-### 🐛 Bug Fixes
+### 👾 Bug Fixes
 
 * apply cancelled recurrence exceptions to existing masters ([cf6626e](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/cf6626ef7637ec42a2c0527d693a208afaa2f9b4))
 * automate Joplin restart and DevTools opening ([3a3601c](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/3a3601c7b8e632843168a70b3a20b02a9f15d4a6))
@@ -61,14 +61,14 @@ All notable changes to this project will be documented in this file. See [standa
 ### [1.7.2](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.7.1...v1.7.2) (2026-06-13)
 
 
-### 🐛 Bug Fixes
+### 👾 Bug Fixes
 
 * preserve incomplete alarms during synchronization ([b7a4012](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/b7a40125c4de7b7fe95930350afd2e121eebb8b5))
 
 ### [1.7.1](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.7.0...v1.7.1) (2026-05-16)
 
 
-### 🐛 Bug Fixes
+### 👾 Bug Fixes
 
 * canonicalize mycalendar event serialization for stable reimport ([cdc0b5b](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/cdc0b5b7451897877e08e2e1da309f77acda095e))
 * canonicalize mycalendar event serialization for stable reimport ([79d4a6f](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/79d4a6f0f642da8804c9927832b525afc68958ef))
@@ -91,7 +91,7 @@ All notable changes to this project will be documented in this file. See [standa
 * speed up ICS import by scoping note scans and parallelizing writes ([9789159](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/9789159fb2d5feb7ddd1469c0e3cb8e98a048fe0))
 
 
-### 🐛 Bug Fixes
+### 👾 Bug Fixes
 
 * **cache:** guard incremental note refresh against cache invalidation race ([7c1cb68](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/7c1cb68e84ff16f8a900930ee93f04ce0a0210d9))
 * **colors:** normalize all hex colors to lowercase across import and settings paths ([1140969](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/1140969df27cf07c2e1e43b7377d7e6438bf4915))
@@ -114,14 +114,14 @@ All notable changes to this project will be documented in this file. See [standa
 ### [1.6.2](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.6.1...v1.6.2) (2026-03-17)
 
 
-### 🐛 Bug Fixes
+### 👾 Bug Fixes
 
 * **ui:** handle DST day boundaries when slicing calendar events ([6d3bc3a](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/6d3bc3a1de3db4bb245a6fb33fd6fe68939d01bd))
 
 ### [1.6.1](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.6.0...v1.6.1) (2026-03-06)
 
 
-### 🐛 Bug Fixes
+### 👾 Bug Fixes
 
 * harden Toggle My Calendar registration for menu toolbar and hotkey ([79e4221](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/79e42211ce70356174444d63d175c47c986c619f))
 
@@ -134,7 +134,7 @@ All notable changes to this project will be documented in this file. See [standa
 * **day-events:** add grouped mode with ongoing/feature/past and hide empty sections ([b07c2f4](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/b07c2f4cf5c714ff230bfcbb657897de74efc9b1))
 
 
-### 🐛 Bug Fixes
+### 👾 Bug Fixes
 
 * handle missing panel focus on mobile and improve UI error logging ([a6e847d](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/a6e847dcb19030886d8f859604bf6ed38290d746))
 * validate date ranges and improve env compatibility ([89989e0](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/89989e04dd9498ccdd6522e9ec8d9daa8f4bc754))
@@ -142,7 +142,7 @@ All notable changes to this project will be documented in this file. See [standa
 ### [1.5.3](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.5.2...v1.5.3) (2026-02-10)
 
 
-### 🐛 Bug Fixes
+### 👾 Bug Fixes
 
 * add per-note cache refresh for events ([8e0663f](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/8e0663f6fb8a716a0c14ebd2d30d80c3e026e044))
 * fold ics lines to 75 chars ([efcae52](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/efcae52757a12a572adb8653c14a436960a3d3d5))
@@ -157,7 +157,7 @@ All notable changes to this project will be documented in this file. See [standa
 ### [1.5.1](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.5.0...v1.5.1) (2026-02-07)
 
 
-### 🐛 Bug Fixes
+### 👾 Bug Fixes
 
 * resolve race condition in Android WebView initialization ([93030fc](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/93030fc945dadcb0bc8521e922cb0873784d6977))
 
@@ -169,14 +169,14 @@ All notable changes to this project will be documented in this file. See [standa
 * add time format setting (12h/24h) ([6a11512](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/6a115128e97b1f81babcaea1df531c4327d32ed6))
 
 
-### 🐛 Bug Fixes
+### 👾 Bug Fixes
 
 * prevent UI reload on panel focus ([1ee22db](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/1ee22db78c6425102e6607eaab0c69a0a027eaf2))
 
 ### [1.4.1](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.4.0...v1.4.1) (2026-02-05)
 
 
-### 🐛 Bug Fixes
+### 👾 Bug Fixes
 
 * allow release script to commit to main branch ([4413e58](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/4413e5815e1a89e1a3ce538bcbfcb7fa2ebaee70))
 * reduce timezone warning spam and fix weekly recurrence fallback ([ec38d68](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/ec38d685087fd1ef289f58402295309773f9324c))
@@ -192,7 +192,7 @@ All notable changes to this project will be documented in this file. See [standa
 ### [1.3.1](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.3.0...v1.3.1) (2026-02-04)
 
 
-### 🐛 Bug Fixes
+### 👾 Bug Fixes
 
 * eliminate UI flickering and improve mobile initialization ([01d378f](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/01d378f198a416777414c2c4d92627f9b903f58c))
 
@@ -206,7 +206,7 @@ All notable changes to this project will be documented in this file. See [standa
 ### [1.2.7](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/compare/v1.2.6...v1.2.7) (2026-02-02)
 
 
-### 🐛 Bug Fixes
+### 👾 Bug Fixes
 
 * ensure publish folder is included in npm package ([213f287](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/213f28721fbd041804e96351bb6b2dbf8d04e28c))
 
@@ -221,7 +221,7 @@ All notable changes to this project will be documented in this file. See [standa
 ### 1.2.2 (2026-02-01)
 
 
-### 🐛 Bug Fixes
+### 👾 Bug Fixes
 
 * add authentication checks and redundant build step to release script ([4c59a6d](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/4c59a6d681b75b825b73b2bc20f185ca30534a5c))
 * update pack script and remove deprecated husky config ([6a2ba19](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/6a2ba19a6b11beb302be0cd0f92717e7e3294dca))
@@ -240,7 +240,7 @@ All notable changes to this project will be documented in this file. See [standa
 ### 1.2.1 (2026-02-01)
 
 
-### 🐛 Bug Fixes
+### 👾 Bug Fixes
 
 * add authentication checks and redundant build step to release script ([4c59a6d](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/4c59a6d681b75b825b73b2bc20f185ca30534a5c))
 * update pack script and remove deprecated husky config ([6a2ba19](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/6a2ba19a6b11beb302be0cd0f92717e7e3294dca))
@@ -259,7 +259,7 @@ All notable changes to this project will be documented in this file. See [standa
 ## 1.2.0 (2026-02-01)
 
 
-### 🐛 Bug Fixes
+### 👾 Bug Fixes
 
 * add authentication checks and redundant build step to release script ([4c59a6d](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/4c59a6d681b75b825b73b2bc20f185ca30534a5c))
 * update pack script and remove deprecated husky config ([6a2ba19](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/6a2ba19a6b11beb302be0cd0f92717e7e3294dca))
@@ -278,7 +278,7 @@ All notable changes to this project will be documented in this file. See [standa
 ## 1.1.0 (2026-02-01)
 
 
-### 🐛 Bug Fixes
+### 👾 Bug Fixes
 
 * add authentication checks and redundant build step to release script ([4c59a6d](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/4c59a6d681b75b825b73b2bc20f185ca30534a5c))
 * update pack script and remove deprecated husky config ([6a2ba19](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/commit/6a2ba19a6b11beb302be0cd0f92717e7e3294dca))

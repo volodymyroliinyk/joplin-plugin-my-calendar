@@ -277,23 +277,23 @@
 
             function getWeekNumber(date) {
                 if (uiSettings.weekStart === 'sunday') {
-                    // Traditional (US/Standard) numbering: Week containing Jan 1 is W1.
-                    const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-                    const sun = new Date(d.getTime());
-                    sun.setDate(d.getDate() - d.getDay());
+                    // Sunday-based numbering: the week containing Jan 1 is W1.
+                    // Work with UTC calendar-day ordinals. Subtracting local-midnight
+                    // timestamps breaks across DST (a week can be 167 or 169 hours).
+                    const year = date.getFullYear();
+                    const month = date.getMonth();
+                    const day = date.getDate();
+                    const dayOrdinal = Date.UTC(year, month, day);
+                    const sundayOrdinal = dayOrdinal - date.getDay() * DAY;
+                    const saturday = new Date(sundayOrdinal + 6 * DAY);
+                    const weekYear = saturday.getUTCFullYear() > year
+                        ? saturday.getUTCFullYear()
+                        : year;
+                    const jan1Ordinal = Date.UTC(weekYear, 0, 1);
+                    const jan1Day = new Date(jan1Ordinal).getUTCDay();
+                    const firstSundayOrdinal = jan1Ordinal - jan1Day * DAY;
 
-                    const sat = new Date(sun.getTime());
-                    sat.setDate(sun.getDate() + 6);
-
-                    const targetJan1 = (sat.getFullYear() > sun.getFullYear())
-                        ? new Date(sat.getFullYear(), 0, 1)
-                        : new Date(sun.getFullYear(), 0, 1);
-
-                    const startOfFirstWeek = new Date(targetJan1.getTime());
-                    startOfFirstWeek.setDate(targetJan1.getDate() - targetJan1.getDay());
-
-                    const diff = sun.getTime() - startOfFirstWeek.getTime();
-                    return Math.floor(diff / (7 * 86400000)) + 1;
+                    return Math.floor((sundayOrdinal - firstSundayOrdinal) / (7 * DAY)) + 1;
                 }
 
                 // ISO week number (Monday start): Thursday of the week determines the year.
@@ -742,6 +742,7 @@
                         updateDayNowTimelineDot,
                         sliceEventForDay,
                         endOfCalendarGridLocal,
+                        getWeekNumber,
                     };
                 }
             } catch (_e) {
