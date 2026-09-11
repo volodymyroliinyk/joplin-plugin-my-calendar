@@ -279,6 +279,12 @@ the plugin.
 
 See the [Development Workflow Guide](./docs/WORKFLOW.md) for branch names, commit messages, and releases.
 
+## Contributors
+
+- [Volodymyr Oliinyk (@volodymyroliinyk)](https://github.com/volodymyroliinyk) — creator and maintainer.
+- [Oleksii Voznosymenko (@vlexz)](https://github.com/vlexz) — contributed collapsible "Add event note" and "ICS import"
+  sections ([#167](https://github.com/volodymyroliinyk/joplin-plugin-my-calendar/pull/167)).
+
 ## Support
 
 If My Calendar is useful to you, you
